@@ -36,8 +36,8 @@ export default function Header() {
             </Link>
             
             <Link 
-              href="/add" 
-              className={`btn ${isActive('/add') ? 'active' : ''}`}
+              href="/streams" 
+              className={`btn ${isActive('/streams') ? 'active' : ''}`}
             >
               <span className="icon">🎥</span>
               Streams

@@ -25,12 +25,12 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 - **Backend**: Next.js API routes
 - **Database**: SQLite with sqlite3 driver
 - **OBS Integration**: obs-websocket-js for WebSocket communication with OBS Studio
-- **Styling**: Custom CSS with Tailwind CSS utilities and modern glass card components
+- **Styling**: Solarized Dark theme with CSS custom properties, Tailwind CSS utilities, and accessible glass morphism components
 
 ### Project Structure
 - `/app` - Next.js App Router pages and API routes
   - `/api` - Backend API endpoints for stream management
-  - `/add` - Streams management page (add new streams and view existing)
+  - `/streams` - Streams management page (add new streams and view existing)
   - `/teams` - Team management page
   - `/edit/[id]` - Individual stream editing
 - `/components` - Reusable React components (Header, Footer, Dropdown)
@@ -53,7 +53,11 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
    - WebSocket API for direct OBS control (source creation, status monitoring)
    - Text file system for OBS Source Switcher plugin integration (source switching)
 
-4. **Glass Morphism UI Architecture**: Modern design system with backdrop blur effects, gradient backgrounds, and responsive glass card components
+4. **Solarized Dark Design System**: Accessible colorblind-friendly theme based on Solarized Dark palette with:
+   - High contrast ratios (7.5:1+) meeting WCAG AAA standards
+   - CSS custom properties for maintainable theming
+   - Glass morphism effects with proper backdrop blur
+   - Distinctive active navigation states for clear wayfinding
 
 5. **Screen Position Management**: Seven distinct screen positions (large, left, right, topLeft, topRight, bottomLeft, bottomRight) with individual source control
 
