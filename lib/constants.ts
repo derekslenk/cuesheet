@@ -14,8 +14,8 @@ export interface TableConfig {
 // Default configuration
 export const DEFAULT_TABLE_CONFIG: TableConfig = {
     year: 2025,
-    season: 'spring',
-    suffix: 'adr'
+    season: 'summer',
+    suffix: 'sat'
 };
 
 /**
