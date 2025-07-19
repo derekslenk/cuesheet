@@ -125,23 +125,22 @@ export default function Teams() {
       <div className="glass p-6 mb-6">
         <h2 className="card-title">Add New Team</h2>
         <form onSubmit={handleAddTeam} className="max-w-md mx-auto">
-          <div className="flex gap-3">
+          <div className="form-row">
             <input
               type="text"
               value={newTeamName}
               onChange={(e) => setNewTeamName(e.target.value)}
               placeholder="Enter team name"
-              className="input flex-1"
+              className="input"
+              style={{ flex: 1 }}
               required
             />
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn"
+              className="btn btn-success"
             >
-              <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
+              <span className="icon">➕</span>
               {isSubmitting ? 'Adding...' : 'Add Team'}
             </button>
           </div>
@@ -170,30 +169,29 @@ export default function Teams() {
             {teams.map((team) => (
               <div key={team.team_id} className="glass p-4">
                 {editingTeam?.team_id === team.team_id ? (
-                  <div className="flex items-center gap-3">
+                  <div className="form-row">
                     <input
                       type="text"
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
-                      className="input flex-1"
+                      className="input"
+                      style={{ flex: 1 }}
                       autoFocus
                     />
                     <button
                       onClick={() => handleUpdateTeam(team.team_id)}
-                      className="btn"
+                      className="btn btn-success btn-sm"
+                      title="Save changes"
                     >
-                      <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                      <span className="icon">✅</span>
                       Save
                     </button>
                     <button
                       onClick={cancelEditing}
-                      className="btn-secondary"
+                      className="btn-secondary btn-sm"
+                      title="Cancel editing"
                     >
-                      <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
+                      <span className="icon">❌</span>
                       Cancel
                     </button>
                   </div>
@@ -208,24 +206,21 @@ export default function Teams() {
                         <div className="text-sm text-white/60">ID: {team.team_id}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="button-group">
                       <button
                         onClick={() => startEditing(team)}
-                        className="btn-secondary"
+                        className="btn-secondary btn-sm"
+                        title="Edit team"
                       >
-                        <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                        </svg>
+                        <span className="icon">✏️</span>
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeleteTeam(team.team_id)}
-                        className="btn bg-red-600 hover:bg-red-700"
+                        className="btn-danger btn-sm"
+                        title="Delete team"
                       >
-                        <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
+                        <span className="icon">🗑️</span>
                         Delete
                       </button>
                     </div>

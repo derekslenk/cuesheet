@@ -157,31 +157,29 @@ export default function AddStream() {
             />
           </div>
 
-          {/* Team Selection */}
+          {/* Team Selection and Submit Button */}
           <div>
             <label className="block text-white font-semibold mb-3">
               Team
             </label>
-            <Dropdown
-              options={teams}
-              activeId={formData.team_id}
-              onSelect={handleTeamSelect}
-              label="Select a Team"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-6">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn w-full"
-            >
-              <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              {isSubmitting ? 'Adding Stream...' : 'Add Stream'}
-            </button>
+            <div className="form-row">
+              <div style={{ flex: 1 }}>
+                <Dropdown
+                  options={teams}
+                  activeId={formData.team_id}
+                  onSelect={handleTeamSelect}
+                  label="Select a Team"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn btn-success"
+              >
+                <span className="icon">🎥</span>
+                {isSubmitting ? 'Adding...' : 'Add Stream'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

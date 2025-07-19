@@ -165,6 +165,7 @@ export default function EditStream() {
           <h1 className="title">Stream Not Found</h1>
           <p className="subtitle">The requested stream could not be found.</p>
           <button onClick={() => router.push('/')} className="btn mt-4">
+            <span className="icon">🏠</span>
             Back to Home
           </button>
         </div>
@@ -252,32 +253,28 @@ export default function EditStream() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn w-full"
+                className="btn btn-success w-full"
               >
-                <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
+                <span className="icon">✅</span>
                 {isSubmitting ? 'Updating Stream...' : 'Update Stream'}
               </button>
               
-              <div className="flex gap-3">
+              <div className="button-group" style={{ justifyContent: 'center' }}>
                 <button
                   type="button"
                   onClick={() => router.push('/')}
-                  className="btn-secondary flex-1"
+                  className="btn-secondary"
                 >
+                  <span className="icon">❌</span>
                   Cancel
                 </button>
                 
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="btn bg-red-600 hover:bg-red-700 flex-1"
+                  className="btn-danger"
                 >
-                  <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+                  <span className="icon">🗑️</span>
                   Delete Stream
                 </button>
               </div>
