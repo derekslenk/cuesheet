@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Dropdown from '@/components/Dropdown';
 import { Team } from '@/types';
+import { useToast } from '@/lib/useToast';
+import { ToastContainer } from '@/components/Toast';
 
 type Stream = {
   id: number;
@@ -31,10 +33,11 @@ export default function EditStream() {
   });
   
   const [teams, setTeams] = useState([]);
-  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [stream, setStream] = useState<Stream | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const { toasts, removeToast, showSuccess, showError } = useToast();
 
   // Fetch stream data and teams
   useEffect(() => {
@@ -62,16 +65,19 @@ export default function EditStream() {
           team_id: streamData.team_id,
         });
         
+        // Handle both old and new API response formats
+        const teams = teamsData.success ? teamsData.data : teamsData;
+        
         // Map teams for dropdown
         setTeams(
-          teamsData.map((team: Team) => ({
+          teams.map((team: Team) => ({
             id: team.team_id,
             name: team.team_name,
           }))
         );
       } catch (error) {
         console.error('Failed to fetch data:', error);
-        setMessage('Failed to load stream data');
+        showError('Failed to Load Stream', 'Could not fetch stream data. Please refresh the page.');
       } finally {
         setIsLoading(false);
       }
@@ -85,15 +91,57 @@ export default function EditStream() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleTeamSelect = (teamId: number) => {
     setFormData((prev) => ({ ...prev, team_id: teamId }));
+    
+    // Clear validation error when user selects team
+    if (validationErrors.team_id) {
+      setValidationErrors(prev => ({ ...prev, team_id: '' }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
+    
+    // Client-side validation
+    const errors: {[key: string]: string} = {};
+    if (!formData.name.trim()) {
+      errors.name = 'Stream name is required';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Stream name must be at least 2 characters';
+    }
+    
+    if (!formData.obs_source_name.trim()) {
+      errors.obs_source_name = 'OBS source name is required';
+    }
+    
+    if (!formData.url.trim()) {
+      errors.url = 'Stream URL is required';
+    } else {
+      try {
+        new URL(formData.url);
+      } catch {
+        errors.url = 'Please enter a valid URL';
+      }
+    }
+    
+    if (!formData.team_id) {
+      errors.team_id = 'Please select a team';
+    }
+    
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      showError('Validation Error', 'Please fix the form errors');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -105,17 +153,17 @@ export default function EditStream() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage('Stream updated successfully!');
+        showSuccess('Stream Updated', `"${formData.name}" has been updated successfully`);
         // Redirect back to home after a short delay
         setTimeout(() => {
           router.push('/');
         }, 1500);
       } else {
-        setMessage(data.error || 'Something went wrong.');
+        showError('Failed to Update Stream', data.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error updating stream:', error);
-      setMessage('Failed to update stream.');
+      showError('Failed to Update Stream', 'Network error or server unavailable');
     } finally {
       setIsSubmitting(false);
     }
@@ -133,17 +181,17 @@ export default function EditStream() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage('Stream deleted successfully!');
+        showSuccess('Stream Deleted', `"${stream?.name || 'Stream'}" has been deleted successfully`);
         // Redirect back to home after a short delay
         setTimeout(() => {
           router.push('/');
         }, 1500);
       } else {
-        setMessage(data.error || 'Failed to delete stream.');
+        showError('Failed to Delete Stream', data.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error deleting stream:', error);
-      setMessage('Failed to delete stream.');
+      showError('Failed to Delete Stream', 'Network error or server unavailable');
     }
   };
 
@@ -165,6 +213,7 @@ export default function EditStream() {
           <h1 className="title">Stream Not Found</h1>
           <p className="subtitle">The requested stream could not be found.</p>
           <button onClick={() => router.push('/')} className="btn mt-4">
+            <span className="icon">🏠</span>
             Back to Home
           </button>
         </div>
@@ -252,65 +301,39 @@ export default function EditStream() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn w-full"
+                className="btn btn-success w-full"
               >
-                <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
+                <span className="icon">✅</span>
                 {isSubmitting ? 'Updating Stream...' : 'Update Stream'}
               </button>
               
-              <div className="flex gap-3">
+              <div className="button-group" style={{ justifyContent: 'center' }}>
                 <button
                   type="button"
                   onClick={() => router.push('/')}
-                  className="btn-secondary flex-1"
+                  className="btn-secondary"
                 >
+                  <span className="icon">❌</span>
                   Cancel
                 </button>
                 
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="btn bg-red-600 hover:bg-red-700 flex-1"
+                  className="btn-danger"
                 >
-                  <svg className="icon-sm" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+                  <span className="icon">🗑️</span>
                   Delete Stream
                 </button>
               </div>
             </div>
           </form>
 
-          {/* Success/Error Message */}
-          {message && (
-            <div className={`mt-6 p-4 rounded-lg border ${
-              message.includes('successfully') 
-                ? 'bg-green-500/20 text-green-300 border-green-500/40' 
-                : 'bg-red-500/20 text-red-300 border-red-500/40'
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  message.includes('successfully') ? 'bg-green-500' : 'bg-red-500'
-                }`}>
-                  {message.includes('successfully') ? (
-                    <svg className="icon-sm text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg className="icon-sm text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-                <span className="font-medium">{message}</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+      
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Solarized Dark Theme Variables */
+:root {
+  --solarized-base03: #002b36;
+  --solarized-base02: #073642;
+  --solarized-base01: #586e75;
+  --solarized-base00: #657b83;
+  --solarized-base0: #839496;
+  --solarized-base1: #93a1a1;
+  --solarized-base2: #eee8d5;
+  --solarized-base3: #fdf6e3;
+  --solarized-blue: #268bd2;
+  --solarized-cyan: #2aa198;
+  --solarized-green: #859900;
+  --solarized-yellow: #b58900;
+  --solarized-orange: #cb4b16;
+  --solarized-red: #dc322f;
+  --solarized-magenta: #d33682;
+  --solarized-violet: #6c71c4;
+}
+
 /* Modern CSS Foundation */
 * {
   margin: 0;
@@ -14,25 +34,25 @@ html {
 }
 
 body {
-  background: linear-gradient(135deg, #1e293b 0%, #312e81 50%, #1e293b 100%);
-  color: white;
+  background: linear-gradient(135deg, #002b36 0%, #073642 50%, #002b36 100%);
+  color: #93a1a1;
   min-height: 100vh;
   line-height: 1.6;
 }
 
 /* Glass Card Component */
 .glass {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(7, 54, 66, 0.4);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(88, 110, 117, 0.3);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
-/* Modern Button */
+/* Modern Button System */
 .btn {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  color: white;
+  background: linear-gradient(135deg, #268bd2, #2aa198);
+  color: #fdf6e3;
   border: none;
   padding: 12px 24px;
   border-radius: 12px;
@@ -41,58 +61,137 @@ body {
   transition: all 0.3s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   position: relative;
+  min-height: 44px;
+  font-size: 14px;
+  text-decoration: none;
 }
 
 .btn.active {
-  background: linear-gradient(135deg, #1d4ed8, #1e40af);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #859900, #b58900);
+  color: #fdf6e3;
+  box-shadow: 0 0 0 3px rgba(133, 153, 0, 0.5);
+  transform: translateY(-1px);
+  font-weight: 700;
 }
 
 .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(38, 139, 210, 0.4);
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Secondary Button */
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(88, 110, 117, 0.3);
+  border: 1px solid rgba(131, 148, 150, 0.4);
+  color: #93a1a1;
+  backdrop-filter: blur(10px);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
+  background: rgba(88, 110, 117, 0.5);
+  border-color: rgba(131, 148, 150, 0.6);
+  box-shadow: 0 6px 20px rgba(88, 110, 117, 0.3);
+}
+
+/* Success Button */
+.btn-success {
+  background: linear-gradient(135deg, #859900, #b58900);
+  color: #fdf6e3;
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #b58900, #859900);
+  box-shadow: 0 6px 20px rgba(133, 153, 0, 0.4);
+}
+
+/* Danger Button */
+.btn-danger {
+  background: linear-gradient(135deg, #dc322f, #cb4b16);
+  color: #fdf6e3;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #cb4b16, #dc322f);
+  box-shadow: 0 6px 20px rgba(220, 50, 47, 0.4);
+}
+
+/* Small Button */
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 12px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+/* Icon Only Button */
+.btn-icon {
+  padding: 10px;
+  min-width: 44px;
+  aspect-ratio: 1;
+}
+
+/* Button with icon spacing */
+.btn .icon {
+  flex-shrink: 0;
+}
+
+/* Form spacing fixes since Tailwind gap classes aren't working */
+.form-row {
+  display: flex;
+  align-items: center;
+}
+
+.form-row > * + * {
+  margin-left: 16px;
+}
+
+.button-group {
+  display: flex;
+  align-items: center;
+}
+
+.button-group > * + * {
+  margin-left: 12px;
 }
 
 /* Input Styling */
 .input {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(7, 54, 66, 0.6);
+  border: 1px solid rgba(88, 110, 117, 0.4);
   border-radius: 12px;
   padding: 12px 16px;
-  color: white;
+  color: #93a1a1;
   width: 100%;
   transition: all 0.3s ease;
 }
 
 .input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(131, 148, 150, 0.6);
 }
 
 .input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #268bd2;
+  box-shadow: 0 0 0 3px rgba(38, 139, 210, 0.2);
 }
 
 /* Dropdown Styling */
 .dropdown-button {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(7, 54, 66, 0.6);
+  border: 1px solid rgba(88, 110, 117, 0.4);
   border-radius: 12px;
   padding: 12px 16px;
-  color: white;
+  color: #93a1a1;
   width: 100%;
   text-align: left;
   cursor: pointer;
@@ -103,24 +202,25 @@ body {
 }
 
 .dropdown-button:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(7, 54, 66, 0.8);
 }
 
 .dropdown-menu {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 43, 54, 0.95);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(88, 110, 117, 0.4);
   border-radius: 12px;
   margin-top: 4px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .dropdown-item {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(88, 110, 117, 0.2);
+  color: #93a1a1;
 }
 
 .dropdown-item:last-child {
@@ -128,12 +228,12 @@ body {
 }
 
 .dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(38, 139, 210, 0.3);
 }
 
 .dropdown-item.active {
-  background: rgba(59, 130, 246, 0.2);
-  color: #93c5fd;
+  background: rgba(38, 139, 210, 0.3);
+  color: #fdf6e3;
 }
 
 /* Icon Sizes */
@@ -199,7 +299,7 @@ body {
 
 .subtitle {
   font-size: 1.125rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(131, 148, 150, 0.9);
   text-align: center;
   margin-bottom: 32px;
 }

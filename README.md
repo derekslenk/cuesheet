@@ -61,10 +61,25 @@ Without an API key, anyone on your network can control your OBS streams.
 
 ### Database Setup
 
+The project includes an empty template database for easy setup:
+
 ```bash
-# Create seasonal database tables
+# Option 1: Use template database directly (development)
+# Database will be created in ./files/sources.db
+npm run create-sat-summer-2025-tables
+
+# Option 2: Set up custom database location (recommended)
+# 1. Copy the template database
+cp files/sources.template.db /path/to/your/database/sources.db
+
+# 2. Set environment variable in .env.local
+echo "FILE_DIRECTORY=/path/to/your/database" >> .env.local
+
+# 3. Create tables in your custom database
 npm run create-sat-summer-2025-tables
 ```
+
+**Template Database**: The repository includes `files/sources.template.db` with the proper schema but no data. Your local development database (`sources.db`) is automatically ignored by git to prevent committing personal data.
 
 ## Development Commands
 
