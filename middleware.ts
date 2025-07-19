@@ -18,7 +18,14 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Validate API key
+    // Skip authentication for localhost/internal requests (optional security)
+    const host = request.headers.get('host');
+    if (host && (host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('192.168.'))) {
+      console.log('Allowing internal network access without API key');
+      return NextResponse.next();
+    }
+
+    // Validate API key for external requests
     if (!apiKey || apiKey !== validKey) {
       return NextResponse.json(
         { error: 'Unauthorized. Valid API key required.' },
