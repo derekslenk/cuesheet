@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Dropdown from '@/components/Dropdown';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
+import { useActiveSourceLookup, useDebounce, PerformanceMonitor } from '@/lib/performance';
 
 type Stream = {
   id: number;
@@ -30,50 +31,21 @@ export default function Home() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch streams and active sources in parallel
-        const [streamsRes, activeRes] = await Promise.all([
-          fetch('/api/streams'),
-          fetch('/api/getActive')
-        ]);
-        
-        const [streamsData, activeData] = await Promise.all([
-          streamsRes.json(),
-          activeRes.json()
-        ]);
-        
-        setStreams(streamsData);
-        setActiveSources(activeData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Memoized active source lookup for performance
+  const activeSourceIds = useActiveSourceLookup(streams, activeSources);
 
-    fetchData();
-  }, []);
-
-  const handleSetActive = async (screen: ScreenType, id: number | null) => {
-    const selectedStream = streams.find((stream) => stream.id === id);
-
-    // Update local state immediately
-    setActiveSources((prev) => ({
-      ...prev,
-      [screen]: selectedStream?.obs_source_name || null,
-    }));
-
-    // Update backend
+  // Debounced API calls to prevent excessive requests
+  const debouncedSetActive = useDebounce(async (screen: ScreenType, id: number | null) => {
     if (id) {
+      const selectedStream = streams.find(stream => stream.id === id);
       try {
+        const endTimer = PerformanceMonitor.startTimer('setActive_api');
         const response = await fetch('/api/setActive', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ screen, id }),
         });
+        endTimer();
 
         if (!response.ok) {
           throw new Error('Failed to set active stream');
@@ -90,11 +62,61 @@ export default function Home() {
         }));
       }
     }
-  };
+  }, 300);
 
-  const handleToggleDropdown = (screen: string) => {
+  const fetchData = useCallback(async () => {
+    const endTimer = PerformanceMonitor.startTimer('fetchData');
+    try {
+      // Fetch streams and active sources in parallel
+      const [streamsRes, activeRes] = await Promise.all([
+        fetch('/api/streams'),
+        fetch('/api/getActive')
+      ]);
+      
+      const [streamsData, activeData] = await Promise.all([
+        streamsRes.json(),
+        activeRes.json()
+      ]);
+      
+      setStreams(streamsData);
+      setActiveSources(activeData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');
+    } finally {
+      setIsLoading(false);
+      endTimer();
+    }
+  }, [showError]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleSetActive = useCallback(async (screen: ScreenType, id: number | null) => {
+    const selectedStream = streams.find((stream) => stream.id === id);
+
+    // Update local state immediately for optimistic updates
+    setActiveSources((prev) => ({
+      ...prev,
+      [screen]: selectedStream?.obs_source_name || null,
+    }));
+
+    // Debounced backend update
+    debouncedSetActive(screen, id);
+  }, [streams, debouncedSetActive]);
+
+  const handleToggleDropdown = useCallback((screen: string) => {
     setOpenDropdown((prev) => (prev === screen ? null : screen));
-  };
+  }, []);
+
+  // Memoized corner displays to prevent re-renders
+  const cornerDisplays = useMemo(() => [
+    { screen: 'topLeft' as const, label: 'Top Left' },
+    { screen: 'topRight' as const, label: 'Top Right' },
+    { screen: 'bottomLeft' as const, label: 'Bottom Left' },
+    { screen: 'bottomRight' as const, label: 'Bottom Right' },
+  ], []);
 
   if (isLoading) {
     return (
@@ -123,9 +145,7 @@ export default function Home() {
         <div className="max-w-md mx-auto">
           <Dropdown
             options={streams}
-            activeId={
-              streams.find((stream) => stream.obs_source_name === activeSources.large)?.id || null
-            }
+            activeId={activeSourceIds.large}
             onSelect={(id) => handleSetActive('large', id)}
             label="Select Primary Stream..."
             isOpen={openDropdown === 'large'}
@@ -142,9 +162,7 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-4 text-center">Left Display</h3>
             <Dropdown
               options={streams}
-              activeId={
-                streams.find((stream) => stream.obs_source_name === activeSources.left)?.id || null
-              }
+              activeId={activeSourceIds.left}
               onSelect={(id) => handleSetActive('left', id)}
               label="Select Left Stream..."
               isOpen={openDropdown === 'left'}
@@ -155,9 +173,7 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-4 text-center">Right Display</h3>
             <Dropdown
               options={streams}
-              activeId={
-                streams.find((stream) => stream.obs_source_name === activeSources.right)?.id || null
-              }
+              activeId={activeSourceIds.right}
               onSelect={(id) => handleSetActive('right', id)}
               label="Select Right Stream..."
               isOpen={openDropdown === 'right'}
@@ -171,19 +187,12 @@ export default function Home() {
       <div className="glass p-6">
         <h2 className="card-title">Corner Displays</h2>
         <div className="grid-4">
-          {[
-            { screen: 'topLeft' as const, label: 'Top Left' },
-            { screen: 'topRight' as const, label: 'Top Right' },
-            { screen: 'bottomLeft' as const, label: 'Bottom Left' },
-            { screen: 'bottomRight' as const, label: 'Bottom Right' },
-          ].map(({ screen, label }) => (
+          {cornerDisplays.map(({ screen, label }) => (
             <div key={screen}>
               <h3 className="text-md font-semibold mb-3 text-center">{label}</h3>
               <Dropdown
                 options={streams}
-                activeId={
-                  streams.find((stream) => stream.obs_source_name === activeSources[screen])?.id || null
-                }
+                activeId={activeSourceIds[screen]}
                 onSelect={(id) => handleSetActive(screen, id)}
                 label="Select Stream..."
                 isOpen={openDropdown === screen}

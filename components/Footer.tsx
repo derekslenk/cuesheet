@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSmartPolling, PerformanceMonitor } from '@/lib/performance';
 
 type OBSStatus = {
   host: string;
@@ -22,25 +23,26 @@ export default function Footer() {
   const [obsStatus, setObsStatus] = useState<OBSStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchOBSStatus = async () => {
-      try {
-        const response = await fetch('/api/obsStatus');
-        const data = await response.json();
-        setObsStatus(data);
-      } catch (error) {
-        console.error('Failed to fetch OBS status:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Smart polling with performance monitoring and visibility detection
+  const fetchOBSStatus = async () => {
+    const endTimer = PerformanceMonitor.startTimer('obsStatus_fetch');
+    try {
+      const response = await fetch('/api/obsStatus');
+      const data = await response.json();
+      setObsStatus(data);
+    } catch (error) {
+      console.error('Failed to fetch OBS status:', error);
+      // Set error state instead of leaving null
+      setObsStatus(prev => prev ? { ...prev, error: 'Connection failed' } : null);
+    } finally {
+      setIsLoading(false);
+      endTimer();
+    }
+  };
 
-    fetchOBSStatus();
-    
-    // Refresh status every 30 seconds
-    const interval = setInterval(fetchOBSStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // Use smart polling that respects page visibility and adapts interval based on connection status
+  const pollingInterval = obsStatus?.connected ? 15000 : 30000; // Poll faster when connected
+  useSmartPolling(fetchOBSStatus, pollingInterval, [obsStatus?.connected]);
 
   if (isLoading) {
     return (

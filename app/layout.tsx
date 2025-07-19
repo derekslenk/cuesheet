@@ -2,6 +2,7 @@ import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import PerformanceDashboard from '@/components/PerformanceDashboard';
 
 export const metadata = {
   title: 'OBS Source Switcher',
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </ErrorBoundary>
         </main>
         <Footer />
+        <PerformanceDashboard />
       </body>
     </html>
   );
