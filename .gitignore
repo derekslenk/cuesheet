@@ -86,6 +86,8 @@ logs
 files/*.db
 files/*.sqlite
 files/*.sqlite3
+# But include template database
+!files/*.template.db
 
 # OS generated files
 .DS_Store
