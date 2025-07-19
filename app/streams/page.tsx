@@ -44,15 +44,19 @@ export default function AddStream() {
       const teamsData = await teamsResponse.json();
       const streamsData = await streamsResponse.json();
 
+      // Handle both old and new API response formats
+      const teams = teamsData.success ? teamsData.data : teamsData;
+      const streams = streamsData.success ? streamsData.data : streamsData;
+
       // Map the API data to the format required by the Dropdown
       setTeams(
-        teamsData.map((team: Team) => ({
+        teams.map((team: Team) => ({
           id: team.team_id,
           name: team.team_name,
         }))
       );
       
-      setStreams(streamsData);
+      setStreams(streams);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       showError('Failed to Load Data', 'Could not fetch teams and streams. Please refresh the page.');

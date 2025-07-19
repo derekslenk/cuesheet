@@ -65,9 +65,12 @@ export default function EditStream() {
           team_id: streamData.team_id,
         });
         
+        // Handle both old and new API response formats
+        const teams = teamsData.success ? teamsData.data : teamsData;
+        
         // Map teams for dropdown
         setTeams(
-          teamsData.map((team: Team) => ({
+          teams.map((team: Team) => ({
             id: team.team_id,
             name: team.team_name,
           }))

@@ -26,7 +26,9 @@ export default function Teams() {
     try {
       const res = await fetch('/api/teams');
       const data = await res.json();
-      setTeams(data);
+      // Handle both old and new API response formats
+      const teams = data.success ? data.data : data;
+      setTeams(teams);
     } catch (error) {
       console.error('Error fetching teams:', error);
     } finally {
