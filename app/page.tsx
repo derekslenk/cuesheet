@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Dropdown from '@/components/Dropdown';
+import { useToast } from '@/lib/useToast';
+import { ToastContainer } from '@/components/Toast';
 
 type Stream = {
   id: number;
@@ -26,6 +28,7 @@ export default function Home() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const { toasts, removeToast, showSuccess, showError } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,6 +48,7 @@ export default function Home() {
         setActiveSources(activeData);
       } catch (error) {
         console.error('Error fetching data:', error);
+        showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');
       } finally {
         setIsLoading(false);
       }
@@ -74,8 +78,11 @@ export default function Home() {
         if (!response.ok) {
           throw new Error('Failed to set active stream');
         }
+        
+        showSuccess('Source Updated', `Set ${selectedStream?.name || 'stream'} as active for ${screen}`);
       } catch (error) {
         console.error('Error setting active stream:', error);
+        showError('Failed to Update Source', 'Could not set active stream. Please try again.');
         // Revert local state on error
         setActiveSources((prev) => ({
           ...prev,
@@ -210,6 +217,9 @@ export default function Home() {
           </div>
         </div>
       )}
+      
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

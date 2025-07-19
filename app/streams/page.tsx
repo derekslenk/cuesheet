@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Dropdown from '@/components/Dropdown';
 import { Team } from '@/types';
+import { useToast } from '@/lib/useToast';
+import { ToastContainer } from '@/components/Toast';
 
 interface Stream {
   id: number;
@@ -22,8 +24,9 @@ export default function AddStream() {
   const [teams, setTeams] = useState<{id: number; name: string}[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const { toasts, removeToast, showSuccess, showError } = useToast();
 
   // Fetch teams and streams on component mount
   useEffect(() => {
@@ -52,6 +55,7 @@ export default function AddStream() {
       setStreams(streamsData);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      showError('Failed to Load Data', 'Could not fetch teams and streams. Please refresh the page.');
     } finally {
       setIsLoading(false);
     }
@@ -60,16 +64,58 @@ export default function AddStream() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleTeamSelect = (teamId: number) => {
     // @ts-expect-error - team_id can be null or number in formData, but TypeScript expects only number
     setFormData((prev) => ({ ...prev, team_id: teamId }));
+    
+    // Clear validation error when user selects team
+    if (validationErrors.team_id) {
+      setValidationErrors(prev => ({ ...prev, team_id: '' }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
+    
+    // Client-side validation
+    const errors: {[key: string]: string} = {};
+    if (!formData.name.trim()) {
+      errors.name = 'Stream name is required';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Stream name must be at least 2 characters';
+    }
+    
+    if (!formData.obs_source_name.trim()) {
+      errors.obs_source_name = 'OBS source name is required';
+    }
+    
+    if (!formData.url.trim()) {
+      errors.url = 'Stream URL is required';
+    } else {
+      try {
+        new URL(formData.url);
+      } catch {
+        errors.url = 'Please enter a valid URL';
+      }
+    }
+    
+    if (!formData.team_id) {
+      errors.team_id = 'Please select a team';
+    }
+    
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      showError('Validation Error', 'Please fix the form errors');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -81,15 +127,16 @@ export default function AddStream() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(data.message);
-        setFormData({ name: '', obs_source_name: '', url: '', team_id: null }); // Reset form
-        fetchData(); // Refresh the streams list
+        showSuccess('Stream Added', `"${formData.name}" has been added successfully`);
+        setFormData({ name: '', obs_source_name: '', url: '', team_id: null });
+        setValidationErrors({});
+        fetchData();
       } else {
-        setMessage(data.error || 'Something went wrong.');
+        showError('Failed to Add Stream', data.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error adding stream:', error);
-      setMessage('Failed to add stream.');
+      showError('Failed to Add Stream', 'Network error or server unavailable');
     } finally {
       setIsSubmitting(false);
     }
@@ -120,9 +167,16 @@ export default function AddStream() {
               value={formData.name}
               onChange={handleInputChange}
               required
-              className="input"
+              className={`input ${
+                validationErrors.name ? 'border-red-500/60 bg-red-500/10' : ''
+              }`}
               placeholder="Enter a display name for the stream"
             />
+            {validationErrors.name && (
+              <div className="text-red-400 text-sm mt-2">
+                {validationErrors.name}
+              </div>
+            )}
           </div>
 
           {/* OBS Source Name */}
@@ -136,9 +190,16 @@ export default function AddStream() {
               value={formData.obs_source_name}
               onChange={handleInputChange}
               required
-              className="input"
+              className={`input ${
+                validationErrors.obs_source_name ? 'border-red-500/60 bg-red-500/10' : ''
+              }`}
               placeholder="Enter the exact source name from OBS"
             />
+            {validationErrors.obs_source_name && (
+              <div className="text-red-400 text-sm mt-2">
+                {validationErrors.obs_source_name}
+              </div>
+            )}
           </div>
 
           {/* URL */}
@@ -152,9 +213,16 @@ export default function AddStream() {
               value={formData.url}
               onChange={handleInputChange}
               required
-              className="input"
+              className={`input ${
+                validationErrors.url ? 'border-red-500/60 bg-red-500/10' : ''
+              }`}
               placeholder="https://example.com/stream"
             />
+            {validationErrors.url && (
+              <div className="text-red-400 text-sm mt-2">
+                {validationErrors.url}
+              </div>
+            )}
           </div>
 
           {/* Team Selection and Submit Button */}
@@ -170,6 +238,11 @@ export default function AddStream() {
                   onSelect={handleTeamSelect}
                   label="Select a Team"
                 />
+                {validationErrors.team_id && (
+                  <div className="text-red-400 text-sm mt-2">
+                    {validationErrors.team_id}
+                  </div>
+                )}
               </div>
               <button
                 type="submit"
@@ -184,33 +257,6 @@ export default function AddStream() {
         </form>
       </div>
 
-      {/* Success/Error Message */}
-      {message && (
-        <div className="glass p-6 mb-6">
-          <div className={`p-4 rounded-lg border ${
-            message.includes('successfully') 
-              ? 'bg-green-500/20 text-green-300 border-green-500/40' 
-              : 'bg-red-500/20 text-red-300 border-red-500/40'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                message.includes('successfully') ? 'bg-green-500' : 'bg-red-500'
-              }`}>
-                {message.includes('successfully') ? (
-                  <svg className="icon-sm text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="icon-sm text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </div>
-              <span className="font-medium">{message}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Streams List */}
       <div className="glass p-6">
@@ -259,6 +305,9 @@ export default function AddStream() {
           </div>
         )}
       </div>
+      
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
