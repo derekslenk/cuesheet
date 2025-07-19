@@ -113,14 +113,30 @@ if (error instanceof Error) {
 }
 }
 
+import { validateStreamInput } from '../../../lib/security';
+
 export async function POST(request: NextRequest) {
+  let name: string, obs_source_name: string, url: string, team_id: number;
+
+  // Parse and validate request body
   try {
     const body = await request.json();
-    const { name, obs_source_name, url, team_id } = body;
+    const validation = validateStreamInput(body);
 
-    if (!name || !obs_source_name || !url) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!validation.valid) {
+      return NextResponse.json({ 
+        error: 'Validation failed', 
+        details: validation.errors 
+      }, { status: 400 });
     }
+
+    ({ name, obs_source_name, url, team_id } = validation.data!);
+
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+  }
+
+  try {
 
     // Connect to OBS WebSocket
     console.log("Pre-connect")

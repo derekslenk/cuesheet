@@ -19,7 +19,7 @@ export default function AddStream() {
     url: '',
     team_id: null,
   });
-  const [teams, setTeams] = useState([]);
+  const [teams, setTeams] = useState<{id: number; name: string}[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
