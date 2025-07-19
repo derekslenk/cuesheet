@@ -34,7 +34,22 @@ FILE_DIRECTORY=C:\\OBS\\source-switching
 OBS_WEBSOCKET_HOST=127.0.0.1
 OBS_WEBSOCKET_PORT=4455
 OBS_WEBSOCKET_PASSWORD=your_password_here
+
+# Security (IMPORTANT: Set in production)
+API_KEY=your_secure_api_key_here
 ```
+
+### Security Setup
+
+**⚠️ IMPORTANT**: Set `API_KEY` in production to protect your OBS setup from unauthorized access.
+
+Generate a secure API key:
+```bash
+# Generate a random 32-character key
+openssl rand -hex 32
+```
+
+Without an API key, anyone on your network can control your OBS streams.
 
 ### OBS Source Switcher Setup
 

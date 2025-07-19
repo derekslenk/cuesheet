@@ -64,6 +64,7 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 - `OBS_WEBSOCKET_HOST`: OBS WebSocket host (default: 127.0.0.1)
 - `OBS_WEBSOCKET_PORT`: OBS WebSocket port (default: 4455)
 - `OBS_WEBSOCKET_PASSWORD`: OBS WebSocket password (optional)
+- `API_KEY`: Required for API authentication (set in production)
 
 ### API Endpoints
 
@@ -110,3 +111,17 @@ The app uses a sophisticated dual integration approach:
 - **Optimistic Updates**: UI updates immediately with error rollback for responsive user experience  
 - **Consistent Layout**: Glass morphism design with unified component styling across all pages
 - **Responsive Design**: Grid layouts adapt to different screen sizes with mobile-first approach
+
+### Security Architecture
+
+**Authentication**: API key-based authentication protects all API endpoints through Next.js middleware
+
+**Input Validation**: Comprehensive validation using centralized security utilities in `/lib/security.ts`:
+- Screen parameter allowlisting prevents path traversal attacks
+- URL validation ensures only http/https protocols
+- String sanitization removes potentially dangerous characters
+- Integer validation prevents injection attacks
+
+**Path Protection**: File operations are restricted to allowlisted screen names, preventing directory traversal
+
+**Error Handling**: Secure error responses that don't leak system information
