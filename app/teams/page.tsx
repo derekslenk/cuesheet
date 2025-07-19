@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Team } from '@/types';
+import { useToast } from '@/lib/useToast';
+import { ToastContainer } from '@/components/Toast';
 
 export default function Teams() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -10,6 +12,10 @@ export default function Teams() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingName, setEditingName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [updatingTeamId, setUpdatingTeamId] = useState<number | null>(null);
+  const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const { toasts, removeToast, showSuccess, showError } = useToast();
 
   useEffect(() => {
     fetchTeams();
@@ -30,7 +36,22 @@ export default function Teams() {
 
   const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTeamName.trim()) return;
+    
+    // Client-side validation
+    const errors: {[key: string]: string} = {};
+    if (!newTeamName.trim()) {
+      errors.newTeamName = 'Team name is required';
+    } else if (newTeamName.trim().length < 2) {
+      errors.newTeamName = 'Team name must be at least 2 characters';
+    } else if (newTeamName.trim().length > 50) {
+      errors.newTeamName = 'Team name must be less than 50 characters';
+    }
+    
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      showError('Validation Error', 'Please fix the form errors');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -43,21 +64,35 @@ export default function Teams() {
       if (res.ok) {
         setNewTeamName('');
         fetchTeams();
+        showSuccess('Team Added', `"${newTeamName}" has been added successfully`);
       } else {
         const error = await res.json();
-        alert(`Error adding team: ${error.error}`);
+        showError('Failed to Add Team', error.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error adding team:', error);
-      alert('Failed to add team');
+      showError('Failed to Add Team', 'Network error or server unavailable');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleUpdateTeam = async (teamId: number) => {
-    if (!editingName.trim()) return;
+    // Client-side validation
+    if (!editingName.trim()) {
+      showError('Validation Error', 'Team name cannot be empty');
+      return;
+    }
+    if (editingName.trim().length < 2) {
+      showError('Validation Error', 'Team name must be at least 2 characters');
+      return;
+    }
+    if (editingName.trim().length > 50) {
+      showError('Validation Error', 'Team name must be less than 50 characters');
+      return;
+    }
 
+    setUpdatingTeamId(teamId);
     try {
       const res = await fetch(`/api/teams/${teamId}`, {
         method: 'PUT',
@@ -69,21 +104,26 @@ export default function Teams() {
         setEditingTeam(null);
         setEditingName('');
         fetchTeams();
+        showSuccess('Team Updated', `Team name changed to "${editingName}"`);
       } else {
         const error = await res.json();
-        alert(`Error updating team: ${error.error}`);
+        showError('Failed to Update Team', error.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error updating team:', error);
-      alert('Failed to update team');
+      showError('Failed to Update Team', 'Network error or server unavailable');
+    } finally {
+      setUpdatingTeamId(null);
     }
   };
 
   const handleDeleteTeam = async (teamId: number) => {
+    const teamToDelete = teams.find(t => t.team_id === teamId);
     if (!confirm('Are you sure you want to delete this team? This will also delete all associated streams.')) {
       return;
     }
 
+    setDeletingTeamId(teamId);
     try {
       const res = await fetch(`/api/teams/${teamId}`, {
         method: 'DELETE',
@@ -91,13 +131,16 @@ export default function Teams() {
 
       if (res.ok) {
         fetchTeams();
+        showSuccess('Team Deleted', `"${teamToDelete?.team_name || 'Team'}" has been deleted`);
       } else {
         const error = await res.json();
-        alert(`Error deleting team: ${error.error}`);
+        showError('Failed to Delete Team', error.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error deleting team:', error);
-      alert('Failed to delete team');
+      showError('Failed to Delete Team', 'Network error or server unavailable');
+    } finally {
+      setDeletingTeamId(null);
     }
   };
 
@@ -125,24 +168,39 @@ export default function Teams() {
       <div className="glass p-6 mb-6">
         <h2 className="card-title">Add New Team</h2>
         <form onSubmit={handleAddTeam} className="max-w-md mx-auto">
-          <div className="form-row">
-            <input
-              type="text"
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              placeholder="Enter team name"
-              className="input"
-              style={{ flex: 1 }}
-              required
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn btn-success"
+          <div>
+            <div className="form-row">
+              <input
+                type="text"
+                value={newTeamName}
+                onChange={(e) => {
+                  setNewTeamName(e.target.value);
+                  // Clear validation error when user starts typing
+                  if (validationErrors.newTeamName) {
+                    setValidationErrors(prev => ({ ...prev, newTeamName: '' }));
+                  }
+                }}
+                placeholder="Enter team name"
+                className={`input ${
+                  validationErrors.newTeamName ? 'border-red-500/60 bg-red-500/10' : ''
+                }`}
+                style={{ flex: 1 }}
+                required
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn btn-success"
             >
               <span className="icon">➕</span>
               {isSubmitting ? 'Adding...' : 'Add Team'}
-            </button>
+              </button>
+            </div>
+            {validationErrors.newTeamName && (
+              <div className="text-red-400 text-sm mt-2 text-center">
+                {validationErrors.newTeamName}
+              </div>
+            )}
           </div>
         </form>
       </div>
@@ -180,14 +238,16 @@ export default function Teams() {
                     />
                     <button
                       onClick={() => handleUpdateTeam(team.team_id)}
+                      disabled={updatingTeamId === team.team_id}
                       className="btn btn-success btn-sm"
                       title="Save changes"
                     >
                       <span className="icon">✅</span>
-                      Save
+                      {updatingTeamId === team.team_id ? 'Saving...' : 'Save'}
                     </button>
                     <button
                       onClick={cancelEditing}
+                      disabled={updatingTeamId === team.team_id}
                       className="btn-secondary btn-sm"
                       title="Cancel editing"
                     >
@@ -209,6 +269,7 @@ export default function Teams() {
                     <div className="button-group">
                       <button
                         onClick={() => startEditing(team)}
+                        disabled={deletingTeamId === team.team_id || updatingTeamId === team.team_id}
                         className="btn-secondary btn-sm"
                         title="Edit team"
                       >
@@ -217,11 +278,12 @@ export default function Teams() {
                       </button>
                       <button
                         onClick={() => handleDeleteTeam(team.team_id)}
+                        disabled={deletingTeamId === team.team_id || updatingTeamId === team.team_id}
                         className="btn-danger btn-sm"
                         title="Delete team"
                       >
                         <span className="icon">🗑️</span>
-                        Delete
+                        {deletingTeamId === team.team_id ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </div>
@@ -231,6 +293,9 @@ export default function Teams() {
           </div>
         )}
       </div>
+      
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

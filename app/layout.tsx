@@ -1,6 +1,7 @@
 import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata = {
   title: 'OBS Source Switcher',
@@ -12,7 +13,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </main>
         <Footer />
       </body>
     </html>
