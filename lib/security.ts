@@ -18,7 +18,15 @@ export function isValidUrl(url: string): boolean {
 }
 
 export function isPositiveInteger(value: unknown): value is number {
-  return Number.isInteger(value) && value > 0;
+  return Number.isInteger(value) && Number(value) > 0;
+}
+
+export function validateInteger(value: unknown): number | null {
+  const num = Number(value);
+  if (Number.isInteger(num) && num > 0) {
+    return num;
+  }
+  return null;
 }
 
 // String sanitization

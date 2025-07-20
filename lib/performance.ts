@@ -7,7 +7,7 @@ export function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
   delay: number
 ): T {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   return useCallback((...args: Parameters<T>) => {
     if (timeoutRef.current) {
@@ -159,7 +159,7 @@ export function useSmartPolling(
 ) {
   const isVisible = usePageVisibility();
   const callbackRef = useRef(callback);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Update callback ref
   React.useEffect(() => {

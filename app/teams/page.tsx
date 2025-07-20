@@ -11,6 +11,8 @@ export default function Teams() {
   const [newTeamName, setNewTeamName] = useState('');
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [creatingGroupForTeam, setCreatingGroupForTeam] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingTeamId, setUpdatingTeamId] = useState<number | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
@@ -146,6 +148,64 @@ export default function Teams() {
     }
   };
 
+  const handleSyncAllGroups = async () => {
+    if (!confirm('This will create OBS groups for all teams that don\'t have one. Continue?')) {
+      return;
+    }
+    
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/syncGroups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        fetchTeams();
+        showSuccess('Groups Synced', `${result.summary.successful} groups created successfully`);
+        if (result.summary.failed > 0) {
+          showError('Some Failures', `${result.summary.failed} groups failed to create`);
+        }
+      } else {
+        const error = await res.json();
+        showError('Failed to Sync Groups', error.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error syncing groups:', error);
+      showError('Failed to Sync Groups', 'Network error or server unavailable');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleCreateGroup = async (teamId: number, teamName: string) => {
+    const groupName = prompt(`Enter group name for team "${teamName}":`, teamName);
+    if (!groupName) return;
+    
+    setCreatingGroupForTeam(teamId);
+    try {
+      const res = await fetch('/api/createGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, groupName }),
+      });
+
+      if (res.ok) {
+        fetchTeams();
+        showSuccess('Group Created', `OBS group "${groupName}" created for team "${teamName}"`);
+      } else {
+        const error = await res.json();
+        showError('Failed to Create Group', error.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error creating group:', error);
+      showError('Failed to Create Group', 'Network error or server unavailable');
+    } finally {
+      setCreatingGroupForTeam(null);
+    }
+  };
+
   const startEditing = (team: Team) => {
     setEditingTeam(team);
     setEditingName(team.team_name);
@@ -209,7 +269,18 @@ export default function Teams() {
 
       {/* Teams List */}
       <div className="glass p-6">
-        <h2 className="card-title">Existing Teams</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="card-title">Existing Teams</h2>
+          <button
+            onClick={handleSyncAllGroups}
+            disabled={isSyncing || isLoading}
+            className="btn btn-success"
+            title="Create OBS groups for all teams without groups"
+          >
+            <span className="icon">🔄</span>
+            {isSyncing ? 'Syncing...' : 'Sync All Groups'}
+          </button>
+        </div>
         
         {isLoading ? (
           <div className="text-center p-8">
@@ -227,7 +298,7 @@ export default function Teams() {
         ) : (
           <div className="space-y-4">
             {teams.map((team) => (
-              <div key={team.team_id} className="glass p-4">
+              <div key={team.team_id} className="glass p-4 mb-4">
                 {editingTeam?.team_id === team.team_id ? (
                   <div className="form-row">
                     <input
@@ -266,9 +337,25 @@ export default function Teams() {
                       <div>
                         <div className="font-semibold text-white">{team.team_name}</div>
                         <div className="text-sm text-white/60">ID: {team.team_id}</div>
+                        {team.group_name ? (
+                          <div className="text-sm text-green-400">OBS Group: {team.group_name}</div>
+                        ) : (
+                          <div className="text-sm text-orange-400">No OBS Group</div>
+                        )}
                       </div>
                     </div>
                     <div className="button-group">
+                      {!team.group_name && (
+                        <button
+                          onClick={() => handleCreateGroup(team.team_id, team.team_name)}
+                          disabled={creatingGroupForTeam === team.team_id || deletingTeamId === team.team_id || updatingTeamId === team.team_id}
+                          className="btn-success btn-sm"
+                          title="Create OBS group"
+                        >
+                          <span className="icon">🎬</span>
+                          {creatingGroupForTeam === team.team_id ? 'Creating...' : 'Create Group'}
+                        </button>
+                      )}
                       <button
                         onClick={() => startEditing(team)}
                         disabled={deletingTeamId === team.team_id || updatingTeamId === team.team_id}

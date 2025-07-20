@@ -14,4 +14,5 @@ export type Screen = {
 export type Team = {
     team_id: number;
     team_name: string;
+    group_name?: string | null;
 };

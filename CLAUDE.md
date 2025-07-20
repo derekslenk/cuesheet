@@ -101,6 +101,17 @@ The app uses a sophisticated dual integration approach:
 1. **WebSocket Connection**: Direct OBS control using obs-websocket-js with persistent connection management
 2. **Text File System**: Each screen position has a corresponding text file that OBS Source Switcher monitors
 
+**Required OBS Source Switchers** (must be created with these exact names):
+- `ss_large` - Large screen source switcher
+- `ss_left` - Left screen source switcher  
+- `ss_right` - Right screen source switcher
+- `ss_top_left` - Top left screen source switcher
+- `ss_top_right` - Top right screen source switcher
+- `ss_bottom_left` - Bottom left screen source switcher
+- `ss_bottom_right` - Bottom right screen source switcher
+
+See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructions.
+
 **Source Control Workflow**:
 1. User selects stream in React UI
 2. API writes source name to position-specific text file (e.g., `large.txt`, `left.txt`)
