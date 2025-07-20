@@ -9,20 +9,11 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-
-    strategy:
-      matrix:
-        node-version: [ 20, 22 ]
+    # Note: Node.js is pre-installed on self-hosted runners
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
 
       - name: Clean NextJS cache
         run: rm -rf .next
@@ -42,6 +33,6 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: obs-ss-${{ matrix.node-version }}
+          name: obs-ss-build
           include-hidden-files: 'true'
           path: ./.next/*
