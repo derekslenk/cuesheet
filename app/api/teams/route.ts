@@ -45,7 +45,7 @@ function validateTeamInput(data: unknown): {
 export const GET = withErrorHandling(async () => {
   try {
     const db = await getDatabase();
-    const teams: Team[] = await db.all(`SELECT team_id, team_name, group_name FROM ${TABLE_NAMES.TEAMS} ORDER BY team_name ASC`);
+    const teams: Team[] = await db.all(`SELECT team_id, team_name, group_name, group_uuid FROM ${TABLE_NAMES.TEAMS} ORDER BY team_name ASC`);
     
     return createSuccessResponse(teams);
   } catch (error) {
@@ -86,7 +86,8 @@ export const POST = withErrorHandling(async (request: Request) => {
     const newTeam: Team = {
       team_id: result.lastID!,
       team_name: team_name,
-      group_name: null
+      group_name: null,
+      group_uuid: null
     };
     
     return createSuccessResponse(newTeam, 201);

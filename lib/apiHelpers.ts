@@ -140,7 +140,7 @@ export async function parseRequestBody<T>(
     }
     
     return { success: true, data: body as T };
-  } catch (_error) {
+  } catch {
     return {
       success: false,
       response: createErrorResponse(

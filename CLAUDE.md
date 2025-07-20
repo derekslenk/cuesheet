@@ -17,6 +17,7 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 
 ### Database Management
 - `npm run create-sat-summer-2025-tables` - Create database tables with seasonal naming convention
+- `npm run migrate-add-group-uuid` - Add group_uuid column to existing teams table (one-time migration)
 
 ## Architecture Overview
 
@@ -33,11 +34,13 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
   - `/streams` - Streams management page (add new streams and view existing)
   - `/teams` - Team management page
   - `/edit/[id]` - Individual stream editing
-- `/components` - Reusable React components (Header, Footer, Dropdown)
+- `/components` - Reusable React components (Header, Footer, Dropdown, Toast)
 - `/lib` - Core utilities and database connection
   - `database.ts` - SQLite database initialization and connection management
   - `obsClient.js` - OBS WebSocket client with persistent connection management
   - `constants.ts` - Dynamic table naming system for seasonal deployments
+  - `useToast.ts` - Toast notification system for user feedback
+  - `security.ts` - Input validation and sanitization utilities
 - `/types` - TypeScript type definitions
 - `/files` - Default directory for SQLite database and text files (configurable via .env.local)
 - `/scripts` - Database setup and management scripts
@@ -63,6 +66,12 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 
 6. **Real-time Status Monitoring**: Footer component polls OBS status every 30 seconds showing connection, streaming, and recording status
 
+7. **UUID-based OBS Group Tracking**: Robust synchronization between database teams and OBS scenes using UUID identifiers to handle manual renames and ensure data consistency
+
+8. **Toast Notification System**: User-friendly feedback system with success, error, and informational messages for all operations
+
+9. **Stream Deletion with Confirmation**: Safe deletion workflow that removes streams from both OBS and database with user confirmation prompts
+
 ### Environment Configuration
 - `FILE_DIRECTORY`: Directory for database and text files (default: ./files)
 - `OBS_WEBSOCKET_HOST`: OBS WebSocket host (default: 127.0.0.1)
@@ -73,19 +82,24 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 ### API Endpoints
 
 #### Stream Management
-- `POST /api/addStream` - Add new stream to database and create browser source in OBS
+- `POST /api/addStream` - Add new stream to database and create browser source in OBS (accepts Twitch username, auto-generates URL)
 - `GET /api/streams` - Get all available streams
-- `GET /api/streams/[id]` - Individual stream operations
+- `GET /api/streams/[id]` - Get individual stream details
+- `DELETE /api/streams/[id]` - Delete stream from both OBS and database with confirmation
 
 #### Source Control
 - `POST /api/setActive` - Set active stream for specific screen position
 - `GET /api/getActive` - Get currently active sources for all screens
 
 #### Team Management
-- `GET /api/teams` - Get all teams
+- `GET /api/teams` - Get all teams with group information
+- `POST /api/teams` - Create new team
+- `PUT /api/teams/[id]` - Update team name, group_name, or group_uuid
+- `DELETE /api/teams/[id]` - Delete team and associated streams
 - `GET /api/getTeamName` - Get team name by ID
-- `POST /api/createGroup` - Create OBS group from team
+- `POST /api/createGroup` - Create OBS group from team and store UUID
 - `POST /api/syncGroups` - Synchronize all teams with OBS groups
+- `GET /api/verifyGroups` - Verify database groups exist in OBS with UUID tracking
 
 #### System Status
 - `GET /api/obsStatus` - Real-time OBS connection and streaming status
@@ -94,7 +108,13 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 
 Dynamic table names with seasonal configuration:
 - `streams_YYYY_SEASON_SUFFIX`: id, name, obs_source_name, url, team_id
-- `teams_YYYY_SEASON_SUFFIX`: team_id, team_name, group_name
+- `teams_YYYY_SEASON_SUFFIX`: team_id, team_name, group_name, group_uuid
+
+**Database Fields**:
+- `streams` table: Stores stream information with team associations
+- `teams` table: Stores team information with optional OBS group mapping
+  - `group_name`: Human-readable OBS scene name
+  - `group_uuid`: OBS scene UUID for reliable tracking (handles renames)
 
 ### OBS Integration Pattern
 
@@ -102,7 +122,11 @@ The app uses a sophisticated dual integration approach:
 
 1. **WebSocket Connection**: Direct OBS control using obs-websocket-js with persistent connection management
 2. **Text File System**: Each screen position has a corresponding text file that OBS Source Switcher monitors
-3. **Group Management**: Teams can be mapped to OBS groups (implemented as scenes) for organized source management
+3. **UUID-based Group Management**: Teams mapped to OBS scenes with UUID tracking for reliable synchronization
+   - Primary matching by UUID for rename-safe tracking
+   - Fallback to name matching for backward compatibility
+   - Automatic detection of name changes and sync issues
+   - UI actions for resolving synchronization problems
 
 **Required OBS Source Switchers** (must be created with these exact names):
 - `ss_large` - Large screen source switcher
@@ -123,12 +147,26 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 
 **Connection Management**: The OBS client ensures a single persistent connection across all API requests with automatic reconnection handling and connection state validation.
 
+**Group Synchronization Workflow**:
+1. Team creation optionally creates corresponding OBS scene
+2. UUID stored in database for reliable tracking
+3. Verification system detects sync issues (missing groups, name changes)
+4. UI provides actions to fix sync problems:
+   - "Clear Invalid" - Remove broken group assignments
+   - "Update Name" - Sync database with OBS name changes
+   - Visual indicators show sync status and UUID linking
+
 ### Component Patterns
 
 - **Client Components**: All interactive components use `'use client'` directive for React 19 compatibility
 - **Optimistic Updates**: UI updates immediately with error rollback for responsive user experience  
+- **Toast Notifications**: Comprehensive feedback system with success/error messages for all operations
+- **Confirmation Dialogs**: Safe deletion workflows with user confirmation prompts
+- **Real-time Validation**: Client-side form validation with immediate feedback
+- **Dropdown Components**: Portal-based dropdowns with proper z-index handling and scroll-aware positioning
 - **Consistent Layout**: Glass morphism design with unified component styling across all pages
 - **Responsive Design**: Grid layouts adapt to different screen sizes with mobile-first approach
+- **Accessibility**: High contrast ratios, keyboard navigation, and screen reader support
 
 ### Security Architecture
 
@@ -143,3 +181,35 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 **Path Protection**: File operations are restricted to allowlisted screen names, preventing directory traversal
 
 **Error Handling**: Secure error responses that don't leak system information
+
+## Key Features & Recent Enhancements
+
+### Stream Management
+- **Twitch Integration**: Simplified stream addition using just Twitch username (auto-generates full URL)
+- **Stream Deletion**: Safe deletion workflow with confirmation that removes from both OBS and database
+- **Visual Feedback**: Clear "View Stream" links with proper contrast for accessibility
+- **Team Association**: Streams can be organized under teams for better management
+
+### Team & Group Management
+- **UUID-based Tracking**: Robust OBS group synchronization using scene UUIDs
+- **Sync Verification**: Real-time verification of database-OBS group synchronization
+- **Conflict Resolution**: UI actions to resolve sync issues (missing groups, name changes)
+- **Visual Indicators**: Clear status indicators for group linking and sync problems
+  - 🆔 "Linked by UUID" - Group tracked by reliable UUID
+  - 📝 "Name changed in OBS" - Group renamed in OBS, database needs update
+  - ⚠️ "Not found in OBS" - Group in database but missing from OBS
+
+### User Experience Improvements
+- **Toast Notifications**: Real-time feedback for all operations (success/error/info)
+- **Form Validation**: Client-side validation with immediate error feedback
+- **Confirmation Prompts**: Safe deletion workflows prevent accidental data loss
+- **Responsive Design**: Mobile-friendly interface with glass morphism styling
+- **Loading States**: Clear indicators during API operations
+- **Error Recovery**: Graceful error handling with user-friendly messages
+
+### Developer Experience
+- **Type Safety**: Comprehensive TypeScript definitions throughout
+- **API Documentation**: Well-documented endpoints with clear parameter validation
+- **Migration Scripts**: Database migration tools for schema updates
+- **Security**: Input validation, sanitization, and secure API design
+- **Testing**: Comprehensive error handling and edge case management

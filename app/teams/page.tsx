@@ -5,9 +5,22 @@ import { Team } from '@/types';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
 
+interface GroupVerification {
+  team_id: number;
+  team_name: string;
+  group_name: string;
+  group_uuid: string | null;
+  exists_in_obs: boolean;
+  matched_by: 'uuid' | 'name' | null;
+  current_name: string | null;
+  name_changed: boolean;
+}
+
 export default function Teams() {
   const [teams, setTeams] = useState<Team[]>([]);
+  const [groupVerification, setGroupVerification] = useState<GroupVerification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -35,6 +48,35 @@ export default function Teams() {
       console.error('Error fetching teams:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const verifyGroups = async () => {
+    setIsVerifying(true);
+    try {
+      const res = await fetch('/api/verifyGroups');
+      const data = await res.json();
+      if (data.success) {
+        setGroupVerification(data.data.teams_with_groups);
+        const missing = data.data.missing_in_obs.length;
+        const orphaned = data.data.orphaned_in_obs.length;
+        const nameChanges = data.data.name_mismatches?.length || 0;
+        
+        if (missing > 0 || orphaned > 0 || nameChanges > 0) {
+          const issues = [];
+          if (missing > 0) issues.push(`${missing} missing in OBS`);
+          if (orphaned > 0) issues.push(`${orphaned} orphaned in OBS`);
+          if (nameChanges > 0) issues.push(`${nameChanges} name mismatches`);
+          showError('Groups Out of Sync', issues.join(', '));
+        } else {
+          showSuccess('Groups Verified', 'All groups are in sync with OBS');
+        }
+      }
+    } catch (error) {
+      console.error('Error verifying groups:', error);
+      showError('Verification Failed', 'Could not verify groups with OBS');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -193,6 +235,7 @@ export default function Teams() {
 
       if (res.ok) {
         fetchTeams();
+        verifyGroups(); // Refresh verification after creating
         showSuccess('Group Created', `OBS group "${groupName}" created for team "${teamName}"`);
       } else {
         const error = await res.json();
@@ -203,6 +246,58 @@ export default function Teams() {
       showError('Failed to Create Group', 'Network error or server unavailable');
     } finally {
       setCreatingGroupForTeam(null);
+    }
+  };
+
+  const handleClearInvalidGroup = async (teamId: number, teamName: string) => {
+    if (!confirm(`Clear the invalid group assignment for team "${teamName}"? This will only update the database, not delete anything from OBS.`)) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/teams/${teamId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_name: null, group_uuid: null }),
+      });
+
+      if (res.ok) {
+        fetchTeams();
+        verifyGroups();
+        showSuccess('Group Cleared', `Invalid group assignment cleared for "${teamName}"`);
+      } else {
+        const error = await res.json();
+        showError('Failed to Clear Group', error.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error clearing group:', error);
+      showError('Failed to Clear Group', 'Network error or server unavailable');
+    }
+  };
+
+  const handleUpdateGroupName = async (teamId: number, teamName: string, currentName: string) => {
+    if (!confirm(`Update the group name for team "${teamName}" from "${teamName}" to "${currentName}" to match OBS?`)) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/teams/${teamId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_name: currentName }),
+      });
+
+      if (res.ok) {
+        fetchTeams();
+        verifyGroups();
+        showSuccess('Group Name Updated', `Group name updated to "${currentName}"`);
+      } else {
+        const error = await res.json();
+        showError('Failed to Update Group Name', error.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error updating group name:', error);
+      showError('Failed to Update Group Name', 'Network error or server unavailable');
     }
   };
 
@@ -271,15 +366,26 @@ export default function Teams() {
       <div className="glass p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="card-title">Existing Teams</h2>
-          <button
-            onClick={handleSyncAllGroups}
-            disabled={isSyncing || isLoading}
-            className="btn btn-success"
-            title="Create OBS groups for all teams without groups"
-          >
-            <span className="icon">🔄</span>
-            {isSyncing ? 'Syncing...' : 'Sync All Groups'}
-          </button>
+          <div className="button-group">
+            <button
+              onClick={verifyGroups}
+              disabled={isVerifying || isLoading}
+              className="btn btn-secondary"
+              title="Check if database groups exist in OBS"
+            >
+              <span className="icon">🔍</span>
+              {isVerifying ? 'Verifying...' : 'Verify Groups'}
+            </button>
+            <button
+              onClick={handleSyncAllGroups}
+              disabled={isSyncing || isLoading}
+              className="btn btn-success"
+              title="Create OBS groups for all teams without groups"
+            >
+              <span className="icon">🔄</span>
+              {isSyncing ? 'Syncing...' : 'Sync All Groups'}
+            </button>
+          </div>
         </div>
         
         {isLoading ? (
@@ -297,7 +403,10 @@ export default function Teams() {
           </div>
         ) : (
           <div className="space-y-4">
-            {teams.map((team) => (
+            {teams.map((team) => {
+              const shouldShowCreateButton = !team.group_name || (typeof team.group_name === 'string' && team.group_name.trim() === '');
+              const verification = groupVerification.find(v => v.team_id === team.team_id);
+              return (
               <div key={team.team_id} className="glass p-4 mb-4">
                 {editingTeam?.team_id === team.team_id ? (
                   <div className="form-row">
@@ -338,14 +447,27 @@ export default function Teams() {
                         <div className="font-semibold text-white">{team.team_name}</div>
                         <div className="text-sm text-white/60">ID: {team.team_id}</div>
                         {team.group_name ? (
-                          <div className="text-sm text-green-400">OBS Group: {team.group_name}</div>
+                          <div className="text-sm">
+                            <span className={verification && !verification.exists_in_obs ? 'text-red-400' : 'text-green-400'}>
+                              OBS Group: {verification?.current_name || team.group_name}
+                            </span>
+                            {verification && !verification.exists_in_obs && (
+                              <span className="text-red-400 ml-2">⚠️ Not found in OBS</span>
+                            )}
+                            {verification && verification.name_changed && (
+                              <span className="text-yellow-400 ml-2">📝 Name changed in OBS</span>
+                            )}
+                            {verification?.matched_by === 'uuid' && (
+                              <span className="text-blue-400 ml-2">🆔 Linked by UUID</span>
+                            )}
+                          </div>
                         ) : (
                           <div className="text-sm text-orange-400">No OBS Group</div>
                         )}
                       </div>
                     </div>
                     <div className="button-group">
-                      {!team.group_name && (
+                      {shouldShowCreateButton && (
                         <button
                           onClick={() => handleCreateGroup(team.team_id, team.team_name)}
                           disabled={creatingGroupForTeam === team.team_id || deletingTeamId === team.team_id || updatingTeamId === team.team_id}
@@ -354,6 +476,28 @@ export default function Teams() {
                         >
                           <span className="icon">🎬</span>
                           {creatingGroupForTeam === team.team_id ? 'Creating...' : 'Create Group'}
+                        </button>
+                      )}
+                      {verification && !verification.exists_in_obs && (
+                        <button
+                          onClick={() => handleClearInvalidGroup(team.team_id, team.team_name)}
+                          disabled={updatingTeamId === team.team_id || deletingTeamId === team.team_id}
+                          className="btn-danger btn-sm"
+                          title="Clear invalid group assignment"
+                        >
+                          <span className="icon">🗑️</span>
+                          Clear Invalid
+                        </button>
+                      )}
+                      {verification && verification.name_changed && verification.current_name && (
+                        <button
+                          onClick={() => handleUpdateGroupName(team.team_id, team.team_name, verification.current_name!)}
+                          disabled={updatingTeamId === team.team_id || deletingTeamId === team.team_id}
+                          className="btn btn-secondary btn-sm"
+                          title="Update database to match OBS name"
+                        >
+                          <span className="icon">📝</span>
+                          Update Name
                         </button>
                       )}
                       <button
@@ -378,7 +522,8 @@ export default function Teams() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
