@@ -77,7 +77,7 @@ export default function Dropdown({
       </button>
 
       {(controlledIsOpen ?? isOpen) && (
-        <div className="absolute z-50 w-full dropdown-menu">
+        <div className="absolute z-[9999] w-full dropdown-menu">
           {options.length === 0 ? (
             <div className="dropdown-item text-center">
               No streams available
