@@ -49,13 +49,27 @@ export default function Dropdown({
   }, [controlledIsOpen, isOpen, onToggle]);
 
   useEffect(() => {
-    if ((controlledIsOpen ?? isOpen) && buttonRef.current && mounted) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
+    const updatePosition = () => {
+      if ((controlledIsOpen ?? isOpen) && buttonRef.current && mounted) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width
+        });
+      }
+    };
+
+    updatePosition();
+
+    if ((controlledIsOpen ?? isOpen) && mounted) {
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
     }
   }, [controlledIsOpen, isOpen, mounted]);
 
