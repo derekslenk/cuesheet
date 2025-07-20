@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
-import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createGroupIfNotExists, addSourceToGroup, createStreamGroup } from '../../../lib/obsClient';
+import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createStreamGroup } from '../../../lib/obsClient';
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 import path from 'path';
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     if (!sourceExists) {
       // Create stream group with text overlay
-      const result = await createStreamGroup(groupName, name, teamInfo.team_name, url);
+      await createStreamGroup(groupName, name, teamInfo.team_name, url);
       
       // Update team with group UUID if not set
       if (!teamInfo.group_uuid) {
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
           // Get the scene UUID for the group
           const obsClient = await getOBSClient();
           const { scenes } = await obsClient.call('GetSceneList');
-          const scene = scenes.find((s: any) => s.sceneName === groupName);
+          const scene = scenes.find((s: { sceneName: string; sceneUuid: string }) => s.sceneName === groupName);
           
           if (scene) {
             await db.run(
