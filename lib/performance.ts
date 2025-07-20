@@ -173,23 +173,25 @@ export function useSmartPolling(
   }, [callback]);
   
   React.useEffect(() => {
+    // Clear any existing interval before setting up a new one
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     if (isVisible) {
       // Start polling when visible
       callbackRef.current();
       intervalRef.current = setInterval(() => {
         callbackRef.current();
       }, interval);
-    } else {
-      // Stop polling when not visible
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
     }
     
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [interval, isVisible, dependencies]);
+  }, [interval, isVisible, ...dependencies]);
 }
