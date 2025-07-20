@@ -63,9 +63,11 @@ async function fetchTeamInfo(teamId: number) {
 
 import { validateStreamInput } from '../../../lib/security';
 
-// Generate OBS source name from stream name
-function generateOBSSourceName(streamName: string): string {
-  return streamName.toLowerCase().replace(/\s+/g, '_') + '_twitch';
+// Generate OBS source name from team scene name and stream name
+function generateOBSSourceName(teamSceneName: string, streamName: string): string {
+  const cleanTeamName = teamSceneName.toLowerCase().replace(/\s+/g, '_');
+  const cleanStreamName = streamName.toLowerCase().replace(/\s+/g, '_');
+  return `${cleanTeamName}_${cleanStreamName}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -84,15 +86,25 @@ export async function POST(request: NextRequest) {
     }
 
     ({ name, url, team_id } = validation.data!);
-    
-    // Auto-generate OBS source name from stream name
-    obs_source_name = generateOBSSourceName(name);
 
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
 
   try {
+    // Fetch team info first to generate proper OBS source name
+    const teamInfo = await fetchTeamInfo(team_id);
+    if (!teamInfo) {
+      throw new Error('Team not found');
+    }
+    
+    console.log('Team Info:', teamInfo);
+    
+    // Use group_name if it exists, otherwise use team_name
+    const groupName = teamInfo.group_name || teamInfo.team_name;
+    
+    // Generate OBS source name with team scene name prefix
+    obs_source_name = generateOBSSourceName(groupName, name);
 
     // Connect to OBS WebSocket
     console.log("Pre-connect")
@@ -116,16 +128,6 @@ export async function POST(request: NextRequest) {
     }
     throw new Error('GetInputList failed.');
     }
-    
-    const teamInfo = await fetchTeamInfo(team_id);
-    if (!teamInfo) {
-      throw new Error('Team not found');
-    }
-    
-    console.log('Team Info:', teamInfo);
-    
-    // Use group_name if it exists, otherwise use team_name
-    const groupName = teamInfo.group_name || teamInfo.team_name;
     
     const sourceExists = inputs.some((input: OBSInput) => input.inputName === obs_source_name);
 
@@ -174,7 +176,9 @@ export async function POST(request: NextRequest) {
 
       for (const screen of screens) {
         try {
-          const streamGroupName = `${name.toLowerCase().replace(/\s+/g, '_')}_stream`;
+          const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
+          const cleanStreamName = name.toLowerCase().replace(/\s+/g, '_');
+          const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
           await addSourceToSwitcher(screen, [
             { hidden: false, selected: false, value: streamGroupName },
           ]);
