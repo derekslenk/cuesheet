@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Dropdown from '@/components/Dropdown';
 import { Team } from '@/types';
 import { useToast } from '@/lib/useToast';
@@ -28,12 +28,7 @@ export default function AddStream() {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
-  // Fetch teams and streams on component mount
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [teamsResponse, streamsResponse] = await Promise.all([
@@ -63,7 +58,12 @@ export default function AddStream() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showError]);
+
+  // Fetch teams and streams on component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

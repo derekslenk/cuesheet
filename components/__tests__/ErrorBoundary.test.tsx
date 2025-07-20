@@ -10,7 +10,7 @@ const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
 };
 
 // Mock window.location.reload using jest.spyOn
-const mockReload = jest.fn();
+// const mockReload = jest.fn(); // Defined but not used in current tests
 
 describe('ErrorBoundary', () => {
   // Suppress console.error for these tests since we expect errors
@@ -63,7 +63,7 @@ describe('ErrorBoundary', () => {
   it('calls window.location.reload when refresh button is clicked', () => {
     // Skip this test in jsdom environment as window.location.reload cannot be easily mocked
     // In a real browser environment, this would work as expected
-    const originalReload = window.location.reload;
+    // const originalReload = window.location.reload; // Not used in jsdom test
     
     // Simple workaround for jsdom limitation
     if (typeof window.location.reload !== 'function') {
@@ -119,11 +119,17 @@ describe('ErrorBoundary', () => {
     const originalEnv = process.env.NODE_ENV;
     
     beforeAll(() => {
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'development',
+        writable: true
+      });
     });
     
     afterAll(() => {
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: originalEnv,
+        writable: true
+      });
     });
 
     it('shows error details in development mode', () => {
@@ -147,11 +153,17 @@ describe('ErrorBoundary', () => {
     const originalEnv = process.env.NODE_ENV;
     
     beforeAll(() => {
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true
+      });
     });
     
     afterAll(() => {
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: originalEnv,
+        writable: true
+      });
     });
 
     it('hides error details in production mode', () => {

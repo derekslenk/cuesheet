@@ -86,7 +86,7 @@ export default function EditStream() {
     if (streamId) {
       fetchData();
     }
-  }, [streamId]);
+  }, [streamId, showError]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

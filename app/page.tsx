@@ -35,7 +35,7 @@ export default function Home() {
   const activeSourceIds = useActiveSourceLookup(streams, activeSources);
 
   // Debounced API calls to prevent excessive requests
-  const debouncedSetActive = useDebounce(async (screen: ScreenType, id: number | null) => {
+  const setActiveFunction = useCallback(async (screen: ScreenType, id: number | null) => {
     if (id) {
       const selectedStream = streams.find(stream => stream.id === id);
       try {
@@ -62,7 +62,9 @@ export default function Home() {
         }));
       }
     }
-  }, 300);
+  }, [streams, showError, showSuccess]);
+
+  const debouncedSetActive = useDebounce(setActiveFunction, 300);
 
   const fetchData = useCallback(async () => {
     const endTimer = PerformanceMonitor.startTimer('fetchData');

@@ -3,6 +3,7 @@
 import React, { useMemo, useCallback, useRef } from 'react';
 
 // Debounce hook for preventing excessive API calls
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
   delay: number
@@ -21,7 +22,7 @@ export function useDebounce<T extends (...args: any[]) => any>(
 }
 
 // Throttle hook for limiting function calls
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
@@ -38,16 +39,21 @@ export function useThrottle<T extends (...args: any[]) => any>(
 
 // Memoized stream lookup utilities
 export function createStreamLookupMaps(streams: Array<{ id: number; obs_source_name: string; name: string }>) {
+  const sourceToIdMap = new Map<string, number>();
+  const idToStreamMap = new Map<number, { id: number; obs_source_name: string; name: string }>();
+  
+  streams.forEach(stream => {
+    sourceToIdMap.set(stream.obs_source_name, stream.id);
+    idToStreamMap.set(stream.id, stream);
+  });
+  
+  return { sourceToIdMap, idToStreamMap };
+}
+
+// Hook version for React components
+export function useStreamLookupMaps(streams: Array<{ id: number; obs_source_name: string; name: string }>) {
   return useMemo(() => {
-    const sourceToIdMap = new Map<string, number>();
-    const idToStreamMap = new Map<number, { id: number; obs_source_name: string; name: string }>();
-    
-    streams.forEach(stream => {
-      sourceToIdMap.set(stream.obs_source_name, stream.id);
-      idToStreamMap.set(stream.id, stream);
-    });
-    
-    return { sourceToIdMap, idToStreamMap };
+    return createStreamLookupMaps(streams);
   }, [streams]);
 }
 
@@ -56,7 +62,7 @@ export function useActiveSourceLookup(
   streams: Array<{ id: number; obs_source_name: string; name: string }>,
   activeSources: Record<string, string | null>
 ) {
-  const { sourceToIdMap } = createStreamLookupMaps(streams);
+  const { sourceToIdMap } = useStreamLookupMaps(streams);
   
   return useMemo(() => {
     const activeSourceIds: Record<string, number | null> = {};
@@ -104,7 +110,7 @@ export class PerformanceMonitor {
   }
   
   static getAllMetrics() {
-    const result: Record<string, any> = {};
+    const result: Record<string, ReturnType<typeof PerformanceMonitor.getMetrics>> = {};
     this.metrics.forEach((_, label) => {
       result[label] = this.getMetrics(label);
     });
@@ -155,7 +161,7 @@ export function usePageVisibility() {
 export function useSmartPolling(
   callback: () => void | Promise<void>,
   interval: number,
-  dependencies: any[] = []
+  dependencies: unknown[] = []
 ) {
   const isVisible = usePageVisibility();
   const callbackRef = useRef(callback);
@@ -185,5 +191,5 @@ export function useSmartPolling(
         clearInterval(intervalRef.current);
       }
     };
-  }, [interval, isVisible, ...dependencies]);
+  }, [interval, isVisible, dependencies]);
 }

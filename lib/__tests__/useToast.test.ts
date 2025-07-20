@@ -178,7 +178,7 @@ describe('useToast', () => {
   it('returns unique IDs for each toast', () => {
     const { result } = renderHook(() => useToast());
     
-    let id1: string, id2: string;
+    let id1: string = '', id2: string = '';
     
     act(() => {
       // Mock different random values for unique IDs
