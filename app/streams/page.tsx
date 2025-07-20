@@ -289,7 +289,7 @@ export default function AddStream() {
             {streams.map((stream) => {
               const team = teams.find(t => t.id === stream.team_id);
               return (
-                <div key={stream.id} className="glass p-4">
+                <div key={stream.id} className="glass p-4 mb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div 
