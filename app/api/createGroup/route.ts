@@ -43,14 +43,14 @@ export async function POST(request: NextRequest) {
       suffix: 'sat'
     });
 
-    // Update team with group name
-    await db.run(
-      `UPDATE ${teamsTableName} SET group_name = ? WHERE team_id = ?`,
-      [sanitizedGroupName, validTeamId]
-    );
-
-    // Create group in OBS
+    // Create group in OBS first to get UUID
     const result = await createGroupIfNotExists(sanitizedGroupName);
+
+    // Update team with group name and UUID
+    await db.run(
+      `UPDATE ${teamsTableName} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
+      [sanitizedGroupName, result.sceneUuid, validTeamId]
+    );
 
     await db.close();
 

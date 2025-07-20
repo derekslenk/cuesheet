@@ -9,17 +9,40 @@ export async function PUT(
     try {
         const { teamId: teamIdParam } = await params;
         const teamId = parseInt(teamIdParam);
-        const { team_name } = await request.json();
+        const body = await request.json();
+        const { team_name, group_name, group_uuid } = body;
         
-        if (!team_name) {
-            return NextResponse.json({ error: 'Team name is required' }, { status: 400 });
+        // Allow updating any combination of fields
+        if (!team_name && group_name === undefined && group_uuid === undefined) {
+            return NextResponse.json({ error: 'At least one field (team_name, group_name, or group_uuid) must be provided' }, { status: 400 });
         }
 
         const db = await getDatabase();
         
+        // Build dynamic query based on what fields are being updated
+        const updates: string[] = [];
+        const values: any[] = [];
+        
+        if (team_name) {
+            updates.push('team_name = ?');
+            values.push(team_name);
+        }
+        
+        if (group_name !== undefined) {
+            updates.push('group_name = ?');
+            values.push(group_name);
+        }
+        
+        if (group_uuid !== undefined) {
+            updates.push('group_uuid = ?');
+            values.push(group_uuid);
+        }
+        
+        values.push(teamId);
+        
         const result = await db.run(
-            `UPDATE ${TABLE_NAMES.TEAMS} SET team_name = ? WHERE team_id = ?`,
-            [team_name, teamId]
+            `UPDATE ${TABLE_NAMES.TEAMS} SET ${updates.join(', ')} WHERE team_id = ?`,
+            values
         );
         
         if (result.changes === 0) {
