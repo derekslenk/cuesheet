@@ -47,8 +47,8 @@ export async function GET() {
         const chicken = fs.existsSync(chickenPath) ? fs.readFileSync(chickenPath, 'utf-8') : null;
 
         // For SaT
-        // return NextResponse.json({ large, left, right, topLeft, topRight, bottomLeft, bottomRight }, {status: 201})
-        return NextResponse.json({ tank, tree, kitty, chicken }, {status: 201})
+        return NextResponse.json({ large, left, right, topLeft, topRight, bottomLeft, bottomRight }, {status: 201})
+        // return NextResponse.json({ tank, tree, kitty, chicken }, {status: 201})
       } catch (error) {
         console.error('Error reading active sources:', error);
         return NextResponse.json({ error: 'Failed to read active sources' }, {status: 500});

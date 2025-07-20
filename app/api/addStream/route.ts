@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
-import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createGroupIfNotExists, addSourceToGroup } from '../../../lib/obsClient';
+import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createStreamGroup } from '../../../lib/obsClient';
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 import path from 'path';
@@ -44,7 +44,7 @@ async function fetchTeamInfo(teamId: number) {
     });
 
     const teamInfo = await db.get(
-      `SELECT team_name, group_name FROM ${teamsTableName} WHERE team_id = ?`,
+      `SELECT team_name, group_name, group_uuid FROM ${teamsTableName} WHERE team_id = ?`,
       [teamId]
     );
 
@@ -63,8 +63,15 @@ async function fetchTeamInfo(teamId: number) {
 
 import { validateStreamInput } from '../../../lib/security';
 
+// Generate OBS source name from team scene name and stream name
+function generateOBSSourceName(teamSceneName: string, streamName: string): string {
+  const cleanTeamName = teamSceneName.toLowerCase().replace(/\s+/g, '_');
+  const cleanStreamName = streamName.toLowerCase().replace(/\s+/g, '_');
+  return `${cleanTeamName}_${cleanStreamName}`;
+}
+
 export async function POST(request: NextRequest) {
-  let name: string, obs_source_name: string, url: string, team_id: number;
+  let name: string, url: string, team_id: number, obs_source_name: string;
 
   // Parse and validate request body
   try {
@@ -78,13 +85,26 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    ({ name, obs_source_name, url, team_id } = validation.data!);
+    ({ name, url, team_id } = validation.data!);
 
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
 
   try {
+    // Fetch team info first to generate proper OBS source name
+    const teamInfo = await fetchTeamInfo(team_id);
+    if (!teamInfo) {
+      throw new Error('Team not found');
+    }
+    
+    console.log('Team Info:', teamInfo);
+    
+    // Use group_name if it exists, otherwise use team_name
+    const groupName = teamInfo.group_name || teamInfo.team_name;
+    
+    // Generate OBS source name with team scene name prefix
+    obs_source_name = generateOBSSourceName(groupName, name);
 
     // Connect to OBS WebSocket
     console.log("Pre-connect")
@@ -109,29 +129,58 @@ export async function POST(request: NextRequest) {
     throw new Error('GetInputList failed.');
     }
     
-    const teamInfo = await fetchTeamInfo(team_id);
-    if (!teamInfo) {
-      throw new Error('Team not found');
-    }
-    
-    console.log('Team Info:', teamInfo);
-    
-    // Use group_name if it exists, otherwise use team_name
-    const groupName = teamInfo.group_name || teamInfo.team_name;
-    
     const sourceExists = inputs.some((input: OBSInput) => input.inputName === obs_source_name);
 
     if (!sourceExists) {
-      // Create/ensure group exists and add source to it
-      await createGroupIfNotExists(groupName);
-      await addSourceToGroup(groupName, obs_source_name, url);
+      // Create stream group with text overlay
+      await createStreamGroup(groupName, name, teamInfo.team_name, url);
+      
+      // Update team with group UUID if not set
+      if (!teamInfo.group_uuid) {
+        const FILE_DIRECTORY = path.resolve(process.env.FILE_DIRECTORY || './files');
+        const dbPath = path.join(FILE_DIRECTORY, 'sources.db');
+        const db = await open({
+          filename: dbPath,
+          driver: sqlite3.Database,
+        });
+
+        const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
+          year: 2025,
+          season: 'summer',
+          suffix: 'sat'
+        });
+
+        try {
+          // Get the scene UUID for the group
+          const obsClient = await getOBSClient();
+          const { scenes } = await obsClient.call('GetSceneList');
+          const scene = scenes.find((s: { sceneName: string; sceneUuid: string }) => s.sceneName === groupName);
+          
+          if (scene) {
+            await db.run(
+              `UPDATE ${teamsTableName} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
+              [groupName, scene.sceneUuid, team_id]
+            );
+            console.log(`Updated team ${team_id} with group UUID: ${scene.sceneUuid}`);
+          } else {
+            console.log(`Scene "${groupName}" not found in OBS`);
+          }
+        } catch (error) {
+          console.error('Error updating team group UUID:', error);
+        } finally {
+          await db.close();
+        }
+      }
 
       console.log(`OBS source "${obs_source_name}" created.`);
 
       for (const screen of screens) {
         try {
+          const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
+          const cleanStreamName = name.toLowerCase().replace(/\s+/g, '_');
+          const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
           await addSourceToSwitcher(screen, [
-            { hidden: false, selected: false, value: obs_source_name },
+            { hidden: false, selected: false, value: streamGroupName },
           ]);
         } catch (error) {
         if (error instanceof Error) {

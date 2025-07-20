@@ -43,7 +43,9 @@ export function createStreamLookupMaps(streams: Array<{ id: number; obs_source_n
   const idToStreamMap = new Map<number, { id: number; obs_source_name: string; name: string }>();
   
   streams.forEach(stream => {
-    sourceToIdMap.set(stream.obs_source_name, stream.id);
+    // Generate stream group name to match what's written to files
+    const streamGroupName = `${stream.name.toLowerCase().replace(/\s+/g, '_')}_stream`;
+    sourceToIdMap.set(streamGroupName, stream.id);
     idToStreamMap.set(stream.id, stream);
   });
   

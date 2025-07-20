@@ -98,10 +98,15 @@ export default function Home() {
   const handleSetActive = useCallback(async (screen: ScreenType, id: number | null) => {
     const selectedStream = streams.find((stream) => stream.id === id);
 
+    // Generate stream group name for optimistic updates
+    const streamGroupName = selectedStream 
+      ? `${selectedStream.name.toLowerCase().replace(/\s+/g, '_')}_stream`
+      : null;
+
     // Update local state immediately for optimistic updates
     setActiveSources((prev) => ({
       ...prev,
-      [screen]: selectedStream?.obs_source_name || null,
+      [screen]: streamGroupName,
     }));
 
     // Debounced backend update
@@ -205,29 +210,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Manage Streams Section */}
-      {streams.length > 0 && (
-        <div className="glass p-6 mt-6">
-          <h2 className="card-title">Manage Streams</h2>
-          <div className="grid gap-4">
-            {streams.map((stream) => (
-              <div key={stream.id} className="glass p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-white">{stream.name}</h3>
-                  <p className="text-sm text-white/60">{stream.obs_source_name}</p>
-                </div>
-                <Link
-                  href={`/edit/${stream.id}`}
-                  className="btn-secondary btn-sm"
-                >
-                  <span className="icon">✏️</span>
-                  Edit
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />

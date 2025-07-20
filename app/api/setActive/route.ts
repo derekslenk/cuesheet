@@ -5,6 +5,7 @@ import { FILE_DIRECTORY } from '../../../config';
 import { getDatabase } from '../../../lib/database';
 import { Stream } from '@/types';
 import { validateScreenInput } from '../../../lib/security';
+import { TABLE_NAMES } from '../../../lib/constants';
 
 export async function POST(request: NextRequest) {
   // Parse and validate request body
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     try {
       const db = await getDatabase();
       const stream: Stream | undefined = await db.get<Stream>(
-        'SELECT * FROM streams_2025_spring_adr WHERE id = ?',
+        `SELECT * FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`,
         [id]
       );
 
@@ -37,7 +38,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Stream not found' }, { status: 400 });
       }
 
-      fs.writeFileSync(filePath, stream.obs_source_name);
+      // Use stream group name instead of individual obs_source_name
+      const streamGroupName = `${stream.name.toLowerCase().replace(/\s+/g, '_')}_stream`;
+      fs.writeFileSync(filePath, streamGroupName);
       return NextResponse.json({ message: `${screen} updated successfully.` }, { status: 200 });
     } catch (error) {
       console.error('Error updating active source:', error);

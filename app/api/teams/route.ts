@@ -8,11 +8,12 @@ import {
   createDatabaseError,
   parseRequestBody 
 } from '@/lib/apiHelpers';
+import { createGroupIfNotExists, createTextSource } from '@/lib/obsClient';
 
 // Validation for team creation
 function validateTeamInput(data: unknown): { 
   valid: boolean; 
-  data?: { team_name: string }; 
+  data?: { team_name: string; create_obs_group?: boolean }; 
   errors?: Record<string, string> 
 } {
   const errors: Record<string, string> = {};
@@ -22,7 +23,7 @@ function validateTeamInput(data: unknown): {
     return { valid: false, errors };
   }
   
-  const { team_name } = data as { team_name?: unknown };
+  const { team_name, create_obs_group } = data as { team_name?: unknown; create_obs_group?: unknown };
   
   if (!team_name || typeof team_name !== 'string') {
     errors.team_name = 'Team name is required and must be a string';
@@ -38,7 +39,10 @@ function validateTeamInput(data: unknown): {
   
   return { 
     valid: true, 
-    data: { team_name: (team_name as string).trim() }
+    data: { 
+      team_name: (team_name as string).trim(),
+      create_obs_group: create_obs_group === true
+    }
   };
 }
 
@@ -60,7 +64,7 @@ export const POST = withErrorHandling(async (request: Request) => {
     return bodyResult.response;
   }
   
-  const { team_name } = bodyResult.data;
+  const { team_name, create_obs_group } = bodyResult.data;
   
   try {
     const db = await getDatabase();
@@ -78,16 +82,37 @@ export const POST = withErrorHandling(async (request: Request) => {
       );
     }
     
+    let groupName: string | null = null;
+    let groupUuid: string | null = null;
+    
+    // Create OBS group and text source if requested
+    if (create_obs_group) {
+      try {
+        const obsResult = await createGroupIfNotExists(team_name);
+        groupName = team_name;
+        groupUuid = obsResult.sceneUuid;
+        
+        // Create text source for the team
+        const textSourceName = team_name.toLowerCase().replace(/\s+/g, '_') + '_text';
+        await createTextSource(team_name, textSourceName, team_name);
+        
+        console.log(`OBS group and text source created for team "${team_name}"`);
+      } catch (obsError) {
+        console.error('Error creating OBS group:', obsError);
+        // Continue with team creation even if OBS fails
+      }
+    }
+    
     const result = await db.run(
-      `INSERT INTO ${TABLE_NAMES.TEAMS} (team_name) VALUES (?)`,
-      [team_name]
+      `INSERT INTO ${TABLE_NAMES.TEAMS} (team_name, group_name, group_uuid) VALUES (?, ?, ?)`,
+      [team_name, groupName, groupUuid]
     );
     
     const newTeam: Team = {
       team_id: result.lastID!,
       team_name: team_name,
-      group_name: null,
-      group_uuid: null
+      group_name: groupName,
+      group_uuid: groupUuid
     };
     
     return createSuccessResponse(newTeam, 201);
