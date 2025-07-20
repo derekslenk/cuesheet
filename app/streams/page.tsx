@@ -235,7 +235,7 @@ export default function AddStream() {
               Team
             </label>
             <div className="form-row">
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, position: 'relative', zIndex: 10000 }}>
                 <Dropdown
                   options={teams}
                   activeId={formData.team_id}
