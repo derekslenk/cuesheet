@@ -38,7 +38,6 @@ export function sanitizeString(input: string, maxLength: number = 100): string {
 // Validation schemas
 export interface StreamInput {
   name: string;
-  obs_source_name: string;
   url: string;
   team_id: number;
 }
@@ -58,11 +57,6 @@ export function validateStreamInput(input: unknown): { valid: boolean; errors: s
     errors.push('Name must be 100 characters or less');
   }
 
-  if (!data.obs_source_name || typeof data.obs_source_name !== 'string') {
-    errors.push('OBS source name is required and must be a string');
-  } else if (data.obs_source_name.length > 100) {
-    errors.push('OBS source name must be 100 characters or less');
-  }
 
   if (!data.url || typeof data.url !== 'string') {
     errors.push('URL is required and must be a string');
@@ -83,7 +77,6 @@ export function validateStreamInput(input: unknown): { valid: boolean; errors: s
     errors: [],
     data: {
       name: sanitizeString(data.name as string),
-      obs_source_name: sanitizeString(data.obs_source_name as string),
       url: data.url as string,
       team_id: data.team_id as number,
     },

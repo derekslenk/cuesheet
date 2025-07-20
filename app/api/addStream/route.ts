@@ -63,8 +63,13 @@ async function fetchTeamInfo(teamId: number) {
 
 import { validateStreamInput } from '../../../lib/security';
 
+// Generate OBS source name from stream name
+function generateOBSSourceName(streamName: string): string {
+  return streamName.toLowerCase().replace(/\s+/g, '_') + '_twitch';
+}
+
 export async function POST(request: NextRequest) {
-  let name: string, obs_source_name: string, url: string, team_id: number;
+  let name: string, url: string, team_id: number, obs_source_name: string;
 
   // Parse and validate request body
   try {
@@ -78,7 +83,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    ({ name, obs_source_name, url, team_id } = validation.data!);
+    ({ name, url, team_id } = validation.data!);
+    
+    // Auto-generate OBS source name from stream name
+    obs_source_name = generateOBSSourceName(name);
 
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });

@@ -17,7 +17,6 @@ interface Stream {
 export default function AddStream() {
   const [formData, setFormData] = useState({
     name: '',
-    obs_source_name: '',
     twitch_username: '',
     team_id: null,
   });
@@ -125,9 +124,6 @@ export default function AddStream() {
       errors.name = 'Stream name must be at least 2 characters';
     }
     
-    if (!formData.obs_source_name.trim()) {
-      errors.obs_source_name = 'OBS source name is required';
-    }
     
     if (!formData.twitch_username.trim()) {
       errors.twitch_username = 'Twitch username is required';
@@ -162,7 +158,7 @@ export default function AddStream() {
       const data = await response.json();
       if (response.ok) {
         showSuccess('Stream Added', `"${formData.name}" has been added successfully`);
-        setFormData({ name: '', obs_source_name: '', twitch_username: '', team_id: null });
+        setFormData({ name: '', twitch_username: '', team_id: null });
         setValidationErrors({});
         fetchData();
       } else {
@@ -214,28 +210,6 @@ export default function AddStream() {
             )}
           </div>
 
-          {/* OBS Source Name */}
-          <div>
-            <label className="block text-white font-semibold mb-3">
-              OBS Source Name
-            </label>
-            <input
-              type="text"
-              name="obs_source_name"
-              value={formData.obs_source_name}
-              onChange={handleInputChange}
-              required
-              className={`input ${
-                validationErrors.obs_source_name ? 'border-red-500/60 bg-red-500/10' : ''
-              }`}
-              placeholder="Enter the exact source name from OBS"
-            />
-            {validationErrors.obs_source_name && (
-              <div className="text-red-400 text-sm mt-2">
-                {validationErrors.obs_source_name}
-              </div>
-            )}
-          </div>
 
           {/* Twitch Username */}
           <div>
@@ -317,11 +291,19 @@ export default function AddStream() {
               return (
                 <div key={stream.id} className="glass p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                    <div className="flex items-center">
+                      <div 
+                        className="bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0" 
+                        style={{ 
+                          width: '64px', 
+                          height: '64px', 
+                          fontSize: '24px', 
+                          marginRight: '16px' 
+                        }}
+                      >
                         {stream.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="font-semibold text-white">{stream.name}</div>
                         <div className="text-sm text-white/60">OBS: {stream.obs_source_name}</div>
                         <div className="text-sm text-white/60">Team: {team?.name || 'Unknown'}</div>
@@ -329,12 +311,13 @@ export default function AddStream() {
                     </div>
                     <div className="text-right space-y-2">
                       <div className="text-sm text-white/40">ID: {stream.id}</div>
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex justify-end">
                         <a 
                           href={stream.url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           className="btn btn-primary text-sm"
+                          style={{ marginRight: '8px' }}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
