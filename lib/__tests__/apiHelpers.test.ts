@@ -32,7 +32,7 @@ describe('apiHelpers', () => {
 
   describe('createErrorResponse', () => {
     it('creates error response with default status 500', () => {
-      const response = createErrorResponse('Test Error');
+      const _response = createErrorResponse('Test Error');
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -44,7 +44,7 @@ describe('apiHelpers', () => {
     });
 
     it('creates error response with custom status and message', () => {
-      const response = createErrorResponse('Test Error', 400, 'Custom message', { detail: 'extra' });
+      const _response = createErrorResponse('Test Error', 400, 'Custom message', { detail: 'extra' });
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -81,7 +81,7 @@ describe('apiHelpers', () => {
   describe('createSuccessResponse', () => {
     it('creates success response with default status 200', () => {
       const data = { test: 'data' };
-      const response = createSuccessResponse(data);
+      const _response = createSuccessResponse(data);
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -95,7 +95,7 @@ describe('apiHelpers', () => {
 
     it('creates success response with custom status', () => {
       const data = { id: 1, name: 'test' };
-      const response = createSuccessResponse(data, 201);
+      const _response = createSuccessResponse(data, 201);
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -151,9 +151,9 @@ describe('apiHelpers', () => {
   });
 
   describe('parseRequestBody', () => {
-    const mockRequest = (body: any): Request => ({
+    const mockRequest = (body: unknown): Request => ({
       json: jest.fn().mockResolvedValue(body),
-    } as any);
+    } as unknown as Request);
 
     it('parses valid JSON body without validator', async () => {
       const body = { name: 'test', value: 123 };
@@ -170,7 +170,7 @@ describe('apiHelpers', () => {
     it('handles invalid JSON', async () => {
       const request = {
         json: jest.fn().mockRejectedValue(new Error('Invalid JSON')),
-      } as any;
+      } as unknown as Request;
       
       const result = await parseRequestBody(request);
       
@@ -218,11 +218,17 @@ describe('apiHelpers', () => {
     const originalEnv = process.env.NODE_ENV;
 
     afterAll(() => {
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: originalEnv,
+        writable: true
+      });
     });
 
     it('includes error details in development', () => {
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'development',
+        writable: true
+      });
       const originalError = new Error('Test error');
       
       createDatabaseError('test operation', originalError);
@@ -236,7 +242,10 @@ describe('apiHelpers', () => {
     });
 
     it('excludes error details in production', () => {
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true
+      });
       const originalError = new Error('Test error');
       
       createDatabaseError('test operation', originalError);

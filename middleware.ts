@@ -21,7 +21,10 @@ export function middleware(request: NextRequest) {
     // Skip authentication for localhost/internal requests (optional security)
     const host = request.headers.get('host');
     if (host && (host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('192.168.'))) {
-      console.log('Allowing internal network access without API key');
+      // Don't log for frequently polled endpoints to reduce noise
+      if (!request.nextUrl.pathname.includes('/api/obsStatus')) {
+        console.log('Allowing internal network access without API key');
+      }
       return NextResponse.next();
     }
 

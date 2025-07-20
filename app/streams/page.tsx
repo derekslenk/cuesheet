@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Dropdown from '@/components/Dropdown';
 import { Team } from '@/types';
 import { useToast } from '@/lib/useToast';
@@ -18,7 +18,7 @@ export default function AddStream() {
   const [formData, setFormData] = useState({
     name: '',
     obs_source_name: '',
-    url: '',
+    twitch_username: '',
     team_id: null,
   });
   const [teams, setTeams] = useState<{id: number; name: string}[]>([]);
@@ -26,14 +26,11 @@ export default function AddStream() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{id: number; name: string} | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
-  // Fetch teams and streams on component mount
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [teamsResponse, streamsResponse] = await Promise.all([
@@ -63,7 +60,13 @@ export default function AddStream() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showError]);
+
+  // Fetch teams and streams on component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -85,6 +88,32 @@ export default function AddStream() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/streams/${deleteConfirm.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        showSuccess('Stream Deleted', `"${deleteConfirm.name}" has been deleted successfully`);
+        setDeleteConfirm(null);
+        // Refetch the streams list
+        await fetchData();
+      } else {
+        showError('Failed to Delete Stream', data.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error deleting stream:', error);
+      showError('Failed to Delete Stream', 'Network error or server unavailable');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -100,14 +129,10 @@ export default function AddStream() {
       errors.obs_source_name = 'OBS source name is required';
     }
     
-    if (!formData.url.trim()) {
-      errors.url = 'Stream URL is required';
-    } else {
-      try {
-        new URL(formData.url);
-      } catch {
-        errors.url = 'Please enter a valid URL';
-      }
+    if (!formData.twitch_username.trim()) {
+      errors.twitch_username = 'Twitch username is required';
+    } else if (!/^[a-zA-Z0-9_]{4,25}$/.test(formData.twitch_username.trim())) {
+      errors.twitch_username = 'Twitch username must be 4-25 characters and contain only letters, numbers, and underscores';
     }
     
     if (!formData.team_id) {
@@ -123,16 +148,21 @@ export default function AddStream() {
     setIsSubmitting(true);
 
     try {
+      const submissionData = {
+        ...formData,
+        url: `https://www.twitch.tv/${formData.twitch_username.trim()}`
+      };
+      
       const response = await fetch('/api/addStream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submissionData),
       });
 
       const data = await response.json();
       if (response.ok) {
         showSuccess('Stream Added', `"${formData.name}" has been added successfully`);
-        setFormData({ name: '', obs_source_name: '', url: '', team_id: null });
+        setFormData({ name: '', obs_source_name: '', twitch_username: '', team_id: null });
         setValidationErrors({});
         fetchData();
       } else {
@@ -147,14 +177,15 @@ export default function AddStream() {
   };
 
   return (
-    <div className="container section">
-      {/* Title */}
-      <div className="text-center mb-8">
-        <h1 className="title">Streams</h1>
-        <p className="subtitle">
-          Organize your content by creating and managing stream sources
-        </p>
-      </div>
+    <>
+      <div className="container section">
+        {/* Title */}
+        <div className="text-center mb-8">
+          <h1 className="title">Streams</h1>
+          <p className="subtitle">
+            Organize your content by creating and managing stream sources
+          </p>
+        </div>
 
       {/* Add New Stream */}
       <div className="glass p-6 mb-6">
@@ -206,25 +237,25 @@ export default function AddStream() {
             )}
           </div>
 
-          {/* URL */}
+          {/* Twitch Username */}
           <div>
             <label className="block text-white font-semibold mb-3">
-              Stream URL
+              Twitch Username
             </label>
             <input
-              type="url"
-              name="url"
-              value={formData.url}
+              type="text"
+              name="twitch_username"
+              value={formData.twitch_username}
               onChange={handleInputChange}
               required
               className={`input ${
-                validationErrors.url ? 'border-red-500/60 bg-red-500/10' : ''
+                validationErrors.twitch_username ? 'border-red-500/60 bg-red-500/10' : ''
               }`}
-              placeholder="https://example.com/stream"
+              placeholder="Enter Twitch username"
             />
-            {validationErrors.url && (
+            {validationErrors.twitch_username && (
               <div className="text-red-400 text-sm mt-2">
-                {validationErrors.url}
+                {validationErrors.twitch_username}
               </div>
             )}
           </div>
@@ -235,7 +266,7 @@ export default function AddStream() {
               Team
             </label>
             <div className="form-row">
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, position: 'relative', zIndex: 10000 }}>
                 <Dropdown
                   options={teams}
                   activeId={formData.team_id}
@@ -296,11 +327,30 @@ export default function AddStream() {
                         <div className="text-sm text-white/60">Team: {team?.name || 'Unknown'}</div>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right space-y-2">
                       <div className="text-sm text-white/40">ID: {stream.id}</div>
-                      <a href={stream.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 hover:text-blue-300">
-                        View Stream
-                      </a>
+                      <div className="flex gap-2 justify-end">
+                        <a 
+                          href={stream.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="btn btn-primary text-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          View Stream
+                        </a>
+                        <button
+                          onClick={() => setDeleteConfirm({ id: stream.id, name: stream.name })}
+                          className="btn btn-danger text-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -310,8 +360,51 @@ export default function AddStream() {
         )}
       </div>
       
-      {/* Toast Notifications */}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </div>
+        {/* Toast Notifications */}
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+      
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div className="glass p-6" style={{ maxWidth: '28rem', width: '90%' }}>
+            <h3 className="text-xl font-bold text-white mb-4">Confirm Deletion</h3>
+            <p className="text-white/80 mb-6">
+              Are you sure you want to delete the stream &ldquo;{deleteConfirm.name}&rdquo;? This will remove it from both the database and OBS.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isDeleting}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="btn btn-danger"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Stream'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { Team } from '@/types';
 import { TABLE_NAMES } from '@/lib/constants';
@@ -39,14 +38,14 @@ function validateTeamInput(data: unknown): {
   
   return { 
     valid: true, 
-    data: { team_name: team_name.trim() }
+    data: { team_name: (team_name as string).trim() }
   };
 }
 
 export const GET = withErrorHandling(async () => {
   try {
     const db = await getDatabase();
-    const teams: Team[] = await db.all(`SELECT * FROM ${TABLE_NAMES.TEAMS} ORDER BY team_name ASC`);
+    const teams: Team[] = await db.all(`SELECT team_id, team_name, group_name FROM ${TABLE_NAMES.TEAMS} ORDER BY team_name ASC`);
     
     return createSuccessResponse(teams);
   } catch (error) {
@@ -86,7 +85,8 @@ export const POST = withErrorHandling(async (request: Request) => {
     
     const newTeam: Team = {
       team_id: result.lastID!,
-      team_name: team_name
+      team_name: team_name,
+      group_name: null
     };
     
     return createSuccessResponse(newTeam, 201);

@@ -24,7 +24,7 @@ jest.mock('@/lib/apiHelpers', () => ({
 }));
 
 describe('/api/teams', () => {
-  let mockDb: any;
+  let mockDb: { all: jest.Mock };
   
   beforeEach(() => {
     // Create mock database
@@ -46,7 +46,7 @@ describe('/api/teams', () => {
       
       mockDb.all.mockResolvedValue(mockTeams);
       
-      const response = await GET();
+      const _response = await GET();
       
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('SELECT * FROM')
@@ -59,7 +59,7 @@ describe('/api/teams', () => {
     it('returns empty array when no teams exist', async () => {
       mockDb.all.mockResolvedValue([]);
       
-      const response = await GET();
+      const _response = await GET();
       
       const { createSuccessResponse } = require('@/lib/apiHelpers');
       expect(createSuccessResponse).toHaveBeenCalledWith([]);
@@ -69,7 +69,7 @@ describe('/api/teams', () => {
       const dbError = new Error('Table does not exist');
       mockDb.all.mockRejectedValue(dbError);
       
-      const response = await GET();
+      const _response = await GET();
       
       const { createDatabaseError } = require('@/lib/apiHelpers');
       expect(createDatabaseError).toHaveBeenCalledWith('fetch teams', dbError);
@@ -80,7 +80,7 @@ describe('/api/teams', () => {
       const { getDatabase } = require('@/lib/database');
       getDatabase.mockRejectedValue(connectionError);
       
-      const response = await GET();
+      const _response = await GET();
       
       const { createDatabaseError } = require('@/lib/apiHelpers');
       expect(createDatabaseError).toHaveBeenCalledWith('fetch teams', connectionError);

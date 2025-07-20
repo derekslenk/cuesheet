@@ -60,7 +60,8 @@ const createSatSummer2025Tables = async () => {
     await db.exec(`
       CREATE TABLE IF NOT EXISTS ${teamsTableName} (
         team_id INTEGER PRIMARY KEY,
-        team_name TEXT NOT NULL
+        team_name TEXT NOT NULL,
+        group_name TEXT
       )
     `);
     

@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
-import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher } from '../../../lib/obsClient';
+import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createGroupIfNotExists, addSourceToGroup } from '../../../lib/obsClient';
+import { open } from 'sqlite';
+import sqlite3 from 'sqlite3';
+import path from 'path';
+import { getTableName, BASE_TABLE_NAMES } from '../../../lib/constants';
 
 interface OBSClient {
     call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
-}
-
-interface OBSScene {
-sceneName: string;
 }
 
 interface OBSInput {
 inputName: string;
 }
 
-interface GetSceneListResponse {
-currentProgramSceneName: string;
-currentPreviewSceneName: string;
-scenes: OBSScene[];
-}
 
 interface GetInputListResponse {
 inputs: OBSInput[];
@@ -33,85 +28,38 @@ const screens = [
   'ss_bottom_right',
 ];
 
-async function fetchTeamName(teamId: number) {
+async function fetchTeamInfo(teamId: number) {
+  const FILE_DIRECTORY = path.resolve(process.env.FILE_DIRECTORY || './files');
   try {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/getTeamName?team_id=${teamId}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch team name');
-    }
-    const data = await response.json();
-    return data.team_name;
-} catch (error) {
-if (error instanceof Error) {
-    console.error('Error:', error.message);
-} else {
-    console.error('An unknown error occurred:', error);
-}
-return null;
-}
-}
-
-async function addBrowserSourceWithAudioControl(obs: OBSClient, sceneName: string, inputName: string, url: string) {
-  try {
-    // Step 1: Create the browser source input
-    await obs.call('CreateInput', {
-      sceneName,
-      inputName,
-      inputKind: 'browser_source',
-      inputSettings: {
-        width: 1600,
-        height: 900,
-        url,
-      },
+    const dbPath = path.join(FILE_DIRECTORY, 'sources.db');
+    const db = await open({
+      filename: dbPath,
+      driver: sqlite3.Database,
     });
 
-    console.log(`Browser source "${inputName}" created successfully.`);
-
-    // Step 2: Wait for the input to initialize
-    let inputReady = false;
-    for (let i = 0; i < 10; i++) {
-      try {
-        await obs.call('GetInputSettings', { inputName });
-        inputReady = true;
-        break;
-      } catch  {
-        console.log(`Waiting for input "${inputName}" to initialize...`);
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms before retrying
-      }
-    }
-
-    if (!inputReady) {
-      throw new Error(`Input "${inputName}" did not initialize in time.`);
-    }
-
-
-    // Step 3: Enable "Reroute audio"
-    await obs.call('SetInputSettings', {
-      inputName,
-      inputSettings: {
-        reroute_audio: true,
-      },
-      overlay: true, // Keep existing settings and apply changes
+    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
+      year: 2025,
+      season: 'summer',
+      suffix: 'sat'
     });
 
-    console.log(`Audio rerouted for "${inputName}".`);
+    const teamInfo = await db.get(
+      `SELECT team_name, group_name FROM ${teamsTableName} WHERE team_id = ?`,
+      [teamId]
+    );
 
-    // Step 4: Mute the input
-    await obs.call('SetInputMute', {
-      inputName,
-      inputMuted: true,
-    });
+    await db.close();
+    return teamInfo;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Error fetching team info:', error.message);
+    } else {
+      console.error('An unknown error occurred:', error);
+    }
+    return null;
+  }
+}
 
-    console.log(`Audio muted for "${inputName}".`);
-} catch (error) {
-if (error instanceof Error) {
-    console.error('Error adding browser source with audio control:', error.message);
-} else {
-    console.error('An unknown error occurred while adding browser source:', error);
-}
-}
-}
 
 import { validateStreamInput } from '../../../lib/security';
 
@@ -160,20 +108,23 @@ export async function POST(request: NextRequest) {
     }
     throw new Error('GetInputList failed.');
     }
-    const teamName = await fetchTeamName(team_id);
-    console.log('Team Name:', teamName)
-    const response = await obs.call('GetSceneList');
-    const sceneListResponse = response as unknown as GetSceneListResponse;
-    const { scenes } = sceneListResponse;
-    const groupExists = scenes.some((scene: OBSScene) => scene.sceneName === teamName);
-    if (!groupExists) {
-      await obs.call('CreateScene', { sceneName: teamName });
+    
+    const teamInfo = await fetchTeamInfo(team_id);
+    if (!teamInfo) {
+      throw new Error('Team not found');
     }
+    
+    console.log('Team Info:', teamInfo);
+    
+    // Use group_name if it exists, otherwise use team_name
+    const groupName = teamInfo.group_name || teamInfo.team_name;
     
     const sourceExists = inputs.some((input: OBSInput) => input.inputName === obs_source_name);
 
     if (!sourceExists) {
-      await addBrowserSourceWithAudioControl(obs, teamName, obs_source_name, url)
+      // Create/ensure group exists and add source to it
+      await createGroupIfNotExists(groupName);
+      await addSourceToGroup(groupName, obs_source_name, url);
 
       console.log(`OBS source "${obs_source_name}" created.`);
 
@@ -196,7 +147,12 @@ export async function POST(request: NextRequest) {
     }
 
     const db = await getDatabase();
-    const query = `INSERT INTO streams_2025_spring_adr (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`;
+    const streamsTableName = getTableName(BASE_TABLE_NAMES.STREAMS, {
+      year: 2025,
+      season: 'summer',
+      suffix: 'sat'
+    });
+    const query = `INSERT INTO ${streamsTableName} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`;
     db.run(query, [name, obs_source_name, url, team_id])
     await disconnectFromOBS();
     return NextResponse.json({ message: 'Stream added successfully' }, {status: 201})

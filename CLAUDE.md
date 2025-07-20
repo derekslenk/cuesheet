@@ -84,6 +84,8 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 #### Team Management
 - `GET /api/teams` - Get all teams
 - `GET /api/getTeamName` - Get team name by ID
+- `POST /api/createGroup` - Create OBS group from team
+- `POST /api/syncGroups` - Synchronize all teams with OBS groups
 
 #### System Status
 - `GET /api/obsStatus` - Real-time OBS connection and streaming status
@@ -92,7 +94,7 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 
 Dynamic table names with seasonal configuration:
 - `streams_YYYY_SEASON_SUFFIX`: id, name, obs_source_name, url, team_id
-- `teams_YYYY_SEASON_SUFFIX`: team_id, team_name
+- `teams_YYYY_SEASON_SUFFIX`: team_id, team_name, group_name
 
 ### OBS Integration Pattern
 
@@ -100,6 +102,18 @@ The app uses a sophisticated dual integration approach:
 
 1. **WebSocket Connection**: Direct OBS control using obs-websocket-js with persistent connection management
 2. **Text File System**: Each screen position has a corresponding text file that OBS Source Switcher monitors
+3. **Group Management**: Teams can be mapped to OBS groups (implemented as scenes) for organized source management
+
+**Required OBS Source Switchers** (must be created with these exact names):
+- `ss_large` - Large screen source switcher
+- `ss_left` - Left screen source switcher  
+- `ss_right` - Right screen source switcher
+- `ss_top_left` - Top left screen source switcher
+- `ss_top_right` - Top right screen source switcher
+- `ss_bottom_left` - Bottom left screen source switcher
+- `ss_bottom_right` - Bottom right screen source switcher
+
+See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructions.
 
 **Source Control Workflow**:
 1. User selects stream in React UI

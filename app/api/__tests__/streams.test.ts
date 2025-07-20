@@ -6,7 +6,7 @@ jest.mock('@/lib/database', () => ({
 }));
 
 describe('/api/streams', () => {
-  let mockDb: any;
+  let mockDb: { all: jest.Mock };
   
   beforeEach(() => {
     // Create mock database
@@ -27,7 +27,7 @@ describe('/api/streams', () => {
       
       mockDb.all.mockResolvedValue(mockStreams);
       
-      const response = await GET();
+      const _response = await GET();
       
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('SELECT * FROM')
@@ -40,7 +40,7 @@ describe('/api/streams', () => {
     it('returns empty array when no streams exist', async () => {
       mockDb.all.mockResolvedValue([]);
       
-      const response = await GET();
+      const _response = await GET();
       
       const { NextResponse } = require('next/server');
       expect(NextResponse.json).toHaveBeenCalledWith([]);
@@ -50,7 +50,7 @@ describe('/api/streams', () => {
       const dbError = new Error('Database connection failed');
       mockDb.all.mockRejectedValue(dbError);
       
-      const response = await GET();
+      const _response = await GET();
       
       const { NextResponse } = require('next/server');
       expect(NextResponse.json).toHaveBeenCalledWith(
@@ -64,7 +64,7 @@ describe('/api/streams', () => {
       const { getDatabase } = require('@/lib/database');
       getDatabase.mockRejectedValue(connectionError);
       
-      const response = await GET();
+      const _response = await GET();
       
       const { NextResponse } = require('next/server');
       expect(NextResponse.json).toHaveBeenCalledWith(

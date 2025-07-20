@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../../lib/database';
 import { TABLE_NAMES } from '../../../../lib/constants';
+import { getOBSClient } from '../../../../lib/obsClient';
+
+interface OBSInput {
+  inputName: string;
+  inputUuid: string;
+}
+
+interface GetInputListResponse {
+  inputs: OBSInput[];
+}
 
 // GET single stream
 export async function GET(
@@ -106,7 +116,38 @@ export async function DELETE(
       );
     }
     
-    // Delete stream
+    // Try to delete from OBS first
+    try {
+      const obs = await getOBSClient();
+      console.log('OBS client obtained:', !!obs);
+      
+      if (obs && existingStream.obs_source_name) {
+        console.log(`Attempting to remove OBS source: ${existingStream.obs_source_name}`);
+        
+        // Get the input UUID first
+        const response = await obs.call('GetInputList');
+        const inputs = response as GetInputListResponse;
+        console.log(`Found ${inputs.inputs.length} inputs in OBS`);
+        
+        const input = inputs.inputs.find((i: OBSInput) => i.inputName === existingStream.obs_source_name);
+        
+        if (input) {
+          console.log(`Found input with UUID: ${input.inputUuid}`);
+          await obs.call('RemoveInput', { inputUuid: input.inputUuid });
+          console.log(`Successfully removed OBS source: ${existingStream.obs_source_name}`);
+        } else {
+          console.log(`Input not found in OBS: ${existingStream.obs_source_name}`);
+          console.log('Available inputs:', inputs.inputs.map((i: OBSInput) => i.inputName));
+        }
+      } else {
+        console.log('OBS client not available or no source name provided');
+      }
+    } catch (obsError) {
+      console.error('Error removing source from OBS:', obsError);
+      // Continue with database deletion even if OBS removal fails
+    }
+    
+    // Delete stream from database
     await db.run(
       `DELETE FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`,
       [resolvedParams.id]
