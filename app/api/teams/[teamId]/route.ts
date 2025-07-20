@@ -21,7 +21,7 @@ export async function PUT(
         
         // Build dynamic query based on what fields are being updated
         const updates: string[] = [];
-        const values: any[] = [];
+        const values: (string | number | null)[] = [];
         
         if (team_name) {
             updates.push('team_name = ?');
