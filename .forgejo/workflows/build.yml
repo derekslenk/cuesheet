@@ -31,8 +31,7 @@ jobs:
         run: npm run build
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: obs-ss-build
-          include-hidden-files: 'true'
           path: ./.next/*
