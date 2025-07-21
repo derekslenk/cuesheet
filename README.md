@@ -2,6 +2,9 @@
 
 A professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://obsproject.com/forum/resources/source-switcher.941/) with real-time WebSocket integration and modern glass morphism UI.
 
+
+![alt text](image.png)
+
 ## Features
 
 - **Multi-Screen Source Control**: Manage 7 different screen positions (large, left, right, and 4 corners)
