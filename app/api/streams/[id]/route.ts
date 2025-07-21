@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../../lib/database';
 import { TABLE_NAMES } from '../../../../lib/constants';
-import { getOBSClient } from '../../../../lib/obsClient';
-
-interface OBSInput {
-  inputName: string;
-  inputUuid: string;
-}
-
-interface GetInputListResponse {
-  inputs: OBSInput[];
-}
+import { deleteStreamComponents, clearTextFilesForStream } from '../../../../lib/obsClient';
 
 // GET single stream
 export async function GET(
@@ -103,9 +94,12 @@ export async function DELETE(
     const resolvedParams = await params;
     const db = await getDatabase();
     
-    // Check if stream exists
+    // Check if stream exists and get team info
     const existingStream = await db.get(
-      `SELECT * FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`,
+      `SELECT s.*, t.team_name, t.group_name 
+       FROM ${TABLE_NAMES.STREAMS} s 
+       LEFT JOIN ${TABLE_NAMES.TEAMS} t ON s.team_id = t.team_id 
+       WHERE s.id = ?`,
       [resolvedParams.id]
     );
     
@@ -116,35 +110,38 @@ export async function DELETE(
       );
     }
     
-    // Try to delete from OBS first
+    // Try comprehensive OBS cleanup first
+    let obsCleanupResults = null;
     try {
-      const obs = await getOBSClient();
-      console.log('OBS client obtained:', !!obs);
-      
-      if (obs && existingStream.obs_source_name) {
-        console.log(`Attempting to remove OBS source: ${existingStream.obs_source_name}`);
+      if (existingStream.name && existingStream.team_name) {
+        const groupName = existingStream.group_name || existingStream.team_name;
         
-        // Get the input UUID first
-        const response = await obs.call('GetInputList');
-        const inputs = response as GetInputListResponse;
-        console.log(`Found ${inputs.inputs.length} inputs in OBS`);
+        console.log(`Starting comprehensive OBS cleanup for stream: ${existingStream.name}`);
+        console.log(`Team: ${existingStream.team_name}, Group: ${groupName}`);
         
-        const input = inputs.inputs.find((i: OBSInput) => i.inputName === existingStream.obs_source_name);
+        // Perform comprehensive OBS deletion
+        obsCleanupResults = await deleteStreamComponents(
+          existingStream.name, 
+          existingStream.team_name, 
+          groupName
+        );
         
-        if (input) {
-          console.log(`Found input with UUID: ${input.inputUuid}`);
-          await obs.call('RemoveInput', { inputUuid: input.inputUuid });
-          console.log(`Successfully removed OBS source: ${existingStream.obs_source_name}`);
-        } else {
-          console.log(`Input not found in OBS: ${existingStream.obs_source_name}`);
-          console.log('Available inputs:', inputs.inputs.map((i: OBSInput) => i.inputName));
-        }
+        console.log('OBS cleanup results:', obsCleanupResults);
+        
+        // Clear text files that reference this stream
+        const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
+        const cleanStreamName = existingStream.name.toLowerCase().replace(/\s+/g, '_');
+        const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
+        
+        const textFileResults = await clearTextFilesForStream(streamGroupName);
+        console.log('Text file cleanup results:', textFileResults);
+        
       } else {
-        console.log('OBS client not available or no source name provided');
+        console.log('Missing stream or team information for comprehensive cleanup');
       }
     } catch (obsError) {
-      console.error('Error removing source from OBS:', obsError);
-      // Continue with database deletion even if OBS removal fails
+      console.error('Error during comprehensive OBS cleanup:', obsError);
+      // Continue with database deletion even if OBS cleanup fails
     }
     
     // Delete stream from database
@@ -154,7 +151,8 @@ export async function DELETE(
     );
     
     return NextResponse.json({ 
-      message: 'Stream deleted successfully' 
+      message: 'Stream deleted successfully',
+      cleanup: obsCleanupResults || 'OBS cleanup was not performed'
     });
   } catch (error) {
     console.error('Error deleting stream:', error);

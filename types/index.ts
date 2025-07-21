@@ -5,6 +5,11 @@ export type Stream = {
     url: string;
     team_id: number;
   };
+
+export type StreamWithTeam = Stream & {
+    team_name: string;
+    group_name?: string | null;
+  };
   
 export type Screen = {
     screen: string;
