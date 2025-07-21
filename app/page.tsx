@@ -140,7 +140,7 @@ export default function Home() {
     <div className="container section">
       {/* Title */}
       <div className="text-center mb-8">
-        <h1 className="title">Stream Control Center</h1>
+        <h1 className="title">Live Stream Control Center</h1>
         <p className="subtitle">
           Manage your OBS sources across multiple screen positions
         </p>

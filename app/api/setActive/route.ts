@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { FILE_DIRECTORY } from '../../../config';
 import { getDatabase } from '../../../lib/database';
-import { Stream } from '@/types';
+import { StreamWithTeam } from '@/types';
 import { validateScreenInput } from '../../../lib/security';
 import { TABLE_NAMES } from '../../../lib/constants';
 
@@ -27,8 +27,11 @@ export async function POST(request: NextRequest) {
 
     try {
       const db = await getDatabase();
-      const stream: Stream | undefined = await db.get<Stream>(
-        `SELECT * FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`,
+      const stream: StreamWithTeam | undefined = await db.get<StreamWithTeam>(
+        `SELECT s.*, t.team_name, t.group_name 
+         FROM ${TABLE_NAMES.STREAMS} s 
+         LEFT JOIN ${TABLE_NAMES.TEAMS} t ON s.team_id = t.team_id 
+         WHERE s.id = ?`,
         [id]
       );
 
@@ -38,8 +41,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Stream not found' }, { status: 400 });
       }
 
-      // Use stream group name instead of individual obs_source_name
-      const streamGroupName = `${stream.name.toLowerCase().replace(/\s+/g, '_')}_stream`;
+      // Construct proper stream group name with team prefix
+      const groupName = stream.group_name || stream.team_name;
+      const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
+      const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
+      const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
       fs.writeFileSync(filePath, streamGroupName);
       return NextResponse.json({ message: `${screen} updated successfully.` }, { status: 200 });
     } catch (error) {

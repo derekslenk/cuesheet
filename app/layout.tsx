@@ -5,8 +5,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import PerformanceDashboard from '@/components/PerformanceDashboard';
 
 export const metadata = {
-  title: 'OBS Source Switcher',
-  description: 'A tool to manage OBS sources dynamically',
+  title: 'Live Stream Manager',
+  description: 'A tool to manage live stream sources dynamically',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

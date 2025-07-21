@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Next.js web application that controls multiple OBS Source Switchers. It provides a UI for managing stream sources across different screen layouts (large, left, right, topLeft, topRight, bottomLeft, bottomRight) and communicates with OBS WebSocket API to control streaming sources.
+This is a Next.js web application (branded as "Live Stream Manager") that controls multiple OBS Source Switchers. It provides a UI for managing live stream sources across different screen layouts (large, left, right, topLeft, topRight, bottomLeft, bottomRight) and communicates with OBS WebSocket API to control streaming sources.
 
 ## Key Commands
 
@@ -42,6 +42,8 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
   - `useToast.ts` - Toast notification system for user feedback
   - `security.ts` - Input validation and sanitization utilities
 - `/types` - TypeScript type definitions
+  - `Stream`, `StreamWithTeam` - Stream data types with team relationships
+  - `Team` - Team data with group management fields
 - `/files` - Default directory for SQLite database and text files (configurable via .env.local)
 - `/scripts` - Database setup and management scripts
 - `/.forgejo/workflows` - Forgejo CI/CD workflows for self-hosted runners
@@ -85,17 +87,26 @@ This is a Next.js web application that controls multiple OBS Source Switchers. I
 - `POST /api/addStream` - Add new stream to database and create browser source in OBS (accepts Twitch username, auto-generates URL)
 - `GET /api/streams` - Get all available streams
 - `GET /api/streams/[id]` - Get individual stream details
-- `DELETE /api/streams/[id]` - Delete stream from both OBS and database with confirmation
+- `DELETE /api/streams/[id]` - Delete stream with comprehensive OBS cleanup:
+  - Removes stream's nested scene
+  - Deletes browser source
+  - Removes from all source switchers
+  - Clears text files referencing the stream
 
 #### Source Control
-- `POST /api/setActive` - Set active stream for specific screen position
+- `POST /api/setActive` - Set active stream for specific screen position (writes team-prefixed stream name to text file)
 - `GET /api/getActive` - Get currently active sources for all screens
 
 #### Team Management
 - `GET /api/teams` - Get all teams with group information
 - `POST /api/teams` - Create new team
 - `PUT /api/teams/[id]` - Update team name, group_name, or group_uuid
-- `DELETE /api/teams/[id]` - Delete team and associated streams
+- `DELETE /api/teams/[teamId]` - Delete team with comprehensive OBS cleanup:
+  - Deletes team scene/group
+  - Removes team text source
+  - Deletes all associated stream scenes
+  - Removes all browser sources
+  - Clears all text files
 - `GET /api/getTeamName` - Get team name by ID
 - `POST /api/createGroup` - Create OBS group from team and store UUID
 - `POST /api/syncGroups` - Synchronize all teams with OBS groups
@@ -186,12 +197,22 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 
 ### Stream Management
 - **Twitch Integration**: Simplified stream addition using just Twitch username (auto-generates full URL)
-- **Stream Deletion**: Safe deletion workflow with confirmation that removes from both OBS and database
+- **Enhanced Stream Deletion**: Comprehensive cleanup that removes:
+  - Stream's nested scene from OBS
+  - Browser source and any references
+  - Entries from all source switchers
+  - Text files referencing the stream
+- **Audio Control**: Browser sources created with "Control Audio via OBS" enabled and auto-muted
 - **Visual Feedback**: Clear "View Stream" links with proper contrast for accessibility
-- **Team Association**: Streams can be organized under teams for better management
+- **Team Association**: Streams organized under teams with proper naming conventions
 
 ### Team & Group Management
 - **UUID-based Tracking**: Robust OBS group synchronization using scene UUIDs
+- **Enhanced Team Deletion**: Comprehensive cleanup that removes:
+  - Team scene/group from OBS
+  - Shared team text source
+  - All associated stream scenes and sources
+  - All browser sources with team prefix
 - **Sync Verification**: Real-time verification of database-OBS group synchronization
 - **Conflict Resolution**: UI actions to resolve sync issues (missing groups, name changes)
 - **Visual Indicators**: Clear status indicators for group linking and sync problems
@@ -213,3 +234,16 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 - **Migration Scripts**: Database migration tools for schema updates
 - **Security**: Input validation, sanitization, and secure API design
 - **Testing**: Comprehensive error handling and edge case management
+
+## Known Issues
+
+### Text Centering Problem
+- **Issue**: Team name text overlays are not properly centered horizontally in OBS
+- **Current Behavior**: Text left edge positions at center point (960px) instead of text center
+- **Attempted Solutions**:
+  - Various alignment properties (alignment: 5, boundsAlignment: 5)
+  - Manual position calculation based on text width
+  - Different bounds configurations
+  - Multiple transform approaches
+- **Workaround**: Manually change "Positional Alignment" to "Center" in OBS UI
+- **Status**: Unresolved - requires further investigation into OBS API behavior

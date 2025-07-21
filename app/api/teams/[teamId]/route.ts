@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/database';
 import { TABLE_NAMES } from '@/lib/constants';
+import { deleteTeamComponents, deleteStreamComponents, clearTextFilesForStream } from '@/lib/obsClient';
 
 export async function PUT(
     request: Request,
@@ -65,26 +66,78 @@ export async function DELETE(
         const teamId = parseInt(teamIdParam);
         const db = await getDatabase();
         
+        // First get the team and stream information before deletion
+        const team = await db.get(
+            `SELECT * FROM ${TABLE_NAMES.TEAMS} WHERE team_id = ?`,
+            [teamId]
+        );
+        
+        if (!team) {
+            return NextResponse.json({ error: 'Team not found' }, { status: 404 });
+        }
+        
+        // Get all streams for this team
+        const streams = await db.all(
+            `SELECT * FROM ${TABLE_NAMES.STREAMS} WHERE team_id = ?`,
+            [teamId]
+        );
+        
+        console.log(`Deleting team "${team.team_name}" with ${streams.length} streams`);
+        
+        // Try to clean up OBS components first
+        let obsCleanupResults = null;
+        try {
+            // Delete each stream's OBS components
+            for (const stream of streams) {
+                try {
+                    const groupName = team.group_name || team.team_name;
+                    console.log(`Deleting OBS components for stream "${stream.name}"`);
+                    
+                    // Delete stream components
+                    await deleteStreamComponents(stream.name, team.team_name, groupName);
+                    
+                    // Clear any text files that reference this stream
+                    const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
+                    const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
+                    const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
+                    await clearTextFilesForStream(streamGroupName);
+                } catch (streamError) {
+                    console.error(`Error deleting stream "${stream.name}" OBS components:`, streamError);
+                }
+            }
+            
+            // Delete team-level OBS components
+            obsCleanupResults = await deleteTeamComponents(team.team_name, team.group_name);
+            console.log('Team OBS cleanup results:', obsCleanupResults);
+            
+        } catch (obsError) {
+            console.error('Error during OBS cleanup:', obsError);
+            // Continue with database deletion even if OBS cleanup fails
+        }
+        
+        // Now delete from database
         await db.run('BEGIN TRANSACTION');
         
         try {
+            // Delete all streams for this team
             await db.run(
                 `DELETE FROM ${TABLE_NAMES.STREAMS} WHERE team_id = ?`,
                 [teamId]
             );
             
+            // Delete the team
             const result = await db.run(
                 `DELETE FROM ${TABLE_NAMES.TEAMS} WHERE team_id = ?`,
                 [teamId]
             );
             
-            if (result.changes === 0) {
-                await db.run('ROLLBACK');
-                return NextResponse.json({ error: 'Team not found' }, { status: 404 });
-            }
-            
             await db.run('COMMIT');
-            return NextResponse.json({ message: 'Team and associated streams deleted successfully' });
+            
+            return NextResponse.json({ 
+                message: 'Team and all associated components deleted successfully',
+                deletedStreams: streams.length,
+                obsCleanup: obsCleanupResults || 'OBS cleanup was not performed'
+            });
         } catch (error) {
             await db.run('ROLLBACK');
             throw error;

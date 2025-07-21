@@ -1,15 +1,19 @@
-# OBS Source Switcher Plugin UI
+# Live Stream Manager
 
-A professional [Next.js](https://nextjs.org) web application for controlling multiple OBS [Source Switchers](https://obsproject.com/forum/resources/source-switcher.941/) with real-time WebSocket integration and modern glass morphism UI.
+A professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://obsproject.com/forum/resources/source-switcher.941/) with real-time WebSocket integration and modern glass morphism UI.
 
 ## Features
 
 - **Multi-Screen Source Control**: Manage 7 different screen positions (large, left, right, and 4 corners)
 - **Real-time OBS Integration**: WebSocket connection with live status monitoring
-- **Team & Stream Management**: Organize streams by teams with full CRUD operations
-- **Modern UI**: Glass morphism design with responsive layout
+- **Enhanced Stream Management**: Create, edit, and delete streams with comprehensive OBS cleanup
+- **Team Organization**: Organize streams by teams with full CRUD operations and scene synchronization
+- **Comprehensive Deletion**: Remove streams/teams with complete OBS component cleanup (scenes, sources, text files)
+- **Audio Control**: Browser sources created with muted audio and OBS control enabled
+- **Modern UI**: Glass morphism design with responsive layout and accessibility features
 - **Professional Broadcasting**: Audio routing, scene management, and live status indicators
 - **Dual Integration**: WebSocket API + text file monitoring for maximum compatibility
+- **UUID-based Tracking**: Robust OBS group synchronization with rename-safe tracking
 
 ## Quick Start
 
@@ -101,12 +105,59 @@ npm run type-check   # TypeScript validation
 
 ## API Endpoints
 
-- `GET /api/streams` - List all streams
-- `POST /api/addStream` - Create new stream and OBS source
-- `POST /api/setActive` - Set active stream for screen position
-- `GET /api/obsStatus` - Real-time OBS connection status
-- `GET /api/teams` - Team management
+### Stream Management
+- `GET /api/streams` - List all streams with team information
+- `GET /api/streams/[id]` - Get individual stream details
+- `POST /api/addStream` - Create new stream with browser source and team association
+- `PUT /api/streams/[id]` - Update stream information
+- `DELETE /api/streams/[id]` - Delete stream with comprehensive OBS cleanup:
+  - Removes stream's nested scene
+  - Deletes browser source
+  - Removes from all source switchers
+  - Clears text files referencing the stream
 
-See `CLAUDE.md` for detailed architecture documentation.
+### Source Control
+- `POST /api/setActive` - Set active stream for screen position (writes team-prefixed name to text file)
+- `GET /api/getActive` - Get currently active sources for all screen positions
+
+### Team Management
+- `GET /api/teams` - Get all teams with group information and sync status
+- `POST /api/teams` - Create new team with optional OBS scene creation
+- `PUT /api/teams/[teamId]` - Update team name, group_name, or group_uuid
+- `DELETE /api/teams/[teamId]` - Delete team with comprehensive OBS cleanup:
+  - Deletes team scene/group
+  - Removes team text source
+  - Deletes all associated stream scenes
+  - Removes all browser sources with team prefix
+  - Clears all related text files
+- `GET /api/getTeamName` - Get team name by ID
+
+### OBS Group/Scene Management
+- `POST /api/createGroup` - Create OBS scene from team and store UUID
+- `POST /api/syncGroups` - Synchronize all teams with OBS groups
+- `GET /api/verifyGroups` - Verify database groups exist in OBS with UUID tracking
+  - Detects orphaned groups (excludes system scenes)
+  - Identifies name mismatches
+  - Shows sync status for all teams
+
+### System Status
+- `GET /api/obsStatus` - Real-time OBS connection, streaming, and recording status
+
+### Authentication
+All endpoints require API key authentication when `API_KEY` environment variable is set.
+
+See `CLAUDE.md` for detailed architecture documentation and implementation details.
+
+## Known Issues
+
+### Text Centering
+- **Issue**: Team name text overlays position left edge at center instead of centering the text itself
+- **Workaround**: Manually change "Positional Alignment" to "Center" in OBS UI
+- **Status**: Under investigation - requires further research into OBS API behavior
+
+### System Scene Exclusion
+Infrastructure scenes containing source switchers are excluded from orphaned group detection:
+- 1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies
+- Additional scenes can be added to the `SYSTEM_SCENES` array in `/app/api/verifyGroups/route.ts`
 
 

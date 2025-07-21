@@ -3,6 +3,18 @@ import { getDatabase } from '../../../lib/database';
 import { TABLE_NAMES } from '../../../lib/constants';
 import { getOBSClient } from '../../../lib/obsClient';
 
+// System scenes that should not be considered orphaned
+// These are infrastructure scenes that contain source switchers or other system components
+const SYSTEM_SCENES: string[] = [
+  '1-Screen',
+  '2-Screen',
+  '4-Screen',
+  'Starting',
+  'Ending',
+  'Audio',
+  'Movies'
+];
+
 interface OBSScene {
   sceneName: string;
   sceneUuid: string;
@@ -70,7 +82,8 @@ export async function GET() {
         missing_in_obs: verification.filter(team => !team.exists_in_obs),
         name_mismatches: verification.filter(team => team.name_changed),
         orphaned_in_obs: obsScenes.filter(scene => 
-          !teams.some(team => team.group_uuid === scene.sceneUuid || team.group_name === scene.sceneName)
+          !teams.some(team => team.group_uuid === scene.sceneUuid || team.group_name === scene.sceneName) &&
+          !SYSTEM_SCENES.includes(scene.sceneName)
         ).map(s => ({ name: s.sceneName, uuid: s.sceneUuid }))
       }
     });
