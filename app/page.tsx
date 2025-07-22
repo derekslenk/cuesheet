@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link';
 import Dropdown from '@/components/Dropdown';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';

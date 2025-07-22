@@ -126,7 +126,7 @@ export async function DELETE(
             );
             
             // Delete the team
-            const result = await db.run(
+            await db.run(
                 `DELETE FROM ${TABLE_NAMES.TEAMS} WHERE team_id = ?`,
                 [teamId]
             );

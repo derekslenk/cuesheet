@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { TABLE_NAMES } from '../../../lib/constants';
 import { createSuccessResponse, createDatabaseError, withErrorHandling } from '../../../lib/apiHelpers';

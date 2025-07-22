@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { StreamWithTeam } from '@/types';
 import { TABLE_NAMES } from '../../../lib/constants';
