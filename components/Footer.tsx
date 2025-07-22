@@ -81,10 +81,10 @@ export default function Footer() {
         <div className="grid-2">
           {/* Connection Status */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'}`}></div>
-              <div>
-                <h3 className="font-semibold">OBS Studio</h3>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">OBS Studio</h3>
+              <div className="flex items-center gap-2">
+                <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'}`}></div>
                 <p className="text-sm opacity-60">
                   {obsStatus?.connected ? 'Connected' : 'Disconnected'}
                 </p>
