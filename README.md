@@ -1,6 +1,6 @@
 # Live Stream Manager
 
-A professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://obsproject.com/forum/resources/source-switcher.941/) with real-time WebSocket integration and modern glass morphism UI.
+A professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://github.com/exeldro/obs-source-switcher) with real-time WebSocket integration and modern glass morphism UI.
 
 
 ![alt text](image.png)
