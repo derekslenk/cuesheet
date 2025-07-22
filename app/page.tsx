@@ -7,17 +7,12 @@ import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
 import { useActiveSourceLookup, useDebounce, PerformanceMonitor } from '@/lib/performance';
 
-type Stream = {
-  id: number;
-  name: string;
-  obs_source_name: string;
-  url: string;
-};
+import { StreamWithTeam } from '@/types';
 
 type ScreenType = 'large' | 'left' | 'right' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
 
 export default function Home() {
-  const [streams, setStreams] = useState<Stream[]>([]);
+  const [streams, setStreams] = useState<StreamWithTeam[]>([]);
   const [activeSources, setActiveSources] = useState<Record<ScreenType, string | null>>({
     large: null,
     left: null,
