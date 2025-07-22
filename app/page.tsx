@@ -80,7 +80,9 @@ export default function Home() {
         activeRes.json()
       ]);
       
-      setStreams(streamsData);
+      // Handle both old and new API response formats
+      const streams = streamsData.success ? streamsData.data : streamsData;
+      setStreams(streams);
       setActiveSources(activeData);
     } catch (error) {
       console.error('Error fetching data:', error);
