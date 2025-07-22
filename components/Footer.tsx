@@ -82,7 +82,7 @@ export default function Footer() {
           {/* Connection Status */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className={`w-3 h-3 rounded-full ${obsStatus?.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'}`}></div>
               <div>
                 <h3 className="font-semibold">OBS Studio</h3>
                 <p className="text-sm opacity-60">
@@ -151,12 +151,12 @@ export default function Footer() {
 
                 <div className="flex gap-4 mt-4">
                   <div className={`flex items-center gap-2 ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
-                    <div className={`w-2 h-2 rounded-full ${obsStatus.streaming ? 'bg-red-500' : 'bg-gray-500'}`}></div>
+                    <div className={`status-dot ${obsStatus.streaming ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
                     <span className="text-sm">{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
                   </div>
                   
                   <div className={`flex items-center gap-2 ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
-                    <div className={`w-2 h-2 rounded-full ${obsStatus.recording ? 'bg-red-500' : 'bg-gray-500'}`}></div>
+                    <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
                     <span className="text-sm">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
                   </div>
                 </div>
