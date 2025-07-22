@@ -2,17 +2,16 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { Stream } from '@/types';
 import { TABLE_NAMES } from '../../../lib/constants';
+import { createSuccessResponse, createDatabaseError, withErrorHandling } from '../../../lib/apiHelpers';
 
-export async function GET() {
-try {
+async function getStreamsHandler() {
+  try {
     const db = await getDatabase();
     const streams: Stream[] = await db.all(`SELECT * FROM ${TABLE_NAMES.STREAMS}`);
-    return NextResponse.json(streams);
-} catch (error) {
-    console.error('Error fetching streams:', error);
-    return NextResponse.json(
-    { error: 'Failed to fetch streams' },
-    { status: 500 }
-    );
+    return createSuccessResponse(streams);
+  } catch (error) {
+    return createDatabaseError('fetch streams', error);
+  }
 }
-}
+
+export const GET = withErrorHandling(getStreamsHandler);

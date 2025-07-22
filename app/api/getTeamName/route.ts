@@ -1,38 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
+import { TABLE_NAMES } from '../../../lib/constants';
+import { createErrorResponse, createSuccessResponse, createDatabaseError, withErrorHandling } from '../../../lib/apiHelpers';
 
-export async function GET(request: NextRequest) {
+async function getTeamNameHandler(request: NextRequest) {
+  // Extract the team_id from the query string
+  const { searchParams } = new URL(request.url);
+  const teamId = searchParams.get('team_id');
+
+  if (!teamId) {
+    return createErrorResponse('Missing team_id', 400, 'team_id parameter is required');
+  }
+
   try {
-    // Extract the team_id from the query string
-    const { searchParams } = new URL(request.url);
-    const teamId = searchParams.get('team_id');
-
-    if (!teamId) {
-      return NextResponse.json(
-        { error: 'Missing team_id' },
-        { status: 400 }
-      );
-    }
-
     const db = await getDatabase();
     const team = await db.get(
-      'SELECT team_name FROM teams_2025_spring_adr WHERE team_id = ?',
+      `SELECT team_name FROM ${TABLE_NAMES.TEAMS} WHERE team_id = ?`,
       [teamId]
     );
 
     if (!team) {
-      return NextResponse.json(
-        { error: 'Team not found' },
-        { status: 404 }
-      );
+      return createErrorResponse('Team not found', 404, `No team found with ID: ${teamId}`);
     }
 
-    return NextResponse.json({ team_name: team.team_name });
+    return createSuccessResponse({ team_name: team.team_name });
   } catch (error) {
-    console.error('Error fetching team name:', error instanceof Error ? error.message : String(error));
-    return NextResponse.json(
-      { error: 'Failed to fetch team name' },
-      { status: 500 }
-    );
+    return createDatabaseError('fetch team name', error);
   }
 }
+
+export const GET = withErrorHandling(getTeamNameHandler);

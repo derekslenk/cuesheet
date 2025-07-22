@@ -4,7 +4,7 @@ import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, cre
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 import path from 'path';
-import { getTableName, BASE_TABLE_NAMES } from '../../../lib/constants';
+import { getTableName, BASE_TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
 
 interface OBSClient {
     call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -18,15 +18,7 @@ inputName: string;
 interface GetInputListResponse {
 inputs: OBSInput[];
 }
-const screens = [
-  'ss_large',
-  'ss_left',
-  'ss_right',
-  'ss_top_left',
-  'ss_top_right',
-  'ss_bottom_left',
-  'ss_bottom_right',
-];
+const screens = SOURCE_SWITCHER_NAMES;
 
 async function fetchTeamInfo(teamId: number) {
   const FILE_DIRECTORY = path.resolve(process.env.FILE_DIRECTORY || './files');
