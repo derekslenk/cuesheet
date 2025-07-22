@@ -66,9 +66,37 @@ export default function AddStream() {
   }, [fetchData]);
 
 
+  const extractTwitchUsername = (input: string): string => {
+    const trimmed = input.trim();
+    
+    // If it's a URL, extract username
+    const urlPatterns = [
+      /^https?:\/\/(www\.)?twitch\.tv\/([a-zA-Z0-9_]+)\/?$/,
+      /^(www\.)?twitch\.tv\/([a-zA-Z0-9_]+)\/?$/,
+      /^twitch\.tv\/([a-zA-Z0-9_]+)\/?$/
+    ];
+    
+    for (const pattern of urlPatterns) {
+      const match = trimmed.match(pattern);
+      if (match) {
+        return match[match.length - 1]; // Last capture group is always the username
+      }
+    }
+    
+    // Otherwise assume it's just a username
+    return trimmed;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Special handling for twitch_username to extract from URL if needed
+    if (name === 'twitch_username') {
+      const username = extractTwitchUsername(value);
+      setFormData((prev) => ({ ...prev, [name]: username }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
     
     // Clear validation error when user starts typing
     if (validationErrors[name]) {
@@ -213,7 +241,7 @@ export default function AddStream() {
           {/* Twitch Username */}
           <div>
             <label className="block text-white font-semibold mb-3">
-              Twitch Username
+              Twitch Username or URL
             </label>
             <input
               type="text"
@@ -224,7 +252,7 @@ export default function AddStream() {
               className={`input ${
                 validationErrors.twitch_username ? 'border-red-500/60 bg-red-500/10' : ''
               }`}
-              placeholder="Enter Twitch username"
+              placeholder="Enter username or paste full Twitch URL (e.g., 'streamer' or 'https://twitch.tv/streamer')"
             />
             {validationErrors.twitch_username && (
               <div className="text-red-400 text-sm mt-2">
