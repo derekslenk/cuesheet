@@ -27,15 +27,25 @@ interface GetSceneListResponse {
 
 export async function GET() {
   try {
-    // Get teams from database
+    // Get teams and streams from database
     const db = await getDatabase();
     const teams = await db.all(`SELECT team_id, team_name, group_name, group_uuid FROM ${TABLE_NAMES.TEAMS} WHERE group_name IS NOT NULL OR group_uuid IS NOT NULL`);
+    const streams = await db.all(`
+      SELECT s.*, t.team_name, t.group_name as team_group_name 
+      FROM ${TABLE_NAMES.STREAMS} s 
+      LEFT JOIN ${TABLE_NAMES.TEAMS} t ON s.team_id = t.team_id
+    `);
     
     // Get scenes (groups) from OBS
     const obs = await getOBSClient();
     const response = await obs.call('GetSceneList');
     const obsData = response as GetSceneListResponse;
     const obsScenes = obsData.scenes;
+    
+    // Helper function to clean OBS names (matching obsClient.js logic)
+    const cleanObsName = (name: string): string => {
+      return name.toLowerCase().replace(/\s+/g, '_');
+    };
     
     // Compare database groups with OBS scenes using both UUID and name
     const verification = teams.map(team => {
@@ -75,17 +85,42 @@ export async function GET() {
       };
     });
     
+    // Generate expected stream scene names based on the database
+    const expectedStreamScenes = streams.map(stream => {
+      if (stream.team_group_name) {
+        const cleanGroupName = cleanObsName(stream.team_group_name);
+        const cleanStreamName = cleanObsName(stream.name);
+        return `${cleanGroupName}_${cleanStreamName}_stream`;
+      }
+      return null;
+    }).filter(Boolean);
+    
+    // Check for orphaned scenes - scenes that exist in OBS but aren't in our database
+    const orphanedScenes = obsScenes.filter(scene => {
+      // Check if it's a team scene
+      const isTeamScene = teams.some(team => 
+        team.group_uuid === scene.sceneUuid || team.group_name === scene.sceneName
+      );
+      
+      // Check if it's an expected stream scene
+      const isStreamScene = expectedStreamScenes.includes(scene.sceneName);
+      
+      // Check if it's a system scene
+      const isSystemScene = SYSTEM_SCENES.includes(scene.sceneName);
+      
+      // It's orphaned if it's none of the above
+      return !isTeamScene && !isStreamScene && !isSystemScene;
+    });
+    
     return NextResponse.json({
       success: true,
       data: {
         teams_with_groups: verification,
         obs_scenes: obsScenes.map(s => ({ name: s.sceneName, uuid: s.sceneUuid })),
+        expected_stream_scenes: expectedStreamScenes,
         missing_in_obs: verification.filter(team => !team.exists_in_obs),
         name_mismatches: verification.filter(team => team.name_changed),
-        orphaned_in_obs: obsScenes.filter(scene => 
-          !teams.some(team => team.group_uuid === scene.sceneUuid || team.group_name === scene.sceneName) &&
-          !SYSTEM_SCENES.includes(scene.sceneName)
-        ).map(s => ({ name: s.sceneName, uuid: s.sceneUuid }))
+        orphaned_in_obs: orphanedScenes.map(s => ({ name: s.sceneName, uuid: s.sceneUuid }))
       }
     });
     
