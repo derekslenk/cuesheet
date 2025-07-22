@@ -19,8 +19,14 @@ type OBSStatus = {
   error?: string;
 };
 
+type Counts = {
+  streams: number;
+  teams: number;
+};
+
 export default function Footer() {
   const [obsStatus, setObsStatus] = useState<OBSStatus | null>(null);
+  const [counts, setCounts] = useState<Counts | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Smart polling with performance monitoring and visibility detection
@@ -40,9 +46,24 @@ export default function Footer() {
     }
   };
 
+  const fetchCounts = async () => {
+    try {
+      const response = await fetch('/api/counts');
+      const data = await response.json();
+      // Handle both old and new API response formats
+      const countsData = data.success ? data.data : data;
+      setCounts(countsData);
+    } catch (error) {
+      console.error('Failed to fetch counts:', error);
+    }
+  };
+
   // Use smart polling that respects page visibility and adapts interval based on connection status
   const pollingInterval = obsStatus?.connected ? 15000 : 30000; // Poll faster when connected
   useSmartPolling(fetchOBSStatus, pollingInterval, [obsStatus?.connected]);
+  
+  // Poll counts less frequently (every 60 seconds) since they don't change as often
+  useSmartPolling(fetchCounts, 60000, []);
 
   if (isLoading) {
     return (
@@ -60,29 +81,58 @@ export default function Footer() {
         <div className="grid-2">
           {/* Connection Status */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-3 h-3 rounded-full ${obsStatus?.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <div>
-                <h3 className="font-semibold">OBS Studio</h3>
-                <p className="text-sm opacity-60">
-                  {obsStatus?.connected ? 'Connected' : 'Disconnected'}
-                </p>
-              </div>
+            <h3 className="font-semibold mb-4">OBS Studio</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'}`}></div>
+              <span className="text-sm">
+                {obsStatus?.connected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
             
             {obsStatus && (
               <div className="text-sm opacity-80">
                 <div>{obsStatus.host}:{obsStatus.port}</div>
                 {obsStatus.hasPassword && <div>🔒 Authenticated</div>}
+                
+                {/* Streaming/Recording Status */}
+                {obsStatus.connected && (
+                  <div className="flex gap-4 mt-4">
+                    <div className={`flex items-center gap-2 ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
+                      <div className={`status-dot ${obsStatus.streaming ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
+                      <span className="text-sm">{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
+                    </div>
+                    
+                    <div className={`flex items-center gap-2 ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
+                      <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
+                      <span className="text-sm">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Live Status */}
-          {obsStatus?.connected && (
-            <div>
-              <h3 className="font-semibold mb-4">Live Status</h3>
-              
+          {/* Live Status or Database Stats */}
+          <div>
+            <h3 className="font-semibold mb-4">
+              {obsStatus?.connected ? 'Live Status' : 'Database Stats'}
+            </h3>
+            
+            {/* Show counts when OBS is disconnected */}
+            {!obsStatus?.connected && counts && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Teams:</span>
+                  <span className="font-medium">{counts.teams}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Streams:</span>
+                  <span className="font-medium">{counts.streams}</span>
+                </div>
+              </div>
+            )}
+            
+            {obsStatus?.connected && (
               <div className="space-y-2 text-sm">
                 {obsStatus.currentScene && (
                   <div className="flex justify-between">
@@ -98,20 +148,22 @@ export default function Footer() {
                   </div>
                 )}
 
-                <div className="flex gap-4 mt-4">
-                  <div className={`flex items-center gap-2 ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
-                    <div className={`w-2 h-2 rounded-full ${obsStatus.streaming ? 'bg-red-500' : 'bg-gray-500'}`}></div>
-                    <span className="text-sm">{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
-                  </div>
-                  
-                  <div className={`flex items-center gap-2 ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
-                    <div className={`w-2 h-2 rounded-full ${obsStatus.recording ? 'bg-red-500' : 'bg-gray-500'}`}></div>
-                    <span className="text-sm">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
-                  </div>
-                </div>
+                {/* Database counts */}
+                {counts && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Teams:</span>
+                      <span className="font-medium">{counts.teams}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Streams:</span>
+                      <span className="font-medium">{counts.streams}</span>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Error Message */}
