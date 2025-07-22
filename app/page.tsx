@@ -93,9 +93,9 @@ export default function Home() {
   const handleSetActive = useCallback(async (screen: ScreenType, id: number | null) => {
     const selectedStream = streams.find((stream) => stream.id === id);
 
-    // Generate stream group name for optimistic updates
+    // Generate stream group name for optimistic updates - must match obsClient.js format
     const streamGroupName = selectedStream 
-      ? `${selectedStream.name.toLowerCase().replace(/\s+/g, '_')}_stream`
+      ? `${selectedStream.team_name?.toLowerCase().replace(/\s+/g, '_') || 'unknown'}_${selectedStream.name.toLowerCase().replace(/\s+/g, '_')}_stream`
       : null;
 
     // Update local state immediately for optimistic updates
