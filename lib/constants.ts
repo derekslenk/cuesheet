@@ -40,3 +40,29 @@ export const TABLE_NAMES = {
     TEAMS: getTableName(BASE_TABLE_NAMES.TEAMS),
 } as const;
 
+// Screen position constants
+export const SCREEN_POSITIONS = [
+    'large',
+    'left', 
+    'right',
+    'topLeft',
+    'topRight',
+    'bottomLeft',
+    'bottomRight'
+] as const;
+
+export const SOURCE_SWITCHER_NAMES = [
+    'ss_large',
+    'ss_left', 
+    'ss_right',
+    'ss_top_left',
+    'ss_top_right',
+    'ss_bottom_left',
+    'ss_bottom_right'
+] as const;
+
+// OBS utility functions
+export function cleanObsName(name: string): string {
+    return name.toLowerCase().replace(/\s+/g, '_');
+}
+
