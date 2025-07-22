@@ -3,10 +3,11 @@
 A professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://github.com/exeldro/obs-source-switcher) with real-time WebSocket integration and modern glass morphism UI.
 
 
-![alt text](image.png)
+![Live Stream Manager Interface](docs/new_home.png)
 
 ## Features
 
+- **OBS Scene Control**: Switch between OBS layouts (1-Screen, 2-Screen, 4-Screen) with dynamic button states
 - **Multi-Screen Source Control**: Manage 7 different screen positions (large, left, right, and 4 corners)
 - **Real-time OBS Integration**: WebSocket connection with live status monitoring
 - **Enhanced Stream Management**: Create, edit, and delete streams with comprehensive OBS cleanup
@@ -144,6 +145,10 @@ npm run type-check   # TypeScript validation
   - Detects orphaned groups (excludes system scenes)
   - Identifies name mismatches
   - Shows sync status for all teams
+
+### OBS Scene Control
+- `POST /api/setScene` - Switch OBS to specified scene (1-Screen, 2-Screen, 4-Screen)
+- `GET /api/getCurrentScene` - Get currently active OBS scene
 
 ### System Status
 - `GET /api/obsStatus` - Real-time OBS connection, streaming, and recording status
