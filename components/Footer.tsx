@@ -50,9 +50,7 @@ export default function Footer() {
     try {
       const response = await fetch('/api/counts');
       const data = await response.json();
-      // Handle both old and new API response formats
-      const countsData = data.success ? data.data : data;
-      setCounts(countsData);
+      setCounts(data.data);
     } catch (error) {
       console.error('Failed to fetch counts:', error);
     }
