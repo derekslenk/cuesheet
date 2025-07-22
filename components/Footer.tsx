@@ -95,6 +95,21 @@ export default function Footer() {
               <div className="text-sm opacity-80">
                 <div>{obsStatus.host}:{obsStatus.port}</div>
                 {obsStatus.hasPassword && <div>🔒 Authenticated</div>}
+                
+                {/* Streaming/Recording Status */}
+                {obsStatus.connected && (
+                  <div className="flex gap-4 mt-4">
+                    <div className={`flex items-center gap-2 ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
+                      <div className={`status-dot ${obsStatus.streaming ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
+                      <span className="text-sm">{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
+                    </div>
+                    
+                    <div className={`flex items-center gap-2 ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
+                      <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
+                      <span className="text-sm">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -149,17 +164,6 @@ export default function Footer() {
                   </>
                 )}
 
-                <div className="flex gap-4 mt-4">
-                  <div className={`flex items-center gap-2 ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
-                    <div className={`status-dot ${obsStatus.streaming ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
-                    <span className="text-sm">{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
-                  </div>
-                  
-                  <div className={`flex items-center gap-2 ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
-                    <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
-                    <span className="text-sm">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
-                  </div>
-                </div>
               </div>
             )}
           </div>
