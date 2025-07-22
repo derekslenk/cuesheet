@@ -17,6 +17,8 @@ A professional [Next.js](https://nextjs.org) web application for managing live s
 - **Professional Broadcasting**: Audio routing, scene management, and live status indicators
 - **Dual Integration**: WebSocket API + text file monitoring for maximum compatibility
 - **UUID-based Tracking**: Robust OBS group synchronization with rename-safe tracking
+- **Enhanced Footer**: Real-time team/stream counts and OBS connection status
+- **Optimized Performance**: Reduced code duplication and standardized API responses
 
 ## Quick Start
 
