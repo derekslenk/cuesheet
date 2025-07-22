@@ -40,9 +40,8 @@ export default function AddStream() {
       const teamsData = await teamsResponse.json();
       const streamsData = await streamsResponse.json();
 
-      // Handle both old and new API response formats
-      const teams = teamsData.success ? teamsData.data : teamsData;
-      const streams = streamsData.success ? streamsData.data : streamsData;
+      const teams = teamsData.data;
+      const streams = streamsData.data;
 
       // Map the API data to the format required by the Dropdown
       setTeams(

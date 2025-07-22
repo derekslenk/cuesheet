@@ -7,17 +7,12 @@ import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
 import { useActiveSourceLookup, useDebounce, PerformanceMonitor } from '@/lib/performance';
 
-type Stream = {
-  id: number;
-  name: string;
-  obs_source_name: string;
-  url: string;
-};
+import { StreamWithTeam } from '@/types';
 
 type ScreenType = 'large' | 'left' | 'right' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
 
 export default function Home() {
-  const [streams, setStreams] = useState<Stream[]>([]);
+  const [streams, setStreams] = useState<StreamWithTeam[]>([]);
   const [activeSources, setActiveSources] = useState<Record<ScreenType, string | null>>({
     large: null,
     left: null,
@@ -80,8 +75,8 @@ export default function Home() {
         activeRes.json()
       ]);
       
-      setStreams(streamsData);
-      setActiveSources(activeData);
+      setStreams(streamsData.data);
+      setActiveSources(activeData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
       showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');
@@ -98,9 +93,9 @@ export default function Home() {
   const handleSetActive = useCallback(async (screen: ScreenType, id: number | null) => {
     const selectedStream = streams.find((stream) => stream.id === id);
 
-    // Generate stream group name for optimistic updates
+    // Generate stream group name for optimistic updates - must match obsClient.js format
     const streamGroupName = selectedStream 
-      ? `${selectedStream.name.toLowerCase().replace(/\s+/g, '_')}_stream`
+      ? `${selectedStream.team_name?.toLowerCase().replace(/\s+/g, '_') || 'unknown'}_${selectedStream.name.toLowerCase().replace(/\s+/g, '_')}_stream`
       : null;
 
     // Update local state immediately for optimistic updates

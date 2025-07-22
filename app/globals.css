@@ -40,6 +40,30 @@ body {
   line-height: 1.6;
 }
 
+/* Status Indicator Dots */
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.connected {
+  background-color: #859900; /* Solarized green */
+}
+
+.status-dot.disconnected {
+  background-color: #dc322f; /* Solarized red */
+}
+
+.status-dot.streaming {
+  background-color: #dc322f; /* Solarized red */
+}
+
+.status-dot.idle {
+  background-color: #586e75; /* Solarized base01 */
+}
+
 /* Glass Card Component */
 .glass {
   background: rgba(7, 54, 66, 0.4);
