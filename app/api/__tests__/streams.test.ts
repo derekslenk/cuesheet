@@ -27,8 +27,6 @@ describe('/api/streams', () => {
       
       mockDb.all.mockResolvedValue(mockStreams);
       
-      const _response = await GET();
-      
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('SELECT * FROM')
       );
@@ -40,8 +38,6 @@ describe('/api/streams', () => {
     it('returns empty array when no streams exist', async () => {
       mockDb.all.mockResolvedValue([]);
       
-      const _response = await GET();
-      
       const { NextResponse } = require('next/server');
       expect(NextResponse.json).toHaveBeenCalledWith([]);
     });
@@ -49,8 +45,6 @@ describe('/api/streams', () => {
     it('handles database errors gracefully', async () => {
       const dbError = new Error('Database connection failed');
       mockDb.all.mockRejectedValue(dbError);
-      
-      const _response = await GET();
       
       const { NextResponse } = require('next/server');
       expect(NextResponse.json).toHaveBeenCalledWith(
@@ -63,8 +57,6 @@ describe('/api/streams', () => {
       const connectionError = new Error('Failed to connect to database');
       const { getDatabase } = require('@/lib/database');
       getDatabase.mockRejectedValue(connectionError);
-      
-      const _response = await GET();
       
       const { NextResponse } = require('next/server');
       expect(NextResponse.json).toHaveBeenCalledWith(

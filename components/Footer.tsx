@@ -50,7 +50,9 @@ export default function Footer() {
     try {
       const response = await fetch('/api/counts');
       const data = await response.json();
-      setCounts(data.data);
+      // Handle both old and new API response formats
+      const countsData = data.success ? data.data : data;
+      setCounts(countsData);
     } catch (error) {
       console.error('Failed to fetch counts:', error);
     }
@@ -79,12 +81,14 @@ export default function Footer() {
         <div className="grid-2">
           {/* Connection Status */}
           <div>
-            <h3 className="font-semibold mb-4">OBS Studio</h3>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-3 mb-4">
               <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'}`}></div>
-              <span className="text-sm">
-                {obsStatus?.connected ? 'Connected' : 'Disconnected'}
-              </span>
+              <div>
+                <h3 className="font-semibold">OBS Studio</h3>
+                <p className="text-sm opacity-60">
+                  {obsStatus?.connected ? 'Connected' : 'Disconnected'}
+                </p>
+              </div>
             </div>
             
             {obsStatus && (

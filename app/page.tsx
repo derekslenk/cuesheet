@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link';
 import Dropdown from '@/components/Dropdown';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
@@ -75,8 +74,11 @@ export default function Home() {
         activeRes.json()
       ]);
       
-      setStreams(streamsData.data);
-      setActiveSources(activeData.data);
+      // Handle both old and new API response formats
+      const streams = streamsData.success ? streamsData.data : streamsData;
+      const activeSources = activeData.success ? activeData.data : activeData;
+      setStreams(streams);
+      setActiveSources(activeSources);
     } catch (error) {
       console.error('Error fetching data:', error);
       showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');

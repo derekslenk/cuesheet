@@ -32,7 +32,7 @@ describe('apiHelpers', () => {
 
   describe('createErrorResponse', () => {
     it('creates error response with default status 500', () => {
-      const _response = createErrorResponse('Test Error');
+      createErrorResponse('Test Error');
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -44,7 +44,7 @@ describe('apiHelpers', () => {
     });
 
     it('creates error response with custom status and message', () => {
-      const _response = createErrorResponse('Test Error', 400, 'Custom message', { detail: 'extra' });
+      createErrorResponse('Test Error', 400, 'Custom message', { detail: 'extra' });
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -81,7 +81,7 @@ describe('apiHelpers', () => {
   describe('createSuccessResponse', () => {
     it('creates success response with default status 200', () => {
       const data = { test: 'data' };
-      const _response = createSuccessResponse(data);
+      createSuccessResponse(data);
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -95,7 +95,7 @@ describe('apiHelpers', () => {
 
     it('creates success response with custom status', () => {
       const data = { id: 1, name: 'test' };
-      const _response = createSuccessResponse(data, 201);
+      createSuccessResponse(data, 201);
       
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
