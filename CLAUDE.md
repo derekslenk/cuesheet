@@ -205,6 +205,7 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 - **Audio Control**: Browser sources created with "Control Audio via OBS" enabled and auto-muted
 - **Visual Feedback**: Clear "View Stream" links with proper contrast for accessibility
 - **Team Association**: Streams organized under teams with proper naming conventions
+- **Active Source Detection**: Properly reads current active sources from text files on page load and navigation
 
 ### Team & Group Management
 - **UUID-based Tracking**: Robust OBS group synchronization using scene UUIDs
@@ -213,12 +214,13 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
   - Shared team text source
   - All associated stream scenes and sources
   - All browser sources with team prefix
-- **Sync Verification**: Real-time verification of database-OBS group synchronization
+- **Sync Verification**: Real-time verification of database-OBS group synchronization with system scene bypass
 - **Conflict Resolution**: UI actions to resolve sync issues (missing groups, name changes)
 - **Visual Indicators**: Clear status indicators for group linking and sync problems
   - 🆔 "Linked by UUID" - Group tracked by reliable UUID
   - 📝 "Name changed in OBS" - Group renamed in OBS, database needs update
   - ⚠️ "Not found in OBS" - Group in database but missing from OBS
+- **System Scene Protection**: Infrastructure scenes (1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies, Resources) excluded from orphaned cleanup
 
 ### User Experience Improvements
 - **Toast Notifications**: Real-time feedback for all operations (success/error/info)
@@ -227,13 +229,22 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 - **Responsive Design**: Mobile-friendly interface with glass morphism styling
 - **Loading States**: Clear indicators during API operations
 - **Error Recovery**: Graceful error handling with user-friendly messages
+- **Enhanced Footer**: Real-time team/stream counts, OBS connection status with visual indicators
+- **Optimistic Updates**: Immediate UI feedback with proper stream group name matching
+
+### OBS Integration Improvements
+- **Text Size**: Team name overlays use 96pt font for better visibility
+- **Color Display**: Fixed background color display (#002b4b) using proper ABGR format
+- **Standardized APIs**: All endpoints use consistent `{ success: true, data: [...] }` response format
+- **Performance Optimization**: Reduced code duplication and improved API response handling
 
 ### Developer Experience
 - **Type Safety**: Comprehensive TypeScript definitions throughout
-- **API Documentation**: Well-documented endpoints with clear parameter validation
+- **API Standardization**: Consistent response formats across all endpoints with proper error handling
 - **Migration Scripts**: Database migration tools for schema updates
 - **Security**: Input validation, sanitization, and secure API design
-- **Testing**: Comprehensive error handling and edge case management
+- **Performance Monitoring**: Smart polling with visibility detection and performance tracking
+- **Code Optimization**: Eliminated redundancies and consolidated common patterns
 
 ## Known Issues
 

@@ -38,13 +38,17 @@ export function useThrottle<T extends (...args: unknown[]) => unknown>(
 }
 
 // Memoized stream lookup utilities
-export function createStreamLookupMaps(streams: Array<{ id: number; obs_source_name: string; name: string }>) {
+export function createStreamLookupMaps(streams: Array<{ id: number; obs_source_name: string; name: string; team_name?: string; group_name?: string | null }>) {
   const sourceToIdMap = new Map<string, number>();
-  const idToStreamMap = new Map<number, { id: number; obs_source_name: string; name: string }>();
+  const idToStreamMap = new Map<number, { id: number; obs_source_name: string; name: string; team_name?: string; group_name?: string | null }>();
   
   streams.forEach(stream => {
     // Generate stream group name to match what's written to files
-    const streamGroupName = `${stream.name.toLowerCase().replace(/\s+/g, '_')}_stream`;
+    // Format: {team_name}_{stream_name}_stream (matching obsClient.js logic)
+    const cleanTeamName = stream.team_name ? stream.team_name.toLowerCase().replace(/\s+/g, '_') : 'unknown';
+    const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
+    const streamGroupName = `${cleanTeamName}_${cleanStreamName}_stream`;
+    
     sourceToIdMap.set(streamGroupName, stream.id);
     idToStreamMap.set(stream.id, stream);
   });
@@ -53,7 +57,7 @@ export function createStreamLookupMaps(streams: Array<{ id: number; obs_source_n
 }
 
 // Hook version for React components
-export function useStreamLookupMaps(streams: Array<{ id: number; obs_source_name: string; name: string }>) {
+export function useStreamLookupMaps(streams: Array<{ id: number; obs_source_name: string; name: string; team_name?: string; group_name?: string | null }>) {
   return useMemo(() => {
     return createStreamLookupMaps(streams);
   }, [streams]);
@@ -61,7 +65,7 @@ export function useStreamLookupMaps(streams: Array<{ id: number; obs_source_name
 
 // Efficient active source lookup
 export function useActiveSourceLookup(
-  streams: Array<{ id: number; obs_source_name: string; name: string }>,
+  streams: Array<{ id: number; obs_source_name: string; name: string; team_name?: string; group_name?: string | null }>,
   activeSources: Record<string, string | null>
 ) {
   const { sourceToIdMap } = useStreamLookupMaps(streams);
