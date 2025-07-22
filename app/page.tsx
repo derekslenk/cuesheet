@@ -81,7 +81,7 @@ export default function Home() {
       ]);
       
       setStreams(streamsData.data);
-      setActiveSources(activeData);
+      setActiveSources(activeData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
       showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');
