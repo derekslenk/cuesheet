@@ -64,7 +64,7 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
    - Glass morphism effects with proper backdrop blur
    - Distinctive active navigation states for clear wayfinding
 
-5. **Screen Position Management**: Seven distinct screen positions (large, left, right, topLeft, topRight, bottomLeft, bottomRight) with individual source control
+5. **Screen Position Management**: Seven distinct screen positions (large, left, right, top_left, top_right, bottom_left, bottom_right) with individual source control
 
 6. **Real-time Status Monitoring**: Footer component polls OBS status every 30 seconds showing connection, streaming, and recording status
 
@@ -73,6 +73,8 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
 8. **Toast Notification System**: User-friendly feedback system with success, error, and informational messages for all operations
 
 9. **Stream Deletion with Confirmation**: Safe deletion workflow that removes streams from both OBS and database with user confirmation prompts
+
+10. **OBS Scene Control**: Direct scene switching controls with dynamic state tracking and real-time synchronization between UI and OBS
 
 ### Environment Configuration
 - `FILE_DIRECTORY`: Directory for database and text files (default: ./files)
@@ -111,6 +113,10 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
 - `POST /api/createGroup` - Create OBS group from team and store UUID
 - `POST /api/syncGroups` - Synchronize all teams with OBS groups
 - `GET /api/verifyGroups` - Verify database groups exist in OBS with UUID tracking
+
+#### OBS Scene Control
+- `POST /api/setScene` - Switch OBS to specified scene layout (1-Screen, 2-Screen, 4-Screen)
+- `GET /api/getCurrentScene` - Get currently active OBS scene for state synchronization
 
 #### System Status
 - `GET /api/obsStatus` - Real-time OBS connection and streaming status
@@ -221,6 +227,16 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
   - 📝 "Name changed in OBS" - Group renamed in OBS, database needs update
   - ⚠️ "Not found in OBS" - Group in database but missing from OBS
 - **System Scene Protection**: Infrastructure scenes (1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies, Resources) excluded from orphaned cleanup
+
+### OBS Scene Control
+- **Dynamic Scene Switching**: Direct control of OBS scene layouts (1-Screen, 2-Screen, 4-Screen) from the main interface
+- **Real-time State Tracking**: Buttons dynamically show active/inactive states based on current OBS scene
+- **Visual State Indicators**: 
+  - Active buttons: Green/yellow gradient with "Active: X-Screen" text
+  - Inactive buttons: Blue/cyan gradient with "Switch to X-Screen" text
+- **Optimistic UI Updates**: Immediate visual feedback when switching scenes
+- **Glass Morphism Integration**: Scene buttons styled consistently with existing design system
+- **Toast Feedback**: Success/error notifications for scene switching operations
 
 ### User Experience Improvements
 - **Toast Notifications**: Real-time feedback for all operations (success/error/info)
