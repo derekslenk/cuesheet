@@ -1,6 +1,6 @@
 // Security utilities for input validation and sanitization
 
-export const VALID_SCREENS = ['large', 'left', 'right', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const;
+export const VALID_SCREENS = ['large', 'left', 'right', 'top_left', 'top_right', 'bottom_left', 'bottom_right'] as const;
 export type ValidScreen = typeof VALID_SCREENS[number];
 
 // Input validation functions

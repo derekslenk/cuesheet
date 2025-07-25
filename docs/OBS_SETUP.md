@@ -17,10 +17,10 @@ You must create **exactly 7 Source Switcher sources** in OBS with these specific
 | `ss_large` | Main/Large screen | `large.txt` |
 | `ss_left` | Left screen | `left.txt` |
 | `ss_right` | Right screen | `right.txt` |
-| `ss_top_left` | Top left corner | `topLeft.txt` |
-| `ss_top_right` | Top right corner | `topRight.txt` |
-| `ss_bottom_left` | Bottom left corner | `bottomLeft.txt` |
-| `ss_bottom_right` | Bottom right corner | `bottomRight.txt` |
+| `ss_top_left` | Top left corner | `top_left.txt` |
+| `ss_top_right` | Top right corner | `top_right.txt` |
+| `ss_bottom_left` | Bottom left corner | `bottom_left.txt` |
+| `ss_bottom_right` | Bottom right corner | `bottom_right.txt` |
 
 ## Setup Instructions
 

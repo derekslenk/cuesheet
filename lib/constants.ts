@@ -45,10 +45,10 @@ export const SCREEN_POSITIONS = [
     'large',
     'left', 
     'right',
-    'topLeft',
-    'topRight',
-    'bottomLeft',
-    'bottomRight'
+    'top_left',
+    'top_right',
+    'bottom_left',
+    'bottom_right'
 ] as const;
 
 export const SOURCE_SWITCHER_NAMES = [
