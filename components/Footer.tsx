@@ -13,9 +13,11 @@ type OBSStatus = {
     obsWebSocketVersion: string;
   };
   currentScene?: string;
+  currentPreviewScene?: string;
   sceneCount?: number;
   streaming?: boolean;
   recording?: boolean;
+  studioModeEnabled?: boolean;
   error?: string;
 };
 
@@ -96,7 +98,7 @@ export default function Footer() {
                 <div>{obsStatus.host}:{obsStatus.port}</div>
                 {obsStatus.hasPassword && <div>🔒 Authenticated</div>}
                 
-                {/* Streaming/Recording Status */}
+                {/* Streaming/Recording/Studio Mode Status */}
                 {obsStatus.connected && (
                   <div className="flex gap-4 mt-4">
                     <div className={`flex items-center gap-2 ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
@@ -107,6 +109,11 @@ export default function Footer() {
                     <div className={`flex items-center gap-2 ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
                       <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
                       <span className="text-sm">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
+                    </div>
+                    
+                    <div className={`flex items-center gap-2 ${obsStatus.studioModeEnabled ? 'text-yellow-400' : 'opacity-60'}`}>
+                      <div className={`status-dot ${obsStatus.studioModeEnabled ? 'connected' : 'idle'}`} style={{width: '8px', height: '8px'}}></div>
+                      <span className="text-sm">{obsStatus.studioModeEnabled ? 'STUDIO' : 'DIRECT'}</span>
                     </div>
                   </div>
                 )}
@@ -138,8 +145,15 @@ export default function Footer() {
               <div className="space-y-2 text-sm">
                 {obsStatus.currentScene && (
                   <div className="flex justify-between">
-                    <span>Scene:</span>
+                    <span>{obsStatus.studioModeEnabled ? 'Program:' : 'Scene:'}</span>
                     <span className="font-medium">{obsStatus.currentScene}</span>
+                  </div>
+                )}
+                
+                {obsStatus.studioModeEnabled && obsStatus.currentPreviewScene && (
+                  <div className="flex justify-between">
+                    <span>Preview:</span>
+                    <span className="font-medium text-yellow-400">{obsStatus.currentPreviewScene}</span>
                   </div>
                 )}
                 
