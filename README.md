@@ -7,19 +7,22 @@ A professional [Next.js](https://nextjs.org) web application for managing live s
 
 ## Features
 
+- **Studio Mode Support**: Full preview/program scene management with transition controls for professional broadcasting
 - **OBS Scene Control**: Switch between OBS layouts (1-Screen, 2-Screen, 4-Screen) with dynamic button states
 - **Multi-Screen Source Control**: Manage 7 different screen positions (large, left, right, and 4 corners)
 - **Real-time OBS Integration**: WebSocket connection with live status monitoring
 - **Enhanced Stream Management**: Create, edit, and delete streams with comprehensive OBS cleanup
 - **Team Organization**: Organize streams by teams with full CRUD operations and scene synchronization
+- **Collapsible Stream Groups**: Organized stream display with expandable team groups for better UI management
 - **Comprehensive Deletion**: Remove streams/teams with complete OBS component cleanup (scenes, sources, text files)
 - **Audio Control**: Browser sources created with muted audio and OBS control enabled
 - **Modern UI**: Glass morphism design with responsive layout and accessibility features
 - **Professional Broadcasting**: Audio routing, scene management, and live status indicators
 - **Dual Integration**: WebSocket API + text file monitoring for maximum compatibility
 - **UUID-based Tracking**: Robust OBS group synchronization with rename-safe tracking
-- **Enhanced Footer**: Real-time team/stream counts and OBS connection status
-- **Optimized Performance**: Reduced code duplication and standardized API responses
+- **Enhanced Footer**: Real-time team/stream counts, OBS connection status, and studio mode indicators
+- **API Security**: Optional API key authentication for production deployments
+- **Optimized Performance**: Consolidated CSS architecture and standardized API responses
 
 ## Quick Start
 
@@ -109,54 +112,22 @@ npm run type-check   # TypeScript validation
 - **Styling**: Custom CSS with glass morphism and Tailwind utilities
 - **CI/CD**: Forgejo workflows with self-hosted runners
 
-## API Endpoints
+## API Documentation
 
-### Stream Management
-- `GET /api/streams` - List all streams with team information
-- `GET /api/streams/[id]` - Get individual stream details
-- `POST /api/addStream` - Create new stream with browser source and team association
-- `PUT /api/streams/[id]` - Update stream information
-- `DELETE /api/streams/[id]` - Delete stream with comprehensive OBS cleanup:
-  - Removes stream's nested scene
-  - Deletes browser source
-  - Removes from all source switchers
-  - Clears text files referencing the stream
+The application provides a comprehensive REST API for managing streams, teams, and OBS integration. 
 
-### Source Control
-- `POST /api/setActive` - Set active stream for screen position (writes team-prefixed name to text file)
-- `GET /api/getActive` - Get currently active sources for all screen positions
+**📚 [Complete API Documentation](docs/API.md)**
 
-### Team Management
-- `GET /api/teams` - Get all teams with group information and sync status
-- `POST /api/teams` - Create new team with optional OBS scene creation
-- `PUT /api/teams/[teamId]` - Update team name, group_name, or group_uuid
-- `DELETE /api/teams/[teamId]` - Delete team with comprehensive OBS cleanup:
-  - Deletes team scene/group
-  - Removes team text source
-  - Deletes all associated stream scenes
-  - Removes all browser sources with team prefix
-  - Clears all related text files
-- `GET /api/getTeamName` - Get team name by ID
+Key endpoints include:
+- Stream management (CRUD operations)
+- Source control for 7 screen positions  
+- Team and OBS group management
+- Scene switching and studio mode controls
+- Real-time status monitoring
 
-### OBS Group/Scene Management
-- `POST /api/createGroup` - Create OBS scene from team and store UUID
-- `POST /api/syncGroups` - Synchronize all teams with OBS groups
-- `GET /api/verifyGroups` - Verify database groups exist in OBS with UUID tracking
-  - Detects orphaned groups (excludes system scenes)
-  - Identifies name mismatches
-  - Shows sync status for all teams
+All endpoints support API key authentication for production deployments.
 
-### OBS Scene Control
-- `POST /api/setScene` - Switch OBS to specified scene (1-Screen, 2-Screen, 4-Screen)
-- `GET /api/getCurrentScene` - Get currently active OBS scene
-
-### System Status
-- `GET /api/obsStatus` - Real-time OBS connection, streaming, and recording status
-
-### Authentication
-All endpoints require API key authentication when `API_KEY` environment variable is set.
-
-See `CLAUDE.md` for detailed architecture documentation and implementation details.
+See [`CLAUDE.md`](CLAUDE.md) for detailed architecture documentation and [`docs/API.md`](docs/API.md) for complete endpoint specifications.
 
 ## Known Issues
 
@@ -167,7 +138,7 @@ See `CLAUDE.md` for detailed architecture documentation and implementation detai
 
 ### System Scene Exclusion
 Infrastructure scenes containing source switchers are excluded from orphaned group detection:
-- 1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies
+- 1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies, Resources
 - Additional scenes can be added to the `SYSTEM_SCENES` array in `/app/api/verifyGroups/route.ts`
 
 

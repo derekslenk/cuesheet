@@ -23,10 +23,11 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
 
 ### Technology Stack
 - **Frontend**: Next.js 15.1.6 with React 19, TypeScript, and custom CSS with glass morphism design
-- **Backend**: Next.js API routes
+- **Backend**: Next.js API routes with authentication middleware
 - **Database**: SQLite with sqlite3 driver
 - **OBS Integration**: obs-websocket-js for WebSocket communication with OBS Studio
-- **Styling**: Solarized Dark theme with CSS custom properties, Tailwind CSS utilities, and accessible glass morphism components
+- **Styling**: Consolidated CSS architecture with Solarized Dark theme, CSS custom properties, Tailwind CSS utilities, and accessible glass morphism components
+- **Security**: API key authentication middleware for production deployments
 
 ### Project Structure
 - `/app` - Next.js App Router pages and API routes
@@ -34,7 +35,8 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
   - `/streams` - Streams management page (add new streams and view existing)
   - `/teams` - Team management page
   - `/edit/[id]` - Individual stream editing
-- `/components` - Reusable React components (Header, Footer, Dropdown, Toast)
+- `/components` - Reusable React components (Header, Footer, Dropdown, Toast, CollapsibleGroup)
+- `/middleware.ts` - API authentication middleware for security
 - `/lib` - Core utilities and database connection
   - `database.ts` - SQLite database initialization and connection management
   - `obsClient.js` - OBS WebSocket client with persistent connection management
@@ -75,6 +77,10 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
 9. **Stream Deletion with Confirmation**: Safe deletion workflow that removes streams from both OBS and database with user confirmation prompts
 
 10. **OBS Scene Control**: Direct scene switching controls with dynamic state tracking and real-time synchronization between UI and OBS
+
+11. **Studio Mode Support**: Full preview/program scene management with transition controls for professional broadcasting
+
+12. **Collapsible Stream Groups**: Organized stream display with expandable team groups for better UI management
 
 ### Environment Configuration
 - `FILE_DIRECTORY`: Directory for database and text files (default: ./files)
@@ -117,9 +123,10 @@ This is a Next.js web application (branded as "Live Stream Manager") that contro
 #### OBS Scene Control
 - `POST /api/setScene` - Switch OBS to specified scene layout (1-Screen, 2-Screen, 4-Screen)
 - `GET /api/getCurrentScene` - Get currently active OBS scene for state synchronization
+- `POST /api/triggerTransition` - Trigger studio mode transition from preview to program (requires studio mode enabled)
 
 #### System Status
-- `GET /api/obsStatus` - Real-time OBS connection and streaming status
+- `GET /api/obsStatus` - Real-time OBS connection, streaming, recording, and studio mode status
 
 ### Database Schema
 
@@ -188,6 +195,9 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 ### Security Architecture
 
 **Authentication**: API key-based authentication protects all API endpoints through Next.js middleware
+- Middleware intercepts all API requests when `API_KEY` is set
+- Bypasses authentication for localhost in development
+- Returns 401 for unauthorized requests
 
 **Input Validation**: Comprehensive validation using centralized security utilities in `/lib/security.ts`:
 - Screen parameter allowlisting prevents path traversal attacks
@@ -212,6 +222,8 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 - **Visual Feedback**: Clear "View Stream" links with proper contrast for accessibility
 - **Team Association**: Streams organized under teams with proper naming conventions
 - **Active Source Detection**: Properly reads current active sources from text files on page load and navigation
+- **Collapsible Organization**: Streams grouped by team in expandable sections for cleaner UI
+- **Enhanced Stream Display**: Shows stream status with preview/program indicators in studio mode
 
 ### Team & Group Management
 - **UUID-based Tracking**: Robust OBS group synchronization using scene UUIDs
@@ -247,12 +259,15 @@ See [OBS Setup Guide](./docs/OBS_SETUP.md) for detailed configuration instructio
 - **Error Recovery**: Graceful error handling with user-friendly messages
 - **Enhanced Footer**: Real-time team/stream counts, OBS connection status with visual indicators
 - **Optimistic Updates**: Immediate UI feedback with proper stream group name matching
+- **Studio Mode Status**: Footer displays studio mode state with preview/program scene information
+- **Transition Controls**: "Cut to Preview" button available when studio mode is active
 
 ### OBS Integration Improvements
 - **Text Size**: Team name overlays use 96pt font for better visibility
 - **Color Display**: Fixed background color display (#002b4b) using proper ABGR format
 - **Standardized APIs**: All endpoints use consistent `{ success: true, data: [...] }` response format
 - **Performance Optimization**: Reduced code duplication and improved API response handling
+- **CSS Consolidation**: Eliminated repetitive styles, centralized theming in globals.css
 
 ### Developer Experience
 - **Type Safety**: Comprehensive TypeScript definitions throughout
