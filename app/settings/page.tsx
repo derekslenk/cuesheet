@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useApiKey } from '@/contexts/ApiKeyContext';
 
 export default function SettingsPage() {
-  const { apiKey, setApiKey, clearApiKey, isAuthenticated } = useApiKey();
+  const { setApiKey, clearApiKey, isAuthenticated } = useApiKey();
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -62,7 +62,7 @@ export default function SettingsPage() {
             <h2 className="text-xl font-semibold text-white mb-4">API Key Authentication</h2>
             <p className="text-base1 mb-6">
               API keys are required when accessing this application from external networks. 
-              The key is stored securely in your browser's local storage.
+              The key is stored securely in your browser&apos;s local storage.
             </p>
           </div>
 
