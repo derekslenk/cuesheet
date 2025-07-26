@@ -1,4 +1,4 @@
-import { GET } from '../teams/route';
+// import { GET } from '../teams/route';
 
 // Mock the database module
 jest.mock('@/lib/database', () => ({
@@ -13,7 +13,7 @@ jest.mock('@/lib/apiHelpers', () => ({
     status,
     json: async () => ({ success: true, data }),
   })),
-  createDatabaseError: jest.fn((operation, error) => ({
+  createDatabaseError: jest.fn((operation) => ({
     error: 'Database Error',
     status: 500,
     json: async () => ({ 

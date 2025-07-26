@@ -32,16 +32,30 @@ export async function POST(request: NextRequest) {
     try {
       const obsClient = await getOBSClient();
       
-      // Switch to the requested scene
-      await obsClient.call('SetCurrentProgramScene', { sceneName });
+      // Check if studio mode is active
+      const { studioModeEnabled } = await obsClient.call('GetStudioModeEnabled');
       
-      console.log(`Successfully switched to scene: ${sceneName}`);
-      
-      return NextResponse.json({
-        success: true,
-        data: { sceneName },
-        message: `Switched to ${sceneName} layout`
-      });
+      if (studioModeEnabled) {
+        // In studio mode, switch the preview scene
+        await obsClient.call('SetCurrentPreviewScene', { sceneName });
+        console.log(`Successfully switched preview to scene: ${sceneName} (Studio Mode)`);
+        
+        return NextResponse.json({
+          success: true,
+          data: { sceneName, studioMode: true },
+          message: `Preview set to ${sceneName} layout (Studio Mode) - ready to transition`
+        });
+      } else {
+        // Normal mode, switch program scene directly
+        await obsClient.call('SetCurrentProgramScene', { sceneName });
+        console.log(`Successfully switched to scene: ${sceneName}`);
+        
+        return NextResponse.json({
+          success: true,
+          data: { sceneName, studioMode: false },
+          message: `Switched to ${sceneName} layout`
+        });
+      }
     } catch (obsError) {
       console.error('OBS WebSocket error:', obsError);
       return NextResponse.json(

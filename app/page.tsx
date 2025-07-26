@@ -19,6 +19,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [currentScene, setCurrentScene] = useState<string | null>(null);
+  const [currentPreviewScene, setCurrentPreviewScene] = useState<string | null>(null);
+  const [studioModeEnabled, setStudioModeEnabled] = useState<boolean>(false);
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
   // Memoized active source lookup for performance
@@ -59,17 +61,19 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     const endTimer = PerformanceMonitor.startTimer('fetchData');
     try {
-      // Fetch streams, active sources, and current scene in parallel
-      const [streamsRes, activeRes, sceneRes] = await Promise.all([
+      // Fetch streams, active sources, current scene, and OBS status in parallel
+      const [streamsRes, activeRes, sceneRes, obsStatusRes] = await Promise.all([
         fetch('/api/streams'),
         fetch('/api/getActive'),
-        fetch('/api/getCurrentScene')
+        fetch('/api/getCurrentScene'),
+        fetch('/api/obsStatus')
       ]);
       
-      const [streamsData, activeData, sceneData] = await Promise.all([
+      const [streamsData, activeData, sceneData, obsStatusData] = await Promise.all([
         streamsRes.json(),
         activeRes.json(),
-        sceneRes.json()
+        sceneRes.json(),
+        obsStatusRes.json()
       ]);
       
       // Handle both old and new API response formats
@@ -80,6 +84,15 @@ export default function Home() {
       setStreams(streams);
       setActiveSources(activeSources);
       setCurrentScene(sceneName);
+      
+      // Update studio mode and preview scene from OBS status
+      if (obsStatusData.connected) {
+        setStudioModeEnabled(obsStatusData.studioModeEnabled || false);
+        setCurrentPreviewScene(obsStatusData.currentPreviewScene || null);
+      } else {
+        setStudioModeEnabled(false);
+        setCurrentPreviewScene(null);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       showError('Failed to Load Data', 'Could not fetch streams. Please refresh the page.');
@@ -126,9 +139,16 @@ export default function Home() {
       const result = await response.json();
 
       if (result.success) {
-        // Update local state immediately for responsive UI
-        setCurrentScene(sceneName);
-        showSuccess('Scene Changed', `Switched to ${sceneName} layout`);
+        // Update local state based on studio mode
+        if (result.data.studioMode) {
+          // In studio mode, update preview scene
+          setCurrentPreviewScene(sceneName);
+          showSuccess('Preview Set', result.message);
+        } else {
+          // In normal mode, update program scene
+          setCurrentScene(sceneName);
+          showSuccess('Scene Changed', `Switched to ${sceneName} layout`);
+        }
       } else {
         throw new Error(result.error || 'Failed to switch scene');
       }
@@ -137,6 +157,86 @@ export default function Home() {
       showError('Scene Switch Failed', error instanceof Error ? error.message : 'Could not switch scene. Please try again.');
     }
   }, [showSuccess, showError]);
+
+  const handleTransition = useCallback(async () => {
+    try {
+      const response = await fetch('/api/triggerTransition', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update local state after successful transition
+        setCurrentScene(result.data.programScene);
+        setCurrentPreviewScene(result.data.previewScene);
+        showSuccess('Transition Complete', 'Successfully transitioned preview to program');
+        
+        // Refresh data to ensure UI is in sync
+        fetchData();
+      } else {
+        throw new Error(result.error || 'Failed to trigger transition');
+      }
+    } catch (error) {
+      console.error('Error triggering transition:', error);
+      showError('Transition Failed', error instanceof Error ? error.message : 'Could not trigger transition. Please try again.');
+    }
+  }, [showSuccess, showError, fetchData]);
+
+  // Helper function to get scene button state and styling
+  const getSceneButtonState = useCallback((sceneName: string) => {
+    const isProgram = currentScene === sceneName;
+    const isPreview = studioModeEnabled && currentPreviewScene === sceneName;
+    
+    if (studioModeEnabled) {
+      if (isProgram && isPreview) {
+        return {
+          isActive: true,
+          text: `Program & Preview: ${sceneName}`,
+          className: 'active',
+          showTransition: false
+        };
+      } else if (isProgram) {
+        return {
+          isActive: true,
+          text: `Program: ${sceneName}`,
+          className: 'active',
+          showTransition: false
+        };
+      } else if (isPreview) {
+        return {
+          isActive: true,
+          text: `Preview: ${sceneName}`,
+          className: 'btn-scene-preview',
+          showTransition: true
+        };
+      } else {
+        return {
+          isActive: false,
+          text: `Set Preview: ${sceneName}`,
+          className: '',
+          showTransition: false
+        };
+      }
+    } else {
+      // Normal mode
+      if (isProgram) {
+        return {
+          isActive: true,
+          text: `Active: ${sceneName}`,
+          className: 'active',
+          showTransition: false
+        };
+      } else {
+        return {
+          isActive: false,
+          text: `Switch to ${sceneName}`,
+          className: '',
+          showTransition: false
+        };
+      }
+    }
+  }, [currentScene, currentPreviewScene, studioModeEnabled]);
 
   // Memoized corner displays to prevent re-renders
   const cornerDisplays = useMemo(() => [
@@ -182,17 +282,29 @@ export default function Home() {
       <div className="glass p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title mb-0">Primary Display</h2>
-          <button
-            onClick={() => handleSceneSwitch('1-Screen')}
-            className={`btn ${currentScene === '1-Screen' ? 'active' : ''}`}
-            style={{
-              background: currentScene === '1-Screen' 
-                ? 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))'
-                : 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))'
-            }}
-          >
-            {currentScene === '1-Screen' ? 'Active: 1-Screen' : 'Switch to 1-Screen'}
-          </button>
+          <div className="flex">
+            {(() => {
+              const buttonState = getSceneButtonState('1-Screen');
+              return (
+                <>
+                  <button
+                    onClick={() => handleSceneSwitch('1-Screen')}
+                    className={`btn ${buttonState.className}`}
+                  >
+                    {buttonState.text}
+                  </button>
+                  {buttonState.showTransition && (
+                    <button
+                      onClick={handleTransition}
+                      className="btn btn-scene-transition ml-3"
+                    >
+                      Go Live
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
         <div className="max-w-md mx-auto">
           <Dropdown
@@ -210,17 +322,29 @@ export default function Home() {
       <div className="glass p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title mb-0">Side Displays</h2>
-          <button
-            onClick={() => handleSceneSwitch('2-Screen')}
-            className={`btn ${currentScene === '2-Screen' ? 'active' : ''}`}
-            style={{
-              background: currentScene === '2-Screen' 
-                ? 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))'
-                : 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))'
-            }}
-          >
-            {currentScene === '2-Screen' ? 'Active: 2-Screen' : 'Switch to 2-Screen'}
-          </button>
+          <div className="flex">
+            {(() => {
+              const buttonState = getSceneButtonState('2-Screen');
+              return (
+                <>
+                  <button
+                    onClick={() => handleSceneSwitch('2-Screen')}
+                    className={`btn ${buttonState.className}`}
+                  >
+                    {buttonState.text}
+                  </button>
+                  {buttonState.showTransition && (
+                    <button
+                      onClick={handleTransition}
+                      className="btn btn-scene-transition ml-3"
+                    >
+                      Go Live
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
         <div className="grid-2">
           <div>
@@ -252,17 +376,29 @@ export default function Home() {
       <div className="glass p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title mb-0">Corner Displays</h2>
-          <button
-            onClick={() => handleSceneSwitch('4-Screen')}
-            className={`btn ${currentScene === '4-Screen' ? 'active' : ''}`}
-            style={{
-              background: currentScene === '4-Screen' 
-                ? 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))'
-                : 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))'
-            }}
-          >
-            {currentScene === '4-Screen' ? 'Active: 4-Screen' : 'Switch to 4-Screen'}
-          </button>
+          <div className="flex">
+            {(() => {
+              const buttonState = getSceneButtonState('4-Screen');
+              return (
+                <>
+                  <button
+                    onClick={() => handleSceneSwitch('4-Screen')}
+                    className={`btn ${buttonState.className}`}
+                  >
+                    {buttonState.text}
+                  </button>
+                  {buttonState.showTransition && (
+                    <button
+                      onClick={handleTransition}
+                      className="btn btn-scene-transition ml-3"
+                    >
+                      Go Live
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
         <div className="grid-4">
           {cornerDisplays.map(({ screen, label }) => (

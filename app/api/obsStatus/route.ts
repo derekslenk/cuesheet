@@ -19,9 +19,11 @@ export async function GET() {
         obsWebSocketVersion: string;
       };
       currentScene?: string;
+      currentPreviewScene?: string;
       sceneCount?: number;
       streaming?: boolean;
       recording?: boolean;
+      studioModeEnabled?: boolean;
       error?: string;
     } = {
       host: OBS_HOST,
@@ -58,15 +60,31 @@ export async function GET() {
       // Get recording status
       const recordStatus = await obs.call('GetRecordStatus');
       
+      // Get studio mode status
+      const studioModeStatus = await obs.call('GetStudioModeEnabled');
+      
+      // Get preview scene if studio mode is enabled
+      let currentPreviewScene;
+      if (studioModeStatus.studioModeEnabled) {
+        try {
+          const previewSceneInfo = await obs.call('GetCurrentPreviewScene');
+          currentPreviewScene = previewSceneInfo.sceneName;
+        } catch (previewError) {
+          console.log('Could not get preview scene:', previewError);
+        }
+      }
+      
       connectionStatus.connected = true;
       connectionStatus.version = {
         obsVersion: versionInfo.obsVersion,
         obsWebSocketVersion: versionInfo.obsWebSocketVersion
       };
       connectionStatus.currentScene = currentSceneInfo.sceneName;
+      connectionStatus.currentPreviewScene = currentPreviewScene;
       connectionStatus.sceneCount = sceneList.scenes.length;
       connectionStatus.streaming = streamStatus.outputActive;
       connectionStatus.recording = recordStatus.outputActive;
+      connectionStatus.studioModeEnabled = studioModeStatus.studioModeEnabled;
       
     } catch (err) {
       connectionStatus.error = err instanceof Error ? err.message : 'Unknown error occurred';

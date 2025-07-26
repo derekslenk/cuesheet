@@ -1,14 +1,13 @@
 // API client utility for making authenticated requests
 
-// Get API key from environment (client-side will need to be provided differently)
+// Get API key from environment or localStorage
 function getApiKey(): string | null {
   if (typeof window === 'undefined') {
     // Server-side
     return process.env.API_KEY || null;
   } else {
-    // Client-side - for now, return null to bypass auth in development
-    // In production, this would come from a secure storage or context
-    return null;
+    // Client-side - get from localStorage
+    return localStorage.getItem('obs-api-key') || null;
   }
 }
 

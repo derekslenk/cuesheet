@@ -63,7 +63,7 @@ function generateOBSSourceName(teamSceneName: string, streamName: string): strin
 }
 
 export async function POST(request: NextRequest) {
-  let name: string, url: string, team_id: number, obs_source_name: string;
+  let name: string, url: string, team_id: number, obs_source_name: string, lockSources: boolean;
 
   // Parse and validate request body
   try {
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     ({ name, url, team_id } = validation.data!);
+    lockSources = body.lockSources !== false; // Default to true if not specified
 
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     if (!sourceExists) {
       // Create stream group with text overlay
-      await createStreamGroup(groupName, name, teamInfo.team_name, url);
+      await createStreamGroup(groupName, name, teamInfo.team_name, url, lockSources);
       
       // Update team with group UUID if not set
       if (!teamInfo.group_uuid) {

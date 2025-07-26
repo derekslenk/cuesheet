@@ -1,4 +1,4 @@
-import { GET } from '../streams/route';
+// import { GET } from '../streams/route';
 
 // Mock the database module
 jest.mock('@/lib/database', () => ({

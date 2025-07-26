@@ -36,22 +36,27 @@ export default function PerformanceDashboard() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      {!isVisible ? (
-        <button
-          onClick={() => setIsVisible(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg"
-          title="Show Performance Metrics"
-        >
-          📊 Perf
-        </button>
-      ) : (
-        <div className="bg-black/90 backdrop-blur-sm text-white rounded-lg p-4 max-w-md max-h-96 overflow-y-auto shadow-xl border border-white/20">
+    <>
+      {!isVisible && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <button
+            onClick={() => setIsVisible(true)}
+            className="btn text-sm"
+            title="Show Performance Metrics"
+          >
+            📊 Perf
+          </button>
+        </div>
+      )}
+      
+      {isVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="glass-panel p-6 max-w-md max-h-96 overflow-y-auto border border-base01 shadow-2xl">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold">Performance Metrics</h3>
+            <h3 className="text-lg font-semibold text-white">Performance Metrics</h3>
             <button
               onClick={() => setIsVisible(false)}
-              className="text-white/60 hover:text-white text-xl leading-none"
+              className="text-base1 hover:text-white text-xl leading-none transition-colors"
               title="Close"
             >
               ×
@@ -59,33 +64,33 @@ export default function PerformanceDashboard() {
           </div>
           
           {Object.keys(metrics).length === 0 ? (
-            <p className="text-white/60 text-sm">No metrics collected yet.</p>
+            <p className="text-base1 text-sm">No metrics collected yet.</p>
           ) : (
             <div className="space-y-3">
               {Object.entries(metrics).map(([label, metric]) => {
                 if (!metric) return null;
                 
                 return (
-                  <div key={label} className="bg-white/5 rounded p-3">
-                    <h4 className="font-medium text-blue-300 text-sm mb-2">
+                  <div key={label} className="glass-panel p-3 border border-base01">
+                    <h4 className="font-medium text-blue text-sm mb-2">
                       {label.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </h4>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <span className="text-white/60">Avg:</span>{' '}
-                        <span className="text-green-400">{metric.avg.toFixed(2)}ms</span>
+                        <span className="text-base1">Avg:</span>{' '}
+                        <span className="text-green">{metric.avg.toFixed(2)}ms</span>
                       </div>
                       <div>
-                        <span className="text-white/60">Count:</span>{' '}
-                        <span className="text-blue-400">{metric.count}</span>
+                        <span className="text-base1">Count:</span>{' '}
+                        <span className="text-blue">{metric.count}</span>
                       </div>
                       <div>
-                        <span className="text-white/60">Min:</span>{' '}
-                        <span className="text-green-400">{metric.min.toFixed(2)}ms</span>
+                        <span className="text-base1">Min:</span>{' '}
+                        <span className="text-green">{metric.min.toFixed(2)}ms</span>
                       </div>
                       <div>
-                        <span className="text-white/60">Max:</span>{' '}
-                        <span className={metric.max > 100 ? 'text-red-400' : 'text-yellow-400'}>
+                        <span className="text-base1">Max:</span>{' '}
+                        <span className={metric.max > 100 ? 'text-red' : 'text-yellow'}>
                           {metric.max.toFixed(2)}ms
                         </span>
                       </div>
@@ -96,11 +101,11 @@ export default function PerformanceDashboard() {
                       <div className="flex items-center gap-2">
                         <div 
                           className={`w-2 h-2 rounded-full ${
-                            metric.avg < 50 ? 'bg-green-500' :
-                            metric.avg < 100 ? 'bg-yellow-500' : 'bg-red-500'
+                            metric.avg < 50 ? 'bg-green' :
+                            metric.avg < 100 ? 'bg-yellow' : 'bg-red'
                           }`}
                         />
-                        <span className="text-xs text-white/60">
+                        <span className="text-xs text-base1">
                           {metric.avg < 50 ? 'Excellent' :
                            metric.avg < 100 ? 'Good' : 'Needs Optimization'}
                         </span>
@@ -111,11 +116,11 @@ export default function PerformanceDashboard() {
               })}
               
               {/* Performance tips */}
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded p-3 mt-4">
-                <h4 className="font-medium text-yellow-300 text-sm mb-2">
+              <div className="glass-panel p-3 mt-4 border border-yellow/30">
+                <h4 className="font-medium text-yellow text-sm mb-2">
                   💡 Performance Tips
                 </h4>
-                <ul className="text-xs text-white/80 space-y-1">
+                <ul className="text-xs text-base1 space-y-1">
                   <li>• Keep API calls under 100ms for optimal UX</li>
                   <li>• Monitor fetchData and setActive timings</li>
                   <li>• High max values indicate performance spikes</li>
@@ -124,8 +129,9 @@ export default function PerformanceDashboard() {
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
