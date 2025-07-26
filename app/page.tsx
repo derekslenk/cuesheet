@@ -193,28 +193,28 @@ export default function Home() {
         return {
           isActive: true,
           text: `Program & Preview: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))',
+          className: 'active',
           showTransition: false
         };
       } else if (isProgram) {
         return {
           isActive: true,
           text: `Program: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))',
+          className: 'active',
           showTransition: false
         };
       } else if (isPreview) {
         return {
           isActive: true,
           text: `Preview: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-yellow), var(--solarized-orange))',
+          className: 'btn-scene-preview',
           showTransition: true
         };
       } else {
         return {
           isActive: false,
           text: `Set Preview: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))',
+          className: '',
           showTransition: false
         };
       }
@@ -224,14 +224,14 @@ export default function Home() {
         return {
           isActive: true,
           text: `Active: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))',
+          className: 'active',
           showTransition: false
         };
       } else {
         return {
           isActive: false,
           text: `Switch to ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))',
+          className: '',
           showTransition: false
         };
       }
@@ -289,20 +289,14 @@ export default function Home() {
                 <>
                   <button
                     onClick={() => handleSceneSwitch('1-Screen')}
-                    className={`btn ${buttonState.isActive ? 'active' : ''}`}
-                    style={{ background: buttonState.background }}
+                    className={`btn ${buttonState.className}`}
                   >
                     {buttonState.text}
                   </button>
                   {buttonState.showTransition && (
                     <button
                       onClick={handleTransition}
-                      className="btn"
-                      style={{ 
-                        background: 'linear-gradient(135deg, var(--solarized-red), var(--solarized-magenta))',
-                        minWidth: '120px',
-                        marginLeft: '12px'
-                      }}
+                      className="btn btn-scene-transition ml-3"
                     >
                       Go Live
                     </button>
@@ -335,20 +329,14 @@ export default function Home() {
                 <>
                   <button
                     onClick={() => handleSceneSwitch('2-Screen')}
-                    className={`btn ${buttonState.isActive ? 'active' : ''}`}
-                    style={{ background: buttonState.background }}
+                    className={`btn ${buttonState.className}`}
                   >
                     {buttonState.text}
                   </button>
                   {buttonState.showTransition && (
                     <button
                       onClick={handleTransition}
-                      className="btn"
-                      style={{ 
-                        background: 'linear-gradient(135deg, var(--solarized-red), var(--solarized-magenta))',
-                        minWidth: '120px',
-                        marginLeft: '12px'
-                      }}
+                      className="btn btn-scene-transition ml-3"
                     >
                       Go Live
                     </button>
@@ -395,20 +383,14 @@ export default function Home() {
                 <>
                   <button
                     onClick={() => handleSceneSwitch('4-Screen')}
-                    className={`btn ${buttonState.isActive ? 'active' : ''}`}
-                    style={{ background: buttonState.background }}
+                    className={`btn ${buttonState.className}`}
                   >
                     {buttonState.text}
                   </button>
                   {buttonState.showTransition && (
                     <button
                       onClick={handleTransition}
-                      className="btn"
-                      style={{ 
-                        background: 'linear-gradient(135deg, var(--solarized-red), var(--solarized-magenta))',
-                        minWidth: '120px',
-                        marginLeft: '12px'
-                      }}
+                      className="btn btn-scene-transition ml-3"
                     >
                       Go Live
                     </button>

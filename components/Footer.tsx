@@ -86,7 +86,7 @@ export default function Footer() {
             <div className="mb-4">
               <h3 className="font-semibold mb-2">OBS Studio</h3>
               <div className="flex items-center">
-                <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'}`} style={{marginRight: '4px'}}></div>
+                <div className={`status-dot ${obsStatus?.connected ? 'connected' : 'disconnected'} mr-1`}></div>
                 <p className="text-sm opacity-60">
                   {obsStatus?.connected ? 'Connected' : 'Disconnected'}
                 </p>
@@ -102,17 +102,17 @@ export default function Footer() {
                 {obsStatus.connected && (
                   <div className="flex flex-wrap gap-6 mt-4">
                     <div className={`flex items-center ${obsStatus.streaming ? 'text-red-400' : 'opacity-60'}`}>
-                      <div className={`status-dot ${obsStatus.streaming ? 'streaming' : 'idle'}`} style={{width: '10px', height: '10px', marginRight: '4px'}}></div>
-                      <span className="text-sm font-medium" style={{marginRight: '8px'}}>{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
+                      <div className={`status-dot ${obsStatus.streaming ? 'streaming' : 'idle'} mr-1`} style={{width: '10px', height: '10px'}}></div>
+                      <span className="text-sm font-medium mr-2">{obsStatus.streaming ? 'LIVE' : 'OFFLINE'}</span>
                     </div>
                     
                     <div className={`flex items-center ${obsStatus.recording ? 'text-red-400' : 'opacity-60'}`}>
-                      <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'}`} style={{width: '10px', height: '10px', marginRight: '4px'}}></div>
-                      <span className="text-sm font-medium" style={{marginRight: '8px'}}>{obsStatus.recording ? 'REC' : 'IDLE'}</span>
+                      <div className={`status-dot ${obsStatus.recording ? 'streaming' : 'idle'} mr-1`} style={{width: '10px', height: '10px'}}></div>
+                      <span className="text-sm font-medium mr-2">{obsStatus.recording ? 'REC' : 'IDLE'}</span>
                     </div>
                     
                     <div className={`flex items-center ${obsStatus.studioModeEnabled ? 'text-yellow-400' : 'opacity-60'}`}>
-                      <div className={`status-dot ${obsStatus.studioModeEnabled ? 'connected' : 'idle'}`} style={{width: '10px', height: '10px', marginRight: '4px'}}></div>
+                      <div className={`status-dot ${obsStatus.studioModeEnabled ? 'connected' : 'idle'} mr-1`} style={{width: '10px', height: '10px'}}></div>
                       <span className="text-sm font-medium">{obsStatus.studioModeEnabled ? 'STUDIO' : 'DIRECT'}</span>
                     </div>
                   </div>
