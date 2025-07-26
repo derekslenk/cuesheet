@@ -50,6 +50,24 @@ export default function Header() {
               <span className="icon">👥</span>
               Teams
             </Link>
+            
+            <Link 
+              href="/settings" 
+              className={`btn ${isActive('/settings') ? 'active' : ''}`}
+            >
+              <span className="icon">⚙️</span>
+              Settings
+            </Link>
+            
+            {process.env.NODE_ENV === 'development' && (
+              <Link 
+                href="/performance" 
+                className={`btn ${isActive('/performance') ? 'active' : ''}`}
+              >
+                <span className="icon">📊</span>
+                Perf
+              </Link>
+            )}
           </nav>
         </div>
       </div>

@@ -8,8 +8,8 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Check for API key in header
-    const apiKey = request.headers.get('x-api-key');
+    // Check for API key in header or URL parameter
+    const apiKey = request.headers.get('x-api-key') || request.nextUrl.searchParams.get('apikey');
     const validKey = process.env.API_KEY;
 
     // If API_KEY is not set in environment, skip authentication (development mode)
