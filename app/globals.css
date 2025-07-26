@@ -241,6 +241,28 @@ body {
   position: absolute;
   transform: translateZ(0);
   will-change: transform;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for dropdown */
+.dropdown-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dropdown-menu::-webkit-scrollbar-track {
+  background: rgba(7, 54, 66, 0.5);
+  border-radius: 4px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+  background: rgba(88, 110, 117, 0.6);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(88, 110, 117, 0.8);
 }
 
 .dropdown-item {
@@ -366,4 +388,79 @@ body {
 
 .p-8 {
   padding: 32px;
+}
+
+/* Collapsible Group Styles */
+.collapsible-group {
+  margin-bottom: 16px;
+}
+
+.collapsible-header {
+  width: 100%;
+  background: rgba(7, 54, 66, 0.3);
+  border: 1px solid rgba(88, 110, 117, 0.3);
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 1px;
+}
+
+.collapsible-header:hover {
+  background: rgba(7, 54, 66, 0.5);
+  border-color: rgba(131, 148, 150, 0.4);
+}
+
+.collapsible-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.collapsible-icon {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  color: #93a1a1;
+}
+
+.collapsible-icon.open {
+  transform: rotate(90deg);
+}
+
+.collapsible-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fdf6e3;
+  text-align: left;
+  margin: 0;
+}
+
+.collapsible-count {
+  background: rgba(38, 139, 210, 0.2);
+  color: #268bd2;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.collapsible-content {
+  overflow: hidden;
+  transition: all 0.3s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.collapsible-content.open {
+  max-height: 5000px;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+.collapsible-content-inner {
+  padding: 20px;
+  background: rgba(7, 54, 66, 0.2);
+  border: 1px solid rgba(88, 110, 117, 0.2);
+  border-radius: 12px;
 }

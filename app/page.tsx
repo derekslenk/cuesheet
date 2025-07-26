@@ -158,6 +158,31 @@ export default function Home() {
     }
   }, [showSuccess, showError]);
 
+  const handleTransition = useCallback(async () => {
+    try {
+      const response = await fetch('/api/triggerTransition', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update local state after successful transition
+        setCurrentScene(result.data.programScene);
+        setCurrentPreviewScene(result.data.previewScene);
+        showSuccess('Transition Complete', 'Successfully transitioned preview to program');
+        
+        // Refresh data to ensure UI is in sync
+        fetchData();
+      } else {
+        throw new Error(result.error || 'Failed to trigger transition');
+      }
+    } catch (error) {
+      console.error('Error triggering transition:', error);
+      showError('Transition Failed', error instanceof Error ? error.message : 'Could not trigger transition. Please try again.');
+    }
+  }, [showSuccess, showError, fetchData]);
+
   // Helper function to get scene button state and styling
   const getSceneButtonState = useCallback((sceneName: string) => {
     const isProgram = currentScene === sceneName;
@@ -168,25 +193,29 @@ export default function Home() {
         return {
           isActive: true,
           text: `Program & Preview: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))'
+          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))',
+          showTransition: false
         };
       } else if (isProgram) {
         return {
           isActive: true,
           text: `Program: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))'
+          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))',
+          showTransition: false
         };
       } else if (isPreview) {
         return {
           isActive: true,
           text: `Preview: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-yellow), var(--solarized-orange))'
+          background: 'linear-gradient(135deg, var(--solarized-yellow), var(--solarized-orange))',
+          showTransition: true
         };
       } else {
         return {
           isActive: false,
           text: `Set Preview: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))'
+          background: 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))',
+          showTransition: false
         };
       }
     } else {
@@ -195,13 +224,15 @@ export default function Home() {
         return {
           isActive: true,
           text: `Active: ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))'
+          background: 'linear-gradient(135deg, var(--solarized-green), var(--solarized-yellow))',
+          showTransition: false
         };
       } else {
         return {
           isActive: false,
           text: `Switch to ${sceneName}`,
-          background: 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))'
+          background: 'linear-gradient(135deg, var(--solarized-blue), var(--solarized-cyan))',
+          showTransition: false
         };
       }
     }
@@ -251,18 +282,35 @@ export default function Home() {
       <div className="glass p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title mb-0">Primary Display</h2>
-          {(() => {
-            const buttonState = getSceneButtonState('1-Screen');
-            return (
-              <button
-                onClick={() => handleSceneSwitch('1-Screen')}
-                className={`btn ${buttonState.isActive ? 'active' : ''}`}
-                style={{ background: buttonState.background }}
-              >
-                {buttonState.text}
-              </button>
-            );
-          })()}
+          <div className="flex">
+            {(() => {
+              const buttonState = getSceneButtonState('1-Screen');
+              return (
+                <>
+                  <button
+                    onClick={() => handleSceneSwitch('1-Screen')}
+                    className={`btn ${buttonState.isActive ? 'active' : ''}`}
+                    style={{ background: buttonState.background }}
+                  >
+                    {buttonState.text}
+                  </button>
+                  {buttonState.showTransition && (
+                    <button
+                      onClick={handleTransition}
+                      className="btn"
+                      style={{ 
+                        background: 'linear-gradient(135deg, var(--solarized-red), var(--solarized-magenta))',
+                        minWidth: '120px',
+                        marginLeft: '12px'
+                      }}
+                    >
+                      Go Live
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
         <div className="max-w-md mx-auto">
           <Dropdown
@@ -280,18 +328,35 @@ export default function Home() {
       <div className="glass p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title mb-0">Side Displays</h2>
-          {(() => {
-            const buttonState = getSceneButtonState('2-Screen');
-            return (
-              <button
-                onClick={() => handleSceneSwitch('2-Screen')}
-                className={`btn ${buttonState.isActive ? 'active' : ''}`}
-                style={{ background: buttonState.background }}
-              >
-                {buttonState.text}
-              </button>
-            );
-          })()}
+          <div className="flex">
+            {(() => {
+              const buttonState = getSceneButtonState('2-Screen');
+              return (
+                <>
+                  <button
+                    onClick={() => handleSceneSwitch('2-Screen')}
+                    className={`btn ${buttonState.isActive ? 'active' : ''}`}
+                    style={{ background: buttonState.background }}
+                  >
+                    {buttonState.text}
+                  </button>
+                  {buttonState.showTransition && (
+                    <button
+                      onClick={handleTransition}
+                      className="btn"
+                      style={{ 
+                        background: 'linear-gradient(135deg, var(--solarized-red), var(--solarized-magenta))',
+                        minWidth: '120px',
+                        marginLeft: '12px'
+                      }}
+                    >
+                      Go Live
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
         <div className="grid-2">
           <div>
@@ -323,18 +388,35 @@ export default function Home() {
       <div className="glass p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title mb-0">Corner Displays</h2>
-          {(() => {
-            const buttonState = getSceneButtonState('4-Screen');
-            return (
-              <button
-                onClick={() => handleSceneSwitch('4-Screen')}
-                className={`btn ${buttonState.isActive ? 'active' : ''}`}
-                style={{ background: buttonState.background }}
-              >
-                {buttonState.text}
-              </button>
-            );
-          })()}
+          <div className="flex">
+            {(() => {
+              const buttonState = getSceneButtonState('4-Screen');
+              return (
+                <>
+                  <button
+                    onClick={() => handleSceneSwitch('4-Screen')}
+                    className={`btn ${buttonState.isActive ? 'active' : ''}`}
+                    style={{ background: buttonState.background }}
+                  >
+                    {buttonState.text}
+                  </button>
+                  {buttonState.showTransition && (
+                    <button
+                      onClick={handleTransition}
+                      className="btn"
+                      style={{ 
+                        background: 'linear-gradient(135deg, var(--solarized-red), var(--solarized-magenta))',
+                        minWidth: '120px',
+                        marginLeft: '12px'
+                      }}
+                    >
+                      Go Live
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
         <div className="grid-4">
           {cornerDisplays.map(({ screen, label }) => (

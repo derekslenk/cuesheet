@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Dropdown from '@/components/Dropdown';
+import CollapsibleGroup from '@/components/CollapsibleGroup';
 import { Team } from '@/types';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
@@ -12,6 +13,174 @@ interface Stream {
   obs_source_name: string;
   url: string;
   team_id: number;
+}
+
+interface StreamsByTeamProps {
+  streams: Stream[];
+  teams: {id: number; name: string}[];
+  onDelete: (stream: Stream) => void;
+}
+
+function StreamsByTeam({ streams, teams, onDelete }: StreamsByTeamProps) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const [useCustomExpanded, setUseCustomExpanded] = useState(false);
+
+  // Group streams by team
+  const streamsByTeam = useMemo(() => {
+    const grouped = new Map<number, Stream[]>();
+    
+    // Initialize with all teams
+    teams.forEach(team => {
+      grouped.set(team.id, []);
+    });
+    
+    // Add "No Team" group for streams without a team
+    grouped.set(-1, []);
+    
+    // Group streams
+    streams.forEach(stream => {
+      const teamId = stream.team_id || -1;
+      const teamStreams = grouped.get(teamId) || [];
+      teamStreams.push(stream);
+      grouped.set(teamId, teamStreams);
+    });
+    
+    // Only include groups that have streams
+    const result: Array<{teamId: number; teamName: string; streams: Stream[]}> = [];
+    
+    grouped.forEach((streamList, teamId) => {
+      if (streamList.length > 0) {
+        const team = teams.find(t => t.id === teamId);
+        result.push({
+          teamId,
+          teamName: teamId === -1 ? 'No Team' : (team?.name || 'Unknown Team'),
+          streams: streamList
+        });
+      }
+    });
+    
+    // Sort by team name, with "No Team" at the end
+    result.sort((a, b) => {
+      if (a.teamId === -1) return 1;
+      if (b.teamId === -1) return -1;
+      return a.teamName.localeCompare(b.teamName);
+    });
+    
+    return result;
+  }, [streams, teams]);
+
+  const handleExpandAll = () => {
+    const allIds = streamsByTeam.map(group => group.teamId);
+    setExpandedGroups(new Set(allIds));
+    setUseCustomExpanded(true);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedGroups(new Set());
+    setUseCustomExpanded(true);
+  };
+
+  const handleToggleGroup = (teamId: number) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(teamId)) {
+      newExpanded.delete(teamId);
+    } else {
+      newExpanded.add(teamId);
+    }
+    setExpandedGroups(newExpanded);
+    setUseCustomExpanded(true);
+  };
+
+  return (
+    <div>
+      {streamsByTeam.length > 0 && (
+        <div className="flex justify-end gap-2 mb-4">
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={handleExpandAll}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            Expand All
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={handleCollapseAll}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+            Collapse All
+          </button>
+        </div>
+      )}
+      <div className="space-y-4">
+        {streamsByTeam.map(({ teamId, teamName, streams: teamStreams }) => (
+          <CollapsibleGroup
+            key={teamId}
+            title={teamName}
+            itemCount={teamStreams.length}
+            defaultOpen={teamStreams.length <= 10}
+            isOpen={useCustomExpanded ? expandedGroups.has(teamId) : undefined}
+            onToggle={() => handleToggleGroup(teamId)}
+          >
+          <div className="space-y-4">
+            {teamStreams.map((stream) => (
+              <div key={stream.id} className="glass p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div 
+                      className="bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0" 
+                      style={{ 
+                        width: '64px', 
+                        height: '64px', 
+                        fontSize: '24px', 
+                        marginRight: '16px' 
+                      }}
+                    >
+                      {stream.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-white">{stream.name}</div>
+                      <div className="text-sm text-white/60">OBS: {stream.obs_source_name}</div>
+                    </div>
+                  </div>
+                  <div className="text-right space-y-2">
+                    <div className="text-sm text-white/40">ID: {stream.id}</div>
+                    <div className="flex justify-end">
+                      <a 
+                        href={stream.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="btn btn-primary text-sm"
+                        style={{ marginRight: '8px' }}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        View Stream
+                      </a>
+                      <button
+                        onClick={() => onDelete(stream)}
+                        className="btn btn-danger text-sm"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleGroup>
+      ))}
+      </div>
+    </div>
+  );
 }
 
 export default function AddStream() {
@@ -312,61 +481,11 @@ export default function AddStream() {
             <div className="text-white/40 text-sm">Create your first stream above!</div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {streams.map((stream) => {
-              const team = teams.find(t => t.id === stream.team_id);
-              return (
-                <div key={stream.id} className="glass p-4 mb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div 
-                        className="bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0" 
-                        style={{ 
-                          width: '64px', 
-                          height: '64px', 
-                          fontSize: '24px', 
-                          marginRight: '16px' 
-                        }}
-                      >
-                        {stream.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-white">{stream.name}</div>
-                        <div className="text-sm text-white/60">OBS: {stream.obs_source_name}</div>
-                        <div className="text-sm text-white/60">Team: {team?.name || 'Unknown'}</div>
-                      </div>
-                    </div>
-                    <div className="text-right space-y-2">
-                      <div className="text-sm text-white/40">ID: {stream.id}</div>
-                      <div className="flex justify-end">
-                        <a 
-                          href={stream.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="btn btn-primary text-sm"
-                          style={{ marginRight: '8px' }}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          View Stream
-                        </a>
-                        <button
-                          onClick={() => setDeleteConfirm({ id: stream.id, name: stream.name })}
-                          className="btn btn-danger text-sm"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <StreamsByTeam 
+            streams={streams} 
+            teams={teams} 
+            onDelete={(stream) => setDeleteConfirm({ id: stream.id, name: stream.name })}
+          />
         )}
       </div>
       
