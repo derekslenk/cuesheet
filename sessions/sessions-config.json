@@ -35,12 +35,12 @@
     "default_branch": "main",
     "commit_style": "detailed",
     "auto_merge": false,
-    "auto_push": false,
+    "auto_push": true,
     "has_submodules": false
   },
   "environment": {
-    "os": "windows",
-    "shell": "powershell",
+    "os": "linux",
+    "shell": "bash",
     "developer_name": "slenkish"
   },
   "features": {
