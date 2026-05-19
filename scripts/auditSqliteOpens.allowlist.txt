@@ -7,3 +7,4 @@ scripts/addGroupNameToTeams.ts
 scripts/addGroupUuidColumn.ts
 scripts/createSatSummer2025Tables.ts
 scripts/verifyTables.ts
+scripts/verifySwitcherCoverage.ts
