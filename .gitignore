@@ -110,3 +110,17 @@ sessions/sessions-state.json
 sessions/package.json
 sessions/transcripts/
 sessions/.archived/
+
+# OMC runtime state (sessions, hud, traces, project memory) — not portable.
+# .omc/plans/ is intentionally committed; it holds planning artifacts.
+.omc/state/
+.omc/sessions/
+.omc/project-memory.json
+
+# obs-scene/ reference data — keep small JSONs + 7 switcher .txt files;
+# exclude oversized asset trees, DB mirrors, and generated snapshots.
+obs-scene/SaT Summer 2025/
+obs-scene/source-switching/sources.db
+obs-scene/source-switching/sources.db-*
+obs-scene/*.snapshot.*
+obs-scene/source-switching/*.snapshot-*
