@@ -8,6 +8,7 @@ import { validateScreenInput } from '../../../lib/security';
 import { TABLE_NAMES } from '../../../lib/constants';
 
 export async function POST(request: NextRequest) {
+  const start = Date.now();
   // Parse and validate request body
   try {
     const body = await request.json();
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
       const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
       const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
       fs.writeFileSync(filePath, streamGroupName);
+      const ms = Date.now() - start;
+      console.log(JSON.stringify({ ts: new Date().toISOString(), screen, group: streamGroupName, ms }));
       return NextResponse.json({ message: `${screen} updated successfully.` }, { status: 200 });
     } catch (error) {
       console.error('Error updating active source:', error);

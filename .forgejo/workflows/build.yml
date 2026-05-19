@@ -27,6 +27,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Audit sqlite.open call sites
+        run: npm run audit:sqlite-opens
+
       - name: Build project
         run: npm run build
 

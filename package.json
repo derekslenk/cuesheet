@@ -13,7 +13,8 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --coverage --watchAll=false",
     "create-sat-summer-2025-tables": "tsx scripts/createSatSummer2025Tables.ts",
-    "add-group-uuid-column": "tsx scripts/addGroupUuidColumn.ts"
+    "add-group-uuid-column": "tsx scripts/addGroupUuidColumn.ts",
+    "audit:sqlite-opens": "tsx scripts/auditSqliteOpens.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
