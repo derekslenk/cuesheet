@@ -1,0 +1,10 @@
+# Known sqlite.open() call sites.
+# Each line is a path relative to the repo root.
+# Add here ONLY if the site is intentional and cannot use withDb().
+# Runtime routes MUST use withDb() — do not add app/api/** entries here.
+lib/database.ts
+scripts/addGroupNameToTeams.ts
+scripts/addGroupUuidColumn.ts
+scripts/createSatSummer2025Tables.ts
+scripts/verifyTables.ts
+scripts/verifySwitcherCoverage.ts

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { open } from 'sqlite';
-import sqlite3 from 'sqlite3';
-import path from 'path';
 import { getTableName, BASE_TABLE_NAMES } from '@/lib/constants';
 import { validateInteger } from '@/lib/security';
+import { withDb } from '@/lib/db';
 
 const { createGroupIfNotExists } = require('@/lib/obsClient');
-
-const FILE_DIRECTORY = path.resolve(process.env.FILE_DIRECTORY || './files');
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,13 +26,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid group name' }, { status: 400 });
     }
 
-    // Open database connection
-    const dbPath = path.join(FILE_DIRECTORY, 'sources.db');
-    const db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database,
-    });
-
     const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
       year: 2025,
       season: 'summer',
@@ -47,15 +36,15 @@ export async function POST(request: NextRequest) {
     const result = await createGroupIfNotExists(sanitizedGroupName);
 
     // Update team with group name and UUID
-    await db.run(
-      `UPDATE ${teamsTableName} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
-      [sanitizedGroupName, result.sceneUuid, validTeamId]
-    );
+    await withDb(async (db) => {
+      await db.run(
+        `UPDATE ${teamsTableName} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
+        [sanitizedGroupName, result.sceneUuid, validTeamId]
+      );
+    });
 
-    await db.close();
-
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: 'Group created/updated successfully',
       groupName: sanitizedGroupName,
       obsResult: result

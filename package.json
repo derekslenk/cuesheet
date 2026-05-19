@@ -13,11 +13,15 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --coverage --watchAll=false",
     "create-sat-summer-2025-tables": "tsx scripts/createSatSummer2025Tables.ts",
-    "add-group-uuid-column": "tsx scripts/addGroupUuidColumn.ts"
+    "add-group-uuid-column": "tsx scripts/addGroupUuidColumn.ts",
+    "audit:sqlite-opens": "tsx scripts/auditSqliteOpens.ts",
+    "remap:mac-obs-switcher-paths": "tsx scripts/remapMacObsSwitcherPaths.ts",
+    "verify:switcher-coverage": "tsx scripts/verifySwitcherCoverage.ts",
+    "snapshot:phase05": "scripts/capturePhase05Snapshot.sh",
+    "measure:switcher-latency": "tsx scripts/measureSwitcherLatency.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
-    "bufferutil": "^4.0.8",
     "next": "^15.4.1",
     "obs-websocket-js": "^5.0.6",
     "react": "^19.1.0",
@@ -25,6 +29,9 @@
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.8"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
