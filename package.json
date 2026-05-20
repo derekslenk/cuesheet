@@ -18,7 +18,8 @@
     "remap:mac-obs-switcher-paths": "tsx scripts/remapMacObsSwitcherPaths.ts",
     "verify:switcher-coverage": "tsx scripts/verifySwitcherCoverage.ts",
     "snapshot:phase05": "scripts/capturePhase05Snapshot.sh",
-    "measure:switcher-latency": "tsx scripts/measureSwitcherLatency.ts"
+    "measure:switcher-latency": "tsx scripts/measureSwitcherLatency.ts",
+    "supervisor": "tsx scripts/streamlink-supervisor/index.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",

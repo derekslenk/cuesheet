@@ -14,20 +14,28 @@ function makeReq(method: string, url: string): IncomingMessage {
   return req;
 }
 
-function makeRes() {
+interface FakeRes {
+  statusCode: number;
+  setHeader(name: string, value: string): void;
+  writeHead(code: number, h?: Record<string, string>): void;
+  end(body?: string): void;
+  readonly body: string;
+  readonly headers: Record<string, string>;
+}
+
+function makeRes(): FakeRes {
   const chunks: string[] = [];
-  let statusCode = 200;
   const headers: Record<string, string> = {};
-  const res = {
-    statusCode,
-    setHeader(name: string, value: string) {
+  const res: FakeRes = {
+    statusCode: 200,
+    setHeader(name, value) {
       headers[name] = value;
     },
-    writeHead(code: number, h?: Record<string, string>) {
-      this.statusCode = code;
+    writeHead(code, h) {
+      res.statusCode = code;
       Object.assign(headers, h ?? {});
     },
-    end(body?: string) {
+    end(body) {
       if (body) chunks.push(body);
     },
     get body() {
@@ -36,7 +44,7 @@ function makeRes() {
     get headers() {
       return headers;
     },
-  } as unknown as ServerResponse & { body: string; headers: Record<string, string> };
+  };
   return res;
 }
 
