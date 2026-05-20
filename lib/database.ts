@@ -15,7 +15,7 @@ const ensureDirectoryExists = (dirPath: string) => {
   }
 };
 
-const initializeDatabase = async (database: Database<sqlite3.Database, sqlite3.Statement>) => {
+export const initializeDatabase = async (database: Database<sqlite3.Database, sqlite3.Statement>) => {
   // Create streams table
   await database.exec(`
     CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.STREAMS} (
@@ -27,11 +27,15 @@ const initializeDatabase = async (database: Database<sqlite3.Database, sqlite3.S
     )
   `);
 
-  // Create teams table
+  // Create teams table. group_name / group_uuid are also added (idempotently)
+  // by scripts/addGroupNameToTeams.ts and scripts/addGroupUuidColumn.ts for
+  // databases that predate this CREATE TABLE.
   await database.exec(`
     CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.TEAMS} (
       team_id INTEGER PRIMARY KEY,
-      team_name TEXT NOT NULL
+      team_name TEXT NOT NULL,
+      group_name TEXT,
+      group_uuid TEXT
     )
   `);
 

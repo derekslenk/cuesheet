@@ -3,6 +3,9 @@
 # Add here ONLY if the site is intentional and cannot use withDb().
 # Runtime routes MUST use withDb() — do not add app/api/** entries here.
 lib/database.ts
+# In-memory SQLite for Phase 0.8.3 schema drift guard. Pure test surface
+# — never touches disk and never runs in production.
+lib/__tests__/database.test.ts
 scripts/addGroupNameToTeams.ts
 scripts/addGroupUuidColumn.ts
 scripts/createSatSummer2025Tables.ts
