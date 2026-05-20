@@ -11,9 +11,12 @@ export interface TableConfig {
     suffix?: string;
 }
 
-// Default configuration
+// Default configuration. Bumped to 2026 for the 2026-06-13 stream-a-thon
+// event. Existing 2025 tables remain in any DB that already holds them
+// (CREATE TABLE IF NOT EXISTS is a no-op for those), but the runtime now
+// reads and writes against teams_2026_summer_sat / streams_2026_summer_sat.
 export const DEFAULT_TABLE_CONFIG: TableConfig = {
-    year: 2025,
+    year: 2026,
     season: 'summer',
     suffix: 'sat'
 };

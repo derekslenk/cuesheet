@@ -12,7 +12,7 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
 import { initializeDatabase } from '../database';
-import { TABLE_NAMES } from '../constants';
+import { TABLE_NAMES, DEFAULT_TABLE_CONFIG } from '../constants';
 
 type SqliteDb = Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -117,5 +117,16 @@ describe('initializeDatabase', () => {
 
   it('is idempotent — running twice on the same DB does not throw', async () => {
     await expect(initializeDatabase(db)).resolves.not.toThrow();
+  });
+});
+
+describe('DEFAULT_TABLE_CONFIG (event year)', () => {
+  it('targets the 2026 summer SaT event', () => {
+    expect(DEFAULT_TABLE_CONFIG).toEqual({ year: 2026, season: 'summer', suffix: 'sat' });
+  });
+
+  it('resolves TABLE_NAMES to the 2026 SaT tables', () => {
+    expect(TABLE_NAMES.TEAMS).toBe('teams_2026_summer_sat');
+    expect(TABLE_NAMES.STREAMS).toBe('streams_2026_summer_sat');
   });
 });
