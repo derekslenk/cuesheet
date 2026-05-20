@@ -76,11 +76,17 @@ export default function Home() {
         obsStatusRes.json()
       ]);
       
-      // Handle both old and new API response formats
-      const streams = streamsData.success ? streamsData.data : streamsData;
-      const activeSources = activeData.success ? activeData.data : activeData;
-      const sceneName = sceneData.success ? sceneData.data.sceneName : null;
-      
+      // Handle both old and new API response formats; guard against 500s so a
+      // schema-drift bug degrades to "empty list" instead of crashing streams.forEach.
+      const rawStreams = streamsData?.success ? streamsData.data : streamsData;
+      const streams = Array.isArray(rawStreams) ? rawStreams : [];
+      const rawActiveSources = activeData?.success ? activeData.data : activeData;
+      const activeSources =
+        rawActiveSources && typeof rawActiveSources === 'object' && !Array.isArray(rawActiveSources)
+          ? (rawActiveSources as Record<ScreenType, string | null>)
+          : (Object.fromEntries(SCREEN_POSITIONS.map(screen => [screen, null])) as Record<ScreenType, string | null>);
+      const sceneName = sceneData?.success ? sceneData.data.sceneName : null;
+
       setStreams(streams);
       setActiveSources(activeSources);
       setCurrentScene(sceneName);
