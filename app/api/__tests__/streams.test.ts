@@ -1,19 +1,33 @@
-// import { GET } from '../streams/route';
+import { GET } from '../streams/route';
 
-// Mock the database module
 jest.mock('@/lib/database', () => ({
   getDatabase: jest.fn(),
 }));
 
+jest.mock('@/lib/apiHelpers', () => ({
+  withErrorHandling: jest.fn((handler) => handler),
+  createSuccessResponse: jest.fn((data, status = 200) => ({
+    data,
+    status,
+    json: async () => ({ success: true, data }),
+  })),
+  createDatabaseError: jest.fn((operation) => ({
+    error: 'Database Error',
+    status: 500,
+    json: async () => ({
+      error: 'Database Error',
+      message: `Database operation failed: ${operation}`,
+    }),
+  })),
+}));
+
 describe('/api/streams', () => {
   let mockDb: { all: jest.Mock };
-  
+
   beforeEach(() => {
-    // Create mock database
-    mockDb = {
-      all: jest.fn(),
-    };
-    
+    jest.clearAllMocks();
+    mockDb = { all: jest.fn() };
+
     const { getDatabase } = require('@/lib/database');
     getDatabase.mockResolvedValue(mockDb);
   });
@@ -24,45 +38,46 @@ describe('/api/streams', () => {
         { id: 1, name: 'Stream 1', url: 'http://example.com/1', obs_source_name: 'Source 1', team_id: 1 },
         { id: 2, name: 'Stream 2', url: 'http://example.com/2', obs_source_name: 'Source 2', team_id: 2 },
       ];
-      
       mockDb.all.mockResolvedValue(mockStreams);
-      
+
+      await GET();
+
       expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM')
+        expect.stringContaining('SELECT')
       );
-      
-      const { NextResponse } = require('next/server');
-      expect(NextResponse.json).toHaveBeenCalledWith(mockStreams);
+
+      const { createSuccessResponse } = require('@/lib/apiHelpers');
+      expect(createSuccessResponse).toHaveBeenCalledWith(mockStreams);
     });
 
     it('returns empty array when no streams exist', async () => {
       mockDb.all.mockResolvedValue([]);
-      
-      const { NextResponse } = require('next/server');
-      expect(NextResponse.json).toHaveBeenCalledWith([]);
+
+      await GET();
+
+      const { createSuccessResponse } = require('@/lib/apiHelpers');
+      expect(createSuccessResponse).toHaveBeenCalledWith([]);
     });
 
     it('handles database errors gracefully', async () => {
       const dbError = new Error('Database connection failed');
       mockDb.all.mockRejectedValue(dbError);
-      
-      const { NextResponse } = require('next/server');
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        { error: 'Failed to fetch streams' },
-        { status: 500 }
-      );
+
+      await GET();
+
+      const { createDatabaseError } = require('@/lib/apiHelpers');
+      expect(createDatabaseError).toHaveBeenCalledWith('fetch streams', dbError);
     });
 
     it('handles database connection errors', async () => {
       const connectionError = new Error('Failed to connect to database');
       const { getDatabase } = require('@/lib/database');
       getDatabase.mockRejectedValue(connectionError);
-      
-      const { NextResponse } = require('next/server');
-      expect(NextResponse.json).toHaveBeenCalledWith(
-        { error: 'Failed to fetch streams' },
-        { status: 500 }
-      );
+
+      await GET();
+
+      const { createDatabaseError } = require('@/lib/apiHelpers');
+      expect(createDatabaseError).toHaveBeenCalledWith('fetch streams', connectionError);
     });
   });
 });
