@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTableName, BASE_TABLE_NAMES } from '@/lib/constants';
+import { TABLE_NAMES } from '@/lib/constants';
 import { validateInteger } from '@/lib/security';
 import { withDb } from '@/lib/db';
 
@@ -26,19 +26,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid group name' }, { status: 400 });
     }
 
-    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
-
     // Create group in OBS first to get UUID
     const result = await createGroupIfNotExists(sanitizedGroupName);
 
     // Update team with group name and UUID
     await withDb(async (db) => {
       await db.run(
-        `UPDATE ${teamsTableName} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
+        `UPDATE ${TABLE_NAMES.TEAMS} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
         [sanitizedGroupName, result.sceneUuid, validTeamId]
       );
     });

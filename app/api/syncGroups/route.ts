@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getTableName, BASE_TABLE_NAMES } from '@/lib/constants';
+import { TABLE_NAMES } from '@/lib/constants';
 import { withDb } from '@/lib/db';
 
 const { createGroupIfNotExists } = require('@/lib/obsClient');
 
 export async function POST() {
   try {
-    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
-
     // Get all teams without groups
     const teamsWithoutGroups = await withDb((db) =>
       db.all(
-        `SELECT team_id, team_name FROM ${teamsTableName} WHERE group_name IS NULL`
+        `SELECT team_id, team_name FROM ${TABLE_NAMES.TEAMS} WHERE group_name IS NULL`
       )
     );
 
@@ -29,7 +23,7 @@ export async function POST() {
         // Update database with group name
         await withDb(async (db) => {
           await db.run(
-            `UPDATE ${teamsTableName} SET group_name = ? WHERE team_id = ?`,
+            `UPDATE ${TABLE_NAMES.TEAMS} SET group_name = ? WHERE team_id = ?`,
             [team.team_name, team.team_id]
           );
         });

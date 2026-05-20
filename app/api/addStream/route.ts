@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createStreamGroup } from '../../../lib/obsClient';
-import { getTableName, BASE_TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
+import { TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
 import { withDb } from '../../../lib/db';
 
 interface OBSClient {
@@ -20,15 +20,9 @@ const screens = SOURCE_SWITCHER_NAMES;
 
 async function fetchTeamInfo(teamId: number) {
   try {
-    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
-
     return await withDb((db) =>
       db.get(
-        `SELECT team_name, group_name, group_uuid FROM ${teamsTableName} WHERE team_id = ?`,
+        `SELECT team_name, group_name, group_uuid FROM ${TABLE_NAMES.TEAMS} WHERE team_id = ?`,
         [teamId]
       )
     );
@@ -120,12 +114,6 @@ export async function POST(request: NextRequest) {
       
       // Update team with group UUID if not set
       if (!teamInfo.group_uuid) {
-        const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-          year: 2025,
-          season: 'summer',
-          suffix: 'sat'
-        });
-
         try {
           // Get the scene UUID for the group
           const obsClient = await getOBSClient();
@@ -135,7 +123,7 @@ export async function POST(request: NextRequest) {
           if (scene) {
             await withDb(async (db) => {
               await db.run(
-                `UPDATE ${teamsTableName} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
+                `UPDATE ${TABLE_NAMES.TEAMS} SET group_name = ?, group_uuid = ? WHERE team_id = ?`,
                 [groupName, scene.sceneUuid, team_id]
               );
             });
@@ -172,12 +160,7 @@ export async function POST(request: NextRequest) {
     }
 
     const db = await getDatabase();
-    const streamsTableName = getTableName(BASE_TABLE_NAMES.STREAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
-    const query = `INSERT INTO ${streamsTableName} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`;
+    const query = `INSERT INTO ${TABLE_NAMES.STREAMS} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`;
     db.run(query, [name, obs_source_name, url, team_id])
     await disconnectFromOBS();
     return NextResponse.json({ message: 'Stream added successfully' }, {status: 201})
