@@ -20,7 +20,8 @@
     "snapshot:phase05": "scripts/capturePhase05Snapshot.sh",
     "measure:switcher-latency": "tsx scripts/measureSwitcherLatency.ts",
     "supervisor": "tsx scripts/streamlink-supervisor/index.ts",
-    "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts"
+    "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
+    "load:setactive": "tsx scripts/loadDriver.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
