@@ -19,6 +19,7 @@ export interface StartRuntimeOptions {
   logRetain?: number;
   streamlinkPath?: string;
   ffmpegPath?: string;
+  dashboardHtml?: string;
 }
 
 export interface SupervisorRuntime {
@@ -61,6 +62,7 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     provider: supervisor,
     port: opts.healthPort,
     hostname: opts.healthHost,
+    dashboardHtml: opts.dashboardHtml,
   });
 
   let shutdownDone = false;

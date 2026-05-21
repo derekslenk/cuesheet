@@ -10,9 +10,29 @@
  * See scripts/streamlink-supervisor/README.md for the install procedure.
  */
 import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getDatabase } from '../../lib/database';
 import { TABLE_NAMES } from '../../lib/constants';
 import { startRuntime } from './runtime';
+
+function loadDashboardHtml(): string | undefined {
+  // dashboard.html ships alongside this script. fileURLToPath handles ESM
+  // and CJS the same way under tsx; resolveDir keeps the dependency on
+  // disk layout local and obvious.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const dashboardPath = path.join(here, 'dashboard.html');
+  try {
+    return fs.readFileSync(dashboardPath, 'utf8');
+  } catch (err) {
+    console.warn(
+      `[supervisor] dashboard.html not loaded — ${err instanceof Error ? err.message : String(err)}; ` +
+      '/health JSON endpoint still available'
+    );
+    return undefined;
+  }
+}
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -41,12 +61,14 @@ async function main(): Promise<void> {
     logRetain: envInt('SUPERVISOR_LOG_RETAIN', 5),
     streamlinkPath: process.env.STREAMLINK_PATH,
     ffmpegPath: process.env.FFMPEG_PATH,
+    dashboardHtml: loadDashboardHtml(),
   });
 
   const streams = runtime.supervisor.list();
+  const baseUrl = `http://${process.env.SUPERVISOR_HEALTH_HOST ?? '127.0.0.1'}:${envInt('SUPERVISOR_HEALTH_PORT', 8080)}`;
   console.log(
     `[supervisor] started — ${streams.length} stream(s) supervised, ` +
-    `/health on http://${process.env.SUPERVISOR_HEALTH_HOST ?? '127.0.0.1'}:${envInt('SUPERVISOR_HEALTH_PORT', 8080)}`
+    `dashboard ${baseUrl}/ — JSON ${baseUrl}/health`
   );
   streams.forEach(s => {
     console.log(`[supervisor]   ${s.streamId} → ${s.obsInputUrl}`);
