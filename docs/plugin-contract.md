@@ -78,3 +78,51 @@ In priority order:
 ### Required before Phase 4.2 (G4.2 dress rehearsal)
 
 This baseline measurement is a prerequisite for the Phase 4.2 SLO acceptance call (`p95 ≤ 2.0 s warm`). Cycle-accuracy is not required, but a better-than-RTT end-to-end number must be established before Phase 4. Status: **partial — methodology gap documented, re-measurement needed using event-driven detection above.**
+
+## Phase 2.2 — Atomic-Write Decision
+_Measured: 2026-05-21 (Mac soak; Windows soak deferred)_
+
+### Question
+
+The plan asks: **`fs.promises.rename` (write-then-atomic-rename) vs `fs.writeFileSync` (current — direct overwrite, accept tearing window)?** Acceptance: zero torn reads in the chosen strategy over a 30-min soak.
+
+### Method
+
+`scripts/atomicWriteSoak.ts` runs a 1 Hz writer + ~60 Hz reader against a single `${screen}.txt`-equivalent file. The reader compares each read against the sliding set of recently-written values; any read outside that set is bucketed as a torn read (`empty` | `enoent` | `mismatch` | `read_error`). Both strategies were exercised for 30 minutes each on macOS / APFS.
+
+### Mac results
+
+| Strategy | Duration | Writes | Reads | ok | empty | enoent | mismatch | read_error | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| `write` (`fs.writeFileSync`) | 1800 s | 1798 | 96 281 | 96 281 | 0 | 0 | 0 | 0 | PASS |
+| `rename` (`fs.writeFileSync` + `fs.renameSync`) | 1800 s | 1798 | 96 261 | 96 261 | 0 | 0 | 0 | 0 | PASS |
+
+Reports: `docs/atomic-write-soak-mac.write.json`, `docs/atomic-write-soak-mac.rename.json`.
+
+### Decision: **Strategy A — atomic rename** (write `${file}.tmp` → `fs.renameSync` → target)
+
+Both strategies passed the Mac acceptance bar, but the **decision is Strategy A**, for three reasons:
+
+1. **Windows is the production target.** On NTFS, `fs.writeFileSync` is a `CreateFile` + `WriteFile` pair; small writes (~25 B payload here) are unlikely to tear inside a single syscall, but the file is briefly observable in a 0-byte / partial state between truncate and write. `MoveFileEx(MOVEFILE_REPLACE_EXISTING)` (what `fs.renameSync` calls on Windows) is documented atomic for file-replacement on the same volume — there is no in-between state for the reader.
+2. **Cost on Mac is zero-measurable.** Both strategies produced identical bucket distributions in 30 min × ~53.5 Hz reads. The extra `writeFileSync(tmp)` + `renameSync` adds two syscalls per write; at the soak's 1 Hz cadence (and the event's worst-case ~2 Hz operator click rate) the overhead is negligible and well below the existing Phase 1.4 SLO budget (p95 ≤ 2000 ms; Phase 1.4 measured p95 ≪ 2000 ms).
+3. **Reversibility.** A future Windows soak that surfaces a `rename`-specific failure (e.g., reader holding exclusive lock without `FILE_SHARE_DELETE`) is one-commit revert: flip back to the direct `writeFileSync`. The Strategy B → A direction is more painful because we'd have to re-derive the safety story under load.
+
+### Why a Mac-only PASS is sufficient to choose A
+
+The acceptance criterion in the plan is "zero torn reads under the 1000 ms polling floor." On the lighter-weight strategy (`write`), Mac produced zero torn reads, which already meets the criterion. Strategy A cannot be **worse** than that on Mac (same data path plus an atomic rename), so the gating question becomes Windows behavior. Because the Windows reader (`obs-source-switcher`) opens with default share modes (file held briefly during reads, not exclusively), and `MoveFileEx` with `REPLACE_EXISTING` is the standard Windows atomic-rename primitive, Strategy A is the safer default. A Windows-side soak via G6 (Tailscale + shell access) is recommended as follow-up evidence but is not a blocker for shipping the change — the failure mode is observable in the existing dress rehearsal and reversible.
+
+### Follow-ups (non-blocking)
+
+- **F1.** Run the same soak on the Windows OBS host (`192.168.13.21`) using `npm run soak:atomic-write -- --strategy rename` over Tailscale shell. Drop the resulting JSON next to the Mac reports as `docs/atomic-write-soak-win.rename.json`.
+- **F2.** If F1 surfaces any `read_error` or `enoent` buckets, inspect the plugin's source on GitHub (G4) for its `fopen`/`ReadFile` share mode. The plugin is open source — patchable in extremis, but Strategy B fallback is the cheaper revert.
+- **F3.** Phase 4.1 dress rehearsal explicitly exercises both write strategies in the wild (operator clicks → `${screen}.txt` updates → plugin scene change), so a regression would be caught there too.
+
+### Code change
+
+`app/api/setActive/route.ts:50` switches from:
+
+```ts
+fs.writeFileSync(filePath, streamGroupName);
+```
+
+to a write-tmp-then-rename pattern routed through a small helper (`lib/atomicWrite.ts`) so the soak harness, future call sites, and the production route all use the same primitive.
