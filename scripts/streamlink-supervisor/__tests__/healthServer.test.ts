@@ -60,7 +60,7 @@ describe('handleHealthRequest', () => {
     const req = makeReq('GET', '/health');
     const res = makeRes();
 
-    handleHealthRequest(req, res as any, provider);
+    handleHealthRequest(req, res as any, { provider });
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['Content-Type']).toMatch(/application\/json/);
@@ -81,7 +81,7 @@ describe('handleHealthRequest', () => {
     const req = makeReq('GET', '/health');
     const res = makeRes();
 
-    handleHealthRequest(req, res as any, allGreen);
+    handleHealthRequest(req, res as any, { provider: allGreen });
 
     expect(JSON.parse(res.body).status).toBe('ok');
   });
@@ -91,7 +91,7 @@ describe('handleHealthRequest', () => {
     const req = makeReq('GET', '/health');
     const res = makeRes();
 
-    handleHealthRequest(req, res as any, empty);
+    handleHealthRequest(req, res as any, { provider: empty });
 
     const body = JSON.parse(res.body);
     expect(body).toEqual({ status: 'ok', streams: [] });
@@ -100,14 +100,58 @@ describe('handleHealthRequest', () => {
   it('returns 404 for any other path', () => {
     const req = makeReq('GET', '/streams');
     const res = makeRes();
-    handleHealthRequest(req, res as any, provider);
+    handleHealthRequest(req, res as any, { provider });
     expect(res.statusCode).toBe(404);
   });
 
   it('returns 405 for non-GET methods on /health', () => {
     const req = makeReq('POST', '/health');
     const res = makeRes();
-    handleHealthRequest(req, res as any, provider);
+    handleHealthRequest(req, res as any, { provider });
     expect(res.statusCode).toBe(405);
+  });
+
+  describe('dashboard route', () => {
+    const HTML = '<!doctype html><title>x</title>';
+
+    it('GET / returns the dashboard HTML when configured', () => {
+      const req = makeReq('GET', '/');
+      const res = makeRes();
+      handleHealthRequest(req, res as any, { provider, dashboardHtml: HTML });
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['Content-Type']).toMatch(/text\/html/);
+      expect(res.headers['Cache-Control']).toBe('no-store');
+      expect(res.body).toBe(HTML);
+    });
+
+    it('GET /dashboard also serves the dashboard HTML', () => {
+      const req = makeReq('GET', '/dashboard');
+      const res = makeRes();
+      handleHealthRequest(req, res as any, { provider, dashboardHtml: HTML });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toBe(HTML);
+    });
+
+    it('GET / returns 404 when dashboardHtml is not configured', () => {
+      const req = makeReq('GET', '/');
+      const res = makeRes();
+      handleHealthRequest(req, res as any, { provider });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('POST / returns 405 (dashboard is read-only)', () => {
+      const req = makeReq('POST', '/');
+      const res = makeRes();
+      handleHealthRequest(req, res as any, { provider, dashboardHtml: HTML });
+      expect(res.statusCode).toBe(405);
+    });
+
+    it('does not leak the dashboard HTML to /health responses', () => {
+      const req = makeReq('GET', '/health');
+      const res = makeRes();
+      handleHealthRequest(req, res as any, { provider, dashboardHtml: HTML });
+      expect(res.headers['Content-Type']).toMatch(/application\/json/);
+      expect(res.body).not.toContain('<title>');
+    });
   });
 });

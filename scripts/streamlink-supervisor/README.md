@@ -73,6 +73,26 @@ $ curl -s http://127.0.0.1:8080/health | jq
 - `status: ok` — every stream is `running`
 - `status: degraded` — at least one stream is `exited` or `escalated`
 
+## Dashboard (Phase 3.1)
+
+Point a browser at `http://127.0.0.1:8080/` (same host/port as `/health`,
+just the root path) to see a single self-contained page that polls
+`/health` once per second and renders a green/red row per stream. No build
+step, no external dependencies — the HTML is served from
+`scripts/streamlink-supervisor/dashboard.html`. `GET /dashboard` is an alias.
+
+The dashboard:
+
+- Shows overall status (`ok` / `degraded` / `unreachable`).
+- Lists each stream with status, restart count, and the UDP URL OBS reads.
+- Flags restart counts ≥ 3 and `escalated` rows in red.
+- Continues retrying on its own if the supervisor goes down or the host
+  becomes unreachable, so leaving it open at the operator station is safe.
+
+If `dashboard.html` is missing on the host (renamed or removed) the
+supervisor logs a warning and serves `404` at `/`; `/health` JSON is
+unaffected.
+
 ## Windows production install (NSSM)
 
 The supervisor is meant to run as a Windows service on the OBS host so it
