@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# atomic-write soak runtime files — the harness rewrites these on each
+# run; JSON reports go to docs/atomic-write-soak-{strategy}.json explicitly.
+docs/atomic-write-soak-tmp/
+
 # next.js
 /.next/
 /out/

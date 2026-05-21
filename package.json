@@ -21,7 +21,8 @@
     "measure:switcher-latency": "tsx scripts/measureSwitcherLatency.ts",
     "supervisor": "tsx scripts/streamlink-supervisor/index.ts",
     "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
-    "load:setactive": "tsx scripts/loadDriver.ts"
+    "load:setactive": "tsx scripts/loadDriver.ts",
+    "soak:atomic-write": "tsx scripts/atomicWriteSoak.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",

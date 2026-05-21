@@ -1,0 +1,18 @@
+{
+  "strategy": "write",
+  "targetPath": "/Users/slenk/projects/obs-ss-plugin-webui/docs/atomic-write-soak-tmp/soak-write.txt",
+  "startedAt": "2026-05-21T15:42:45.497Z",
+  "finishedAt": "2026-05-21T16:12:45.472Z",
+  "elapsedMs": 1800002,
+  "writes": 1798,
+  "reads": 96281,
+  "buckets": {
+    "ok": 96281,
+    "empty": 0,
+    "enoent": 0,
+    "mismatch": 0,
+    "read_error": 0
+  },
+  "failures": [],
+  "passed": true
+}

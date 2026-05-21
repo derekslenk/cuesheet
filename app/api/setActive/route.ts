@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
 import path from 'path';
 import { FILE_DIRECTORY } from '../../../config';
 import { getDatabase } from '../../../lib/database';
 import { StreamWithTeam } from '@/types';
 import { validateScreenInput } from '../../../lib/security';
 import { TABLE_NAMES } from '../../../lib/constants';
+import { atomicWriteFileSync } from '../../../lib/atomicWrite';
 
 export async function POST(request: NextRequest) {
   const start = Date.now();
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
       const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
       const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
-      fs.writeFileSync(filePath, streamGroupName);
+      atomicWriteFileSync(filePath, streamGroupName);
       const ms = Date.now() - start;
       console.log(JSON.stringify({ ts: new Date().toISOString(), screen, group: streamGroupName, ms }));
       return NextResponse.json({ message: `${screen} updated successfully.` }, { status: 200 });
