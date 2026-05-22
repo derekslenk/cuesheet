@@ -22,7 +22,8 @@
     "supervisor": "tsx scripts/streamlink-supervisor/index.ts",
     "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
     "load:setactive": "tsx scripts/loadDriver.ts",
-    "soak:atomic-write": "tsx scripts/atomicWriteSoak.ts"
+    "soak:atomic-write": "tsx scripts/atomicWriteSoak.ts",
+    "soak:atomic-write:mjs": "node scripts/atomicWriteSoak.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",

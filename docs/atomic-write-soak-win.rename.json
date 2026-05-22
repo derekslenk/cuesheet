@@ -1,0 +1,18 @@
+{
+  "strategy": "rename",
+  "targetPath": "C:\\Users\\derek\\sat-phase42\\soak-rename.txt",
+  "startedAt": "2026-05-22T00:42:08.540Z",
+  "finishedAt": "2026-05-22T01:12:08.553Z",
+  "elapsedMs": 1800013,
+  "writes": 1782,
+  "reads": 58462,
+  "buckets": {
+    "ok": 58462,
+    "empty": 0,
+    "enoent": 0,
+    "mismatch": 0,
+    "read_error": 0
+  },
+  "failures": [],
+  "passed": true
+}
