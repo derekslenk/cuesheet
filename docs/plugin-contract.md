@@ -158,10 +158,22 @@ Both strategies passed the Mac acceptance bar, but the **decision is Strategy A*
 
 The acceptance criterion in the plan is "zero torn reads under the 1000 ms polling floor." On the lighter-weight strategy (`write`), Mac produced zero torn reads, which already meets the criterion. Strategy A cannot be **worse** than that on Mac (same data path plus an atomic rename), so the gating question becomes Windows behavior. Because the Windows reader (`obs-source-switcher`) opens with default share modes (file held briefly during reads, not exclusively), and `MoveFileEx` with `REPLACE_EXISTING` is the standard Windows atomic-rename primitive, Strategy A is the safer default. A Windows-side soak via G6 (Tailscale + shell access) is recommended as follow-up evidence but is not a blocker for shipping the change — the failure mode is observable in the existing dress rehearsal and reversible.
 
+### Windows results (Phase 2.2 F1, closed 2026-05-21)
+_Measured on `bridge` (Windows production OBS host) over Tailscale shell via `scripts/atomicWriteSoak.mjs` — ESM mirror of the TS soak harness for hosts without tsx._
+
+| Strategy | Duration | Writes | Reads | ok | empty | enoent | mismatch | read_error | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| `write` (`fs.writeFileSync`) | 1800 s | 1782 | 58 207 | 58 207 | 0 | 0 | 0 | 0 | PASS |
+| `rename` (`fs.writeFileSync` + `fs.renameSync`) | 1800 s | 1782 | 58 462 | 58 462 | 0 | 0 | 0 | 0 | PASS |
+
+Reports: [`docs/atomic-write-soak-win.write.json`](atomic-write-soak-win.write.json), [`docs/atomic-write-soak-win.rename.json`](atomic-write-soak-win.rename.json).
+
+Closes the F1 follow-up cleanly: both strategies survive 30 minutes on Windows NTFS with zero observable torn reads at ~32 Hz read polling. Mac → Windows reader cadence dropped from ~53 Hz to ~32 Hz (Windows `setInterval` scheduling is more lossy under default node runtime) but the read count remains plenty to surface any tearing class that exists. Strategy A (rename) — already shipped per the decision above — is confirmed safe on the real production target.
+
 ### Follow-ups (non-blocking)
 
-- **F1.** Run the same soak on the Windows OBS host (`192.168.13.21`) using `npm run soak:atomic-write -- --strategy rename` over Tailscale shell. Drop the resulting JSON next to the Mac reports as `docs/atomic-write-soak-win.rename.json`.
-- **F2.** If F1 surfaces any `read_error` or `enoent` buckets, inspect the plugin's source on GitHub (G4) for its `fopen`/`ReadFile` share mode. The plugin is open source — patchable in extremis, but Strategy B fallback is the cheaper revert.
+- ~~**F1.** Run the same soak on the Windows OBS host~~ — **DONE 2026-05-21**, see "Windows results" subsection above.
+- **F2.** If a future soak surfaces any `read_error` or `enoent` buckets under load (e.g., during Phase 4.1 dress rehearsal with full encoder + 7 ffmpeg_sources), inspect the plugin's source on GitHub (G4) for its `fopen`/`ReadFile` share mode. The plugin is open source — patchable in extremis, but Strategy B fallback is the cheaper revert.
 - **F3.** Phase 4.1 dress rehearsal explicitly exercises both write strategies in the wild (operator clicks → `${screen}.txt` updates → plugin scene change), so a regression would be caught there too.
 
 ### Code change
