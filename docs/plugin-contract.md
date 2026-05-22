@@ -79,6 +79,53 @@ In priority order:
 
 This baseline measurement is a prerequisite for the Phase 4.2 SLO acceptance call (`p95 ≤ 2.0 s warm`). Cycle-accuracy is not required, but a better-than-RTT end-to-end number must be established before Phase 4. Status: **partial — methodology gap documented, re-measurement needed using event-driven detection above.**
 
+> **Update 2026-05-21:** event-driven detection was investigated and rejected — the plugin emits no observable OBS-WebSocket event when switching (verified via `scripts/discoverSwitcherEvents.mjs` capturing zero events across ~50 subscribed event types, and the OBS debug-WS log showing zero `op: 5` messages during a switch). Settings `current_index` also does not update at runtime. **Screenshot-hash polling (priority 3 above) is the only ground-truth signal available** and was the path taken for the real Phase 4.2 baseline below.
+
+## Phase 4.2 — Baseline Switcher Latency (real, screenshot-hash)
+_Measured: 2026-05-21T23:59Z on `bridge` (Windows production OBS host)_
+
+```
+=== Phase 4.2 latency baseline (screenshot-hash) ===
+Input:       ss_large
+Samples:     30/30 (0 timeouts)
+Latency ms:  p50=62  p95=63  p99=374  min=60  max=374  mean=72
+Detection floor: ~50ms (poll interval; true latency may be 0–50ms lower per sample)
+SLO p95 ≤ 2000 ms warm: PASS  (32× headroom)
+```
+
+Full report: [`phase42-latency-baseline-win.json`](phase42-latency-baseline-win.json).
+
+### Setup
+- OBS 32.1.2 / WebSocket 5.7.3, anonymous (LAN-trusted, Principle 5).
+- `ss_large` input, `current_source_file_path = C:/OBS/source-switching/large.txt`, `current_source_file_interval = 1000`.
+- Alternating between two valid plugin source values (`jellyfish_palpatine_stream` ↔ `jellyfish_dellgate_stream`); original `large.txt` saved + restored.
+- 32×18 JPEG screenshots polled every 50 ms, SHA-1 hashed and compared to baseline.
+- 2 warm-up switches discarded; 30 timed measurements.
+- Script: [`scripts/measureSwitcherLatencyV2.mjs`](../scripts/measureSwitcherLatencyV2.mjs).
+
+### Interpretation
+- The plugin's documented `current_source_file_interval: 1000` (ms) is **not** the actual poll cadence — true latency is ~60 ms, so that value must throttle some other internal operation (likely a file-stat coalescing window). Whatever it does, the user-observable switch is much faster than the plan worried about.
+- Single outlier at 374 ms (sample #2, immediately after warm-up); the remaining 29 are tightly clustered 60–63 ms. Likely a one-time GC or screenshot-pipeline warm-up effect, not a recurring class.
+- p95 = 63 ms is **32× under** the 2000 ms warm SLO. Phase 4.2's `G4.2` gate is closed with comfortable headroom.
+
+### Caveats
+- The 50 ms detection floor is the limiting factor in the measurement, not the plugin. True switch latency could be as low as 10–20 ms; we just can't measure it more precisely without a lower-overhead detector than `GetSourceScreenshot`.
+- Single-run on idle OBS (no streaming output, no encoder load). Phase 4.1 dress rehearsal should re-run this script under load to confirm the result holds with 7 concurrent ffmpeg_source inputs and a streaming encoder running.
+- The Phase 1.4 load driver (HTTP `setActive` p95) and this measurement (switch p95) are different surfaces — they compose: end-to-end operator click → program output ≈ `setActive` p95 + switch p95 ≈ Phase 1.4 result + ~63 ms.
+
+### How to re-run (Windows OBS host)
+```sh
+# On bridge — confined tmp dir, no global state touched:
+scp scripts/measureSwitcherLatencyV2.mjs derek@bridge:'C:/Users/derek/sat-phase42/'
+scp scripts/measureSwitcherLatencyV2.package.json derek@bridge:'C:/Users/derek/sat-phase42/package.json'
+ssh derek@bridge 'cd C:\Users\derek\sat-phase42; & "C:\Users\derek\scoop\apps\nodejs-lts-np\24.15.0\node.exe" \
+  "C:\Users\derek\scoop\apps\nodejs-lts-np\24.15.0\node_modules\npm\bin\npm-cli.js" install'
+ssh derek@bridge '& "C:\Users\derek\scoop\apps\nodejs-lts-np\24.15.0\node.exe" \
+  C:\Users\derek\sat-phase42\measureSwitcherLatencyV2.mjs --iterations 30'
+```
+
+Reasoning behind the explicit versioned paths: scoop's `current` junction can't be traversed from the OpenSSH session (see `gitea-tea-pr-workflow` memory for the related Windows-via-SSH gotchas).
+
 ## Phase 2.2 — Atomic-Write Decision
 _Measured: 2026-05-21 (Mac soak; Windows soak deferred)_
 
