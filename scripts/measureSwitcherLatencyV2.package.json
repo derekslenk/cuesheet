@@ -1,0 +1,10 @@
+{
+  "name": "measure-switcher-latency-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 4.2 latency baseline runner. Copy this file + measureSwitcherLatencyV2.mjs to a tmp dir on the OBS host, rename it package.json, npm install, then node measureSwitcherLatencyV2.mjs.",
+  "dependencies": {
+    "obs-websocket-js": "^5.0.6"
+  }
+}
