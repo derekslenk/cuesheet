@@ -6,13 +6,15 @@ This document provides detailed information about all API endpoints available in
 All API endpoints are available at `/api/*` relative to your application's base URL.
 
 ## Authentication
-All endpoints require API key authentication when the `API_KEY` environment variable is set. Include the API key in the `Authorization` header:
+All endpoints require API key authentication when the `API_KEY` environment variable is set. Provide the key via the `x-api-key` request header:
 
 ```
-Authorization: Bearer your_api_key_here
+x-api-key: your_api_key_here
 ```
 
-Authentication is bypassed for localhost requests in development mode.
+The key may also be passed as an `apikey` query parameter (e.g. `/api/streams?apikey=your_api_key_here`).
+
+Authentication is bypassed entirely when `API_KEY` is unset (development mode), and for requests whose `Host` is `localhost`, `127.0.0.1`, or on the `192.168.*` LAN.
 
 ## Response Format
 All endpoints return JSON responses in the following format:
