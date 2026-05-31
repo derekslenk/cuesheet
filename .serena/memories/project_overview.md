@@ -1,8 +1,8 @@
 # Project Overview
 
-## Live Stream Manager (obs-ss-plugin-webui)
+## CueSheet (formerly obs-ss-plugin-webui / "Live Stream Manager")
 
-This is a **Next.js web application** (branded as "Live Stream Manager") that controls multiple OBS Source Switchers. It provides a comprehensive UI for managing live stream sources across different screen layouts.
+This is a **Next.js web application** (branded as "CueSheet") that controls multiple OBS Source Switchers. It provides a comprehensive UI for managing live stream sources across different screen layouts.
 
 ## Primary Purpose
 
