@@ -1,9 +1,9 @@
-# Live Stream Manager
+# CueSheet
 
-A professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://github.com/exeldro/obs-source-switcher) with real-time WebSocket integration and modern glass morphism UI.
+CueSheet is a professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://github.com/exeldro/obs-source-switcher) with real-time WebSocket integration and modern glass morphism UI.
 
 
-![Live Stream Manager Interface](docs/new_home.png)
+![CueSheet Interface](docs/new_home.png)
 
 ## Features
 

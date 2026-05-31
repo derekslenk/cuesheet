@@ -1,6 +1,6 @@
 # API Documentation
 
-This document provides detailed information about all API endpoints available in the Live Stream Manager application.
+This document provides detailed information about all API endpoints available in the CueSheet application.
 
 ## Base URL
 All API endpoints are available at `/api/*` relative to your application's base URL.

@@ -20,7 +20,7 @@ export default function Header() {
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold">Live Stream Manager</h1>
+              <h1 className="text-xl font-bold">CueSheet</h1>
               <p className="text-sm opacity-80">Professional Control</p>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ApiKeyProvider } from '@/contexts/ApiKeyContext';
 
 export const metadata = {
-  title: 'Live Stream Manager',
+  title: 'CueSheet',
   description: 'A tool to manage live stream sources dynamically',
 };
 
