@@ -115,8 +115,9 @@ sessions/package.json
 sessions/transcripts/
 sessions/.archived/
 
-# OMC runtime state (sessions, hud, traces, project memory) — not portable.
-# .omc/plans/ is intentionally committed; it holds planning artifacts.
+# OMC runtime + planning artifacts — kept local, NOT committed.
+# Plans can contain internal infra notes (hosts, LAN IPs, access details).
+.omc/plans/
 .omc/state/
 .omc/sessions/
 .omc/project-memory.json
