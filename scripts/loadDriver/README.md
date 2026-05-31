@@ -33,7 +33,7 @@ out of scope for this script.)
 ## Usage
 
 ```sh
-npm run load:setactive -- --webui-url http://192.168.13.21:3000
+npm run load:setactive -- --webui-url http://<obs-host>:3000
 # or
 npx tsx scripts/loadDriver.ts --calls 100 --duration-ms 60000
 ```
@@ -65,7 +65,7 @@ npx tsx scripts/loadDriver.ts --calls 100 --duration-ms 60000
    driver does not touch OBS WebSocket).
 4. Run:
    ```sh
-   npm run load:setactive -- --webui-url http://192.168.13.21:3000
+   npm run load:setactive -- --webui-url http://<obs-host>:3000
    ```
 5. Watch the console summary, then archive
    `docs/phase-1.4-load-report.<ISO>.json` to ops storage.

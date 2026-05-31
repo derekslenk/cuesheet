@@ -168,16 +168,16 @@ Use when: you need to hide stream content immediately regardless of webui/plugin
 
 ## 9. Procedure: OBS host inaccessible — S7
 
-**Trigger:** Cannot reach Windows OBS host via SSH, RDP, or WebSocket (`192.168.13.21:4455`).
+**Trigger:** Cannot reach Windows OBS host via SSH, RDP, or WebSocket (`<obs-host>:4455`).
 
-1. Verify network path: `ping 192.168.13.21` from both LAN and Tailscale
+1. Verify network path: `ping <obs-host>` from both LAN and Tailscale
 2. If Tailscale is down: try direct LAN connection; notify network lead
 3. If host is unreachable entirely:
    - **Freeze event scope** — do not attempt Phase 1+ migrations
    - Announce "degraded mode" to ops team
    - Continue streaming from whatever state OBS is currently in (do not restart OBS remotely without confirmed access)
 4. If host becomes reachable again:
-   - Reconnect OBS WebSocket: `ws://192.168.13.21:4455` (no auth — LAN-trusted)
+   - Reconnect OBS WebSocket: `ws://<obs-host>:4455` (LAN-trusted)
    - Verify scene collection is still loaded and plugin is running
    - Resume normal operations; no config changes until stability confirmed for 5+ minutes
 5. If host remains inaccessible through event start: cancel Phase 1+ scope; ship Phase 0.5.4 runbook-only
@@ -209,7 +209,7 @@ Run this end-to-end with both operators **before doors open**. Both must sign of
 - [ ] §6 BRB hotkey tested — fires in <1 second
 - [ ] §7 4-Screen layout tested — switch confirmed in OBS
 - [ ] §8 backup directory located and verified accessible (do not restore — just confirm it exists)
-- [ ] §9 `ping 192.168.13.21` confirmed from this seat
+- [ ] §9 `ping <obs-host>` confirmed from this seat
 - [ ] `scripts/verifySwitcherCoverage.ts` run — zero coverage gaps reported
 - [ ] **Driver sign-off:** `TODO(operator)` _________________________ Date: ___________
 - [ ] **Observer sign-off:** `TODO(operator)` _______________________ Date: ___________

@@ -439,10 +439,11 @@ async function main(): Promise<void> {
 
   const { latencyReport, encodingReport, warmStats } = await measureMacOBS(args);
 
-  // Windows probe only when we ran against the default Mac URL
+  // Windows probe only when we ran against the default Mac URL.
+  // Set WINDOWS_OBS_WS to the production OBS host (e.g. ws://<obs-host>:4455) to enable it.
   let windowsReport = '';
-  if (args.wsUrl === 'ws://127.0.0.1:4455') {
-    windowsReport = await probeWindowsOBS('ws://192.168.13.21:4455');
+  if (args.wsUrl === 'ws://127.0.0.1:4455' && process.env.WINDOWS_OBS_WS) {
+    windowsReport = await probeWindowsOBS(process.env.WINDOWS_OBS_WS);
   }
 
   const fullReport = [latencyReport, encodingReport, windowsReport].filter(Boolean).join('\n\n');

@@ -24,7 +24,7 @@ Encoding check: matches fs.writeFileSync default (UTF-8, no BOM, no trailing new
 fs.writeFileSync(path, str) produces: UTF-8, no BOM, no trailing newline (Node.js default)
 OBS source-switcher expectation: plain UTF-8, no BOM (plugin trims whitespace)
 
-=== Windows OBS probe — ws://192.168.13.21:4455 ===
+=== Windows OBS probe — ws://<obs-host>:4455 ===
 Connection: OK
 Switchers found: 7 (ss_top_left, ss_top_right, ss_bottom_left, ss_bottom_right, ss_large, ss_left, ss_right)
 current_source_file_path values:
@@ -54,7 +54,7 @@ The script polled `GetInputSettings({ inputName: "ss_large" }).current_index` to
 ### Solid findings from this run
 
 - **Encoding contract**: ✅ confirmed valid (UTF-8, no BOM, no trailing newline — matches `fs.writeFileSync` default)
-- **Windows OBS connectivity**: ✅ reachable at `ws://192.168.13.21:4455`, all 7 switchers present with correct `C:/OBS/source-switching/` paths
+- **Windows OBS connectivity**: ✅ reachable at `ws://<obs-host>:4455`, all 7 switchers present with correct `C:/OBS/source-switching/` paths
 - **WebSocket RTT baseline**: ~1–3 ms (useful as a lower bound on any OBS-API-mediated measurement overhead)
 
 ### Suggested alternative detection methods (to try before Phase 4.2)
@@ -82,7 +82,7 @@ This baseline measurement is a prerequisite for the Phase 4.2 SLO acceptance cal
 > **Update 2026-05-21:** event-driven detection was investigated and rejected — the plugin emits no observable OBS-WebSocket event when switching (verified via `scripts/discoverSwitcherEvents.mjs` capturing zero events across ~50 subscribed event types, and the OBS debug-WS log showing zero `op: 5` messages during a switch). Settings `current_index` also does not update at runtime. **Screenshot-hash polling (priority 3 above) is the only ground-truth signal available** and was the path taken for the real Phase 4.2 baseline below.
 
 ## Phase 4.2 — Baseline Switcher Latency (real, screenshot-hash)
-_Measured: 2026-05-21T23:59Z on `bridge` (Windows production OBS host)_
+_Measured: 2026-05-21T23:59Z on the Windows production OBS host_
 
 ```
 === Phase 4.2 latency baseline (screenshot-hash) ===
@@ -159,7 +159,7 @@ Both strategies passed the Mac acceptance bar, but the **decision is Strategy A*
 The acceptance criterion in the plan is "zero torn reads under the 1000 ms polling floor." On the lighter-weight strategy (`write`), Mac produced zero torn reads, which already meets the criterion. Strategy A cannot be **worse** than that on Mac (same data path plus an atomic rename), so the gating question becomes Windows behavior. Because the Windows reader (`obs-source-switcher`) opens with default share modes (file held briefly during reads, not exclusively), and `MoveFileEx` with `REPLACE_EXISTING` is the standard Windows atomic-rename primitive, Strategy A is the safer default. A Windows-side soak via G6 (Tailscale + shell access) is recommended as follow-up evidence but is not a blocker for shipping the change — the failure mode is observable in the existing dress rehearsal and reversible.
 
 ### Windows results (Phase 2.2 F1, closed 2026-05-21)
-_Measured on `bridge` (Windows production OBS host) over Tailscale shell via `scripts/atomicWriteSoak.mjs` — ESM mirror of the TS soak harness for hosts without tsx._
+_Measured on the Windows production OBS host over a Tailscale shell via `scripts/atomicWriteSoak.mjs` — ESM mirror of the TS soak harness for hosts without tsx._
 
 | Strategy | Duration | Writes | Reads | ok | empty | enoent | mismatch | read_error | Verdict |
 |---|---|---|---|---|---|---|---|---|---|

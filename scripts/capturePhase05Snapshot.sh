@@ -8,11 +8,11 @@
 #   scripts/capturePhase05Snapshot.sh <ssh-host> [<ssh-user>] [<scene-name>] [<obs-config-root>]
 #
 # Examples:
-#   scripts/capturePhase05Snapshot.sh 192.168.13.21 derek SaT_Summer_2026
-#   scripts/capturePhase05Snapshot.sh windowsbox.tail-something.ts.net derek SaT_Summer_2026
+#   scripts/capturePhase05Snapshot.sh <obs-host> <ssh-user> SaT_Summer_2026
+#   scripts/capturePhase05Snapshot.sh <obs-host>.tailnet.ts.net <ssh-user> SaT_Summer_2026
 #
 # Via npm — the '--' separator is REQUIRED to pass positional args through npm run:
-#   npm run snapshot:phase05 -- 192.168.13.21 derek SaT_Summer_2026
+#   npm run snapshot:phase05 -- <obs-host> <ssh-user> SaT_Summer_2026
 #
 # Prerequisites:
 #   - OpenSSH server running on the Windows OBS host (built-in on Windows 10/11)
