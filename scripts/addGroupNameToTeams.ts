@@ -17,12 +17,9 @@ const addGroupNameToTeams = async () => {
     
     console.log('Database connection established.');
     
-    // Generate table name for teams
-    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
+    // Generate table name for teams (historical event key — targets the prior
+    // event's tables, not the active EVENT_KEY).
+    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, '2025_summer_sat');
     
     console.log(`Adding group_name column to ${teamsTableName}`);
     

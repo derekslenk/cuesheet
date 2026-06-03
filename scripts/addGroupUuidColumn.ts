@@ -13,11 +13,8 @@ async function addGroupUuidColumn() {
       driver: sqlite3.Database,
     });
 
-    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
+    // Historical event key — targets the prior event's tables, not EVENT_KEY.
+    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, '2025_summer_sat');
 
     // Check if column already exists
     const columns = await db.all(`PRAGMA table_info(${teamsTableName})`);
