@@ -129,3 +129,6 @@ obs-scene/source-switching/sources.db
 obs-scene/source-switching/sources.db-*
 obs-scene/*.snapshot.*
 obs-scene/source-switching/*.snapshot-*
+
+# Serena MCP: agent-local memories/config — keep docs canonical in README/AGENTS.md/CLAUDE.md
+.serena/
