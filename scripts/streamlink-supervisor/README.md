@@ -36,17 +36,51 @@ Env vars:
 
 | Var | Default | Notes |
 |---|---|---|
-| `STREAMS_TABLE` | `streams_2025_summer_sat` | DB table to load `obs_source_name` + `url` from |
+| `FILE_DIRECTORY` | `./files` | Directory holding `sources.db`. **Must resolve to the same DB as the webui.** |
+| `RELAY_HOST` | `127.0.0.1` | Relay bind/target host. **Must match the webui.** |
+| `RELAY_BASE_PORT` | `9000` | Base of the deterministic `id → port` map. **Must match the webui.** |
+| `RELAY_PORT_RANGE` | `2000` | Modulo range for that map. **Must match the webui.** |
+| `STREAMS_TABLE` | season table from `lib/constants` (currently `streams_2026_summer_sat`) | DB table to load `id` + `obs_source_name` + `url` from |
 | `SUPERVISOR_HEALTH_PORT` | `8080` | HTTP `/health` listener |
 | `SUPERVISOR_HEALTH_HOST` | `127.0.0.1` | Bind interface — keep loopback unless audited |
-| `SUPERVISOR_BASE_PORT` | `9001` | First UDP port allocated to a stream |
+| `SUPERVISOR_BASE_PORT` | `9001` | Fallback port allocator base (streams without a deterministic relay port — mainly tests) |
 | `SUPERVISOR_MAX_PORTS` | `8` | Max concurrent streams (matches 7 switchers + 1 spare) |
 | `SUPERVISOR_LOG_DIR` | `./logs/streamlink-supervisor` | stderr capture root |
 | `SUPERVISOR_LOG_MAX_BYTES` | `10485760` (10 MiB) | rotate-active threshold per stream |
 | `SUPERVISOR_LOG_RETAIN` | `5` | Number of rotated files kept per stream |
 | `STREAMLINK_PATH` | `streamlink` (PATH) | Absolute path on Windows installs |
 | `FFMPEG_PATH` | `ffmpeg` (PATH) | Absolute path on Windows installs |
-| `FILE_DIRECTORY` | `./files` | Where `sources.db` lives — matches webui |
+
+Config is **process env only** — there is no `.env` loading. The compiled
+single binary (see below) reads these exactly like the `tsx` entry point; no DB
+path is baked into the `.exe`.
+
+### Where the database comes from
+
+Both the webui (writer) and the supervisor (reader) resolve the same path:
+
+```
+sources.db  =  resolve(FILE_DIRECTORY || "./files") + "/sources.db"
+```
+
+- Set `FILE_DIRECTORY` to an **absolute** path and execution location is
+  irrelevant — this is the production setup (under NSSM, env comes from
+  `AppEnvironmentExtra`).
+- Leave it **unset** and `./files` resolves against the **current working
+  directory** — i.e. wherever the process was started from (under NSSM, that's
+  `AppDirectory`). Convenient in dev, fragile for a service; prefer the absolute
+  path.
+
+The supervisor opens the DB **read-only** and assumes the webui has already
+created `sources.db` and the season table. Point it at a `FILE_DIRECTORY` where
+the webui hasn't run yet and it exits with `SQLITE_CANTOPEN` / `no such table`
+rather than creating anything — **start the webui (or seed the DB) first.**
+
+The `RELAY_*` trio is how the webui's `ffmpeg_source.input` URL and this relay's
+UDP target agree with zero coordination (`lib/relayPort`): both derive the port
+from the stream's `id`. If they disagree, OBS listens on one port while the
+supervisor pushes to another and you get no video — keep them identical on both
+sides.
 
 ## /health
 
@@ -93,13 +127,49 @@ If `dashboard.html` is missing on the host (renamed or removed) the
 supervisor logs a warning and serves `404` at `/`; `/health` JSON is
 unaffected.
 
+## Single-executable build (Bun)
+
+The supervisor can be compiled into ONE self-contained binary — no Node, no
+`tsx`, no `node_modules` on the OBS host. Only `streamlink` and `ffmpeg` stay
+external (they are spawned, not bundled).
+
+```bash
+npm run supervisor:build       # host-native binary  -> dist/supervisor
+npm run supervisor:build:win   # Windows x64 binary  -> dist/supervisor.exe
+```
+
+This builds `index.bun.ts` (a Bun-native twin of `index.ts`) with
+[`bun build --compile`](https://bun.sh/docs/bundler/executables). Two things
+make a clean single binary possible:
+
+- **DB:** `index.bun.ts` reads `sources.db` through Bun's built-in `bun:sqlite`
+  (read-only) instead of the `sqlite3` native addon, so there is no `.node` to
+  embed. `lib/database` is untouched — the webui still uses `sqlite3`.
+- **Dashboard:** `dashboard.html` is embedded at compile time
+  (`import ... with { type: 'text' }`), so `/` works from inside the packed
+  binary with no file on disk.
+
+The binary honors the same env vars as the `tsx` entry point. `dist/` is
+git-ignored; build on (or for) the target OS — the Windows `.exe` is produced
+by the `--target=bun-windows-x64` cross-compile above and can be built from
+macOS.
+
 ## Windows production install (NSSM)
 
 The supervisor is meant to run as a Windows service on the OBS host so it
-starts on boot and is restarted by Windows if the Node process dies.
+starts on boot and is restarted by Windows if the process dies.
 [NSSM](https://nssm.cc/) wraps it.
 
-### One-time install
+The simplest install points NSSM straight at the compiled `.exe` (no Node or
+`tsx` on the host):
+
+```powershell
+nssm install StreamlinkSupervisor C:\OBS\webui\dist\supervisor.exe
+nssm set StreamlinkSupervisor AppDirectory C:\OBS\webui
+# ...then the same AppStdout / AppEnvironmentExtra / restart-policy lines as below.
+```
+
+### One-time install (Node + tsx, no compiled binary)
 
 Assuming `tsx`, `streamlink`, and `ffmpeg` are on PATH (or the env vars
 above are set):

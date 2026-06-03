@@ -35,6 +35,24 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to access the control interface.
 
+### Production build
+
+`next.config.ts` sets `output: "standalone"`, so `npm run build` emits a
+self-contained bundle at `.next/standalone` (a `server.js` plus a minimal
+`node_modules` that includes the `sqlite3` native module). Deploy by copying
+that folder alongside `.next/static` and `public`, then:
+
+```bash
+node .next/standalone/server.js
+```
+
+No `next start` and no full `npm install` on the host. The bundle includes the
+**host platform's** prebuilt native modules, so build on the target OS — for the
+Windows OBS host, run `npm run build` on Windows.
+
+The Streamlink supervisor can likewise be shipped as a single `.exe` — see
+[`scripts/streamlink-supervisor/README.md`](scripts/streamlink-supervisor/README.md#single-executable-build-bun).
+
 ## Configuration
 
 ### Environment Variables
