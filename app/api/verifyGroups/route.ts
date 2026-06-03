@@ -13,7 +13,9 @@ const SYSTEM_SCENES: string[] = [
   'Ending',
   'Audio',
   'Movies',
-  'Resources'
+  'Resources',
+  'Donor',
+  'BRB'
 ];
 
 interface OBSScene {
