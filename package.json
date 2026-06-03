@@ -21,6 +21,8 @@
     "snapshot:phase05": "scripts/capturePhase05Snapshot.sh",
     "measure:switcher-latency": "tsx scripts/measureSwitcherLatency.ts",
     "supervisor": "tsx scripts/streamlink-supervisor/index.ts",
+    "supervisor:build": "bun build --compile scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor",
+    "supervisor:build:win": "bun build --compile --target=bun-windows-x64 scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor.exe",
     "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
     "load:setactive": "tsx scripts/loadDriver.ts",
     "soak:atomic-write": "tsx scripts/atomicWriteSoak.ts",

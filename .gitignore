@@ -132,3 +132,6 @@ obs-scene/source-switching/*.snapshot-*
 
 # Serena MCP: agent-local memories/config — keep docs canonical in README/AGENTS.md/CLAUDE.md
 .serena/
+
+# Compiled single-executable supervisor binaries (npm run supervisor:build*)
+dist/
