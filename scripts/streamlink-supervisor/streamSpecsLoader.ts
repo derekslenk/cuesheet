@@ -1,4 +1,5 @@
 import { StreamSpec } from './supervisor';
+import { relayPort } from '../../lib/relayPort';
 
 export interface MinimalDb {
   all<T = unknown>(sql: string): Promise<T[]>;
@@ -10,6 +11,7 @@ export interface LoadStreamSpecsOptions {
 }
 
 interface StreamRow {
+  id?: number;
   obs_source_name?: string;
   url?: string;
 }
@@ -25,11 +27,17 @@ export async function loadStreamSpecs(opts: LoadStreamSpecsOptions): Promise<Str
   }
 
   const rows = await opts.db.all<StreamRow>(
-    `SELECT obs_source_name, url FROM ${opts.tableName}`
+    `SELECT id, obs_source_name, url FROM ${opts.tableName}`
   );
 
   return rows
-    .filter(r => typeof r.obs_source_name === 'string' && r.obs_source_name.length > 0
+    .filter(r => Number.isInteger(r.id) && (r.id as number) > 0
+              && typeof r.obs_source_name === 'string' && r.obs_source_name.length > 0
               && typeof r.url === 'string' && r.url.length > 0)
-    .map(r => ({ streamId: r.obs_source_name!, upstreamUrl: r.url! }));
+    .map(r => ({
+      streamId: r.obs_source_name!,
+      upstreamUrl: r.url!,
+      // Deterministic port shared with the webui ffmpeg_source input.
+      port: relayPort(r.id!),
+    }));
 }

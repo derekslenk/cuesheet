@@ -13,7 +13,7 @@ function fakeChild(pid: number) {
 }
 
 describe('startRuntime', () => {
-  function makeDeps(rows: Array<{ obs_source_name: string; url: string }>) {
+  function makeDeps(rows: Array<{ id: number; obs_source_name: string; url: string }>) {
     const children = Array.from({ length: rows.length * 4 }, (_, i) => fakeChild(100 + i));
     let i = 0;
     return {
@@ -28,8 +28,8 @@ describe('startRuntime', () => {
 
   it('loads streams from the DB and starts the supervisor + health server', async () => {
     const deps = makeDeps([
-      { obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
-      { obs_source_name: 'team_beta_main',  url: 'https://twitch.tv/b' },
+      { id: 1, obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
+      { id: 2, obs_source_name: 'team_beta_main',  url: 'https://twitch.tv/b' },
     ]);
 
     const runtime = await startRuntime(deps);
@@ -47,7 +47,7 @@ describe('startRuntime', () => {
 
   it('shutdown() is idempotent', async () => {
     const deps = makeDeps([
-      { obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
+      { id: 1, obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
     ]);
     const runtime = await startRuntime(deps);
     await runtime.shutdown();
