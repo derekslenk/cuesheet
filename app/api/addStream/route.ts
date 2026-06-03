@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
-import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createStreamGroup } from '../../../lib/obsClient';
+import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createStreamGroupV2 } from '../../../lib/obsClient';
 import { TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
 import { withDb } from '../../../lib/db';
+import { relayUdpUrl } from '../../../lib/relayPort';
 
 interface OBSClient {
     call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -48,6 +49,7 @@ function generateOBSSourceName(teamSceneName: string, streamName: string): strin
 
 export async function POST(request: NextRequest) {
   let name: string, url: string, team_id: number, obs_source_name: string, lockSources: boolean;
+  let streamId: number | undefined; // set after the up-front insert; used for relay port + rollback
 
   // Parse and validate request body
   try {
@@ -83,6 +85,23 @@ export async function POST(request: NextRequest) {
     // Generate OBS source name with team scene name prefix
     obs_source_name = generateOBSSourceName(groupName, name);
 
+    // Insert the stream row up-front so we have a stable id for the deterministic
+    // relay port. The DB keeps the upstream (Twitch) url — the Streamlink
+    // supervisor needs it; OBS instead gets a local UDP relay url derived from
+    // this id (lib/relayPort). Rolled back in the catch if OBS wiring fails.
+    const db = await getDatabase();
+    const insertResult = await db.run(
+      `INSERT INTO ${TABLE_NAMES.STREAMS} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`,
+      [name, obs_source_name, url, team_id]
+    );
+    streamId = insertResult.lastID as number;
+
+    // ffmpeg_source (Streamlink-backed Media Source) is the default — this is
+    // the OOM fix (no CEF browser per stream). STREAM_USE_FFMPEG=false falls
+    // back to a browser_source pointed at the Twitch URL (documented rollback).
+    const useFfmpeg = process.env.STREAM_USE_FFMPEG !== 'false';
+    const obsInputUrl = useFfmpeg ? relayUdpUrl(streamId) : url;
+
     // Connect to OBS WebSocket
     console.log("Pre-connect")
     await connectToOBS();
@@ -109,8 +128,10 @@ export async function POST(request: NextRequest) {
     const sourceExists = inputs.some((input: OBSInput) => input.inputName === obs_source_name);
 
     if (!sourceExists) {
-      // Create stream group with text overlay
-      await createStreamGroup(groupName, name, teamInfo.team_name, url, lockSources);
+      // Create stream group with text overlay. V2 creates an ffmpeg_source
+      // (Media Source) fed by the Streamlink supervisor over the local UDP
+      // relay, or a browser_source when useFfmpeg is false (rollback).
+      await createStreamGroupV2(groupName, name, teamInfo.team_name, obsInputUrl, { useFfmpegSource: useFfmpeg, lockSources });
       
       // Update team with group UUID if not set
       if (!teamInfo.group_uuid) {
@@ -159,16 +180,26 @@ export async function POST(request: NextRequest) {
       console.log(`OBS source "${obs_source_name}" already exists.`);
     }
 
-    const db = await getDatabase();
-    const query = `INSERT INTO ${TABLE_NAMES.STREAMS} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`;
-    db.run(query, [name, obs_source_name, url, team_id])
     await disconnectFromOBS();
-    return NextResponse.json({ message: 'Stream added successfully' }, {status: 201})
+    return NextResponse.json(
+      { message: 'Stream added successfully', useFfmpegSource: useFfmpeg, obsInputUrl },
+      { status: 201 }
+    )
 } catch (error) {
 if (error instanceof Error) {
     console.error('Error adding stream:', error.message);
 } else {
     console.error('An unknown error occurred while adding stream:', error);
+}
+// Roll back the up-front insert so a failed OBS wiring doesn't orphan a row
+// (which would otherwise produce a duplicate on the next add attempt).
+if (streamId !== undefined) {
+  try {
+    const db = await getDatabase();
+    await db.run(`DELETE FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`, [streamId]);
+  } catch (cleanupErr) {
+    console.error('Failed to roll back stream row after OBS error:', cleanupErr);
+  }
 }
 await disconnectFromOBS();
 return NextResponse.json({ error: 'Failed to add stream' }, { status: 500 });

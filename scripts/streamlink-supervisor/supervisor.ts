@@ -7,6 +7,10 @@ export type StreamStatus = 'running' | 'escalated';
 export interface StreamSpec {
   streamId: string;
   upstreamUrl: string;
+  // Deterministic relay port (lib/relayPort). When set, it is used verbatim so
+  // the webui's ffmpeg_source input and this relay target agree. Falls back to
+  // the dynamic PortAllocator when absent (e.g. in unit tests).
+  port?: number;
 }
 
 export interface StreamState {
@@ -64,7 +68,7 @@ export class Supervisor {
     if (this.streams.has(spec.streamId)) {
       return this.streams.get(spec.streamId)!.state;
     }
-    const port = this.ports.allocate();
+    const port = spec.port ?? this.ports.allocate();
     const pipeline = this.makePipeline(spec, port);
     const state: StreamState = {
       streamId: spec.streamId,
