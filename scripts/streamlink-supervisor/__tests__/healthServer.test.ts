@@ -154,4 +154,40 @@ describe('handleHealthRequest', () => {
       expect(res.body).not.toContain('<title>');
     });
   });
+
+  describe('/reload', () => {
+    const emptyProvider = { list: () => [] };
+    const flush = () => new Promise(r => setTimeout(r, 0));
+
+    it('POST /reload invokes onReload and returns its result', async () => {
+      const onReload = jest.fn().mockResolvedValue({ added: ['s1'], removed: ['s2'], total: 3 });
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/reload'), res as any, { provider: emptyProvider, onReload });
+      await flush();
+      expect(onReload).toHaveBeenCalledTimes(1);
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: 'ok', added: ['s1'], removed: ['s2'], total: 3 });
+    });
+
+    it('GET /reload returns 405 (reload is POST-only)', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('GET', '/reload'), res as any, { provider: emptyProvider, onReload: jest.fn() });
+      expect(res.statusCode).toBe(405);
+    });
+
+    it('POST /reload returns 501 when reload is not configured', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/reload'), res as any, { provider: emptyProvider });
+      expect(res.statusCode).toBe(501);
+    });
+
+    it('POST /reload returns 500 when onReload throws', async () => {
+      const onReload = jest.fn().mockRejectedValue(new Error('db down'));
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/reload'), res as any, { provider: emptyProvider, onReload });
+      await flush();
+      expect(res.statusCode).toBe(500);
+      expect(JSON.parse(res.body)).toEqual({ error: 'db down' });
+    });
+  });
 });

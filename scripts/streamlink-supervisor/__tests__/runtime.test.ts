@@ -60,4 +60,31 @@ describe('startRuntime', () => {
     expect(runtime.supervisor.list()).toEqual([]);
     await runtime.shutdown();
   });
+
+  it('reload() starts newly-added streams and stops removed ones (no restart)', async () => {
+    const deps = makeDeps([
+      { id: 1, obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
+    ]);
+    const runtime = await startRuntime(deps);
+    expect(runtime.supervisor.list().map(s => s.streamId)).toEqual(['team_alpha_main']);
+
+    // A second stream is added to the DB, then reload picks it up.
+    deps.db.all.mockResolvedValue([
+      { id: 1, obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
+      { id: 2, obs_source_name: 'team_beta_main',  url: 'https://twitch.tv/b' },
+    ]);
+    const added = await runtime.reload();
+    expect(added.added).toEqual(['team_beta_main']);
+    expect(runtime.supervisor.list().map(s => s.streamId).sort()).toEqual(['team_alpha_main', 'team_beta_main']);
+
+    // Alpha removed from the DB, then reload stops it.
+    deps.db.all.mockResolvedValue([
+      { id: 2, obs_source_name: 'team_beta_main', url: 'https://twitch.tv/b' },
+    ]);
+    const removed = await runtime.reload();
+    expect(removed.removed).toEqual(['team_alpha_main']);
+    expect(runtime.supervisor.list().map(s => s.streamId)).toEqual(['team_beta_main']);
+
+    await runtime.shutdown();
+  });
 });

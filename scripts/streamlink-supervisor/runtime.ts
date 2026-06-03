@@ -25,6 +25,7 @@ export interface StartRuntimeOptions {
 export interface SupervisorRuntime {
   supervisor: Supervisor;
   server: Server;
+  reload: () => Promise<{ added: string[]; removed: string[]; total: number }>;
   shutdown: () => Promise<void>;
 }
 
@@ -58,11 +59,29 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
   const specs = await loadStreamSpecs({ db: opts.db, tableName: opts.tableName });
   specs.forEach((spec: StreamSpec) => supervisor.start(spec));
 
+  // Re-read the DB and reconcile: start streams added since launch, stop ones
+  // removed. Lets the webui push new streams to a feed without a restart.
+  const reload = async (): Promise<{ added: string[]; removed: string[]; total: number }> => {
+    const desired = await loadStreamSpecs({ db: opts.db, tableName: opts.tableName });
+    const desiredById = new Map(desired.map(s => [s.streamId, s]));
+    const current = new Set(supervisor.list().map(s => s.streamId));
+    const added: string[] = [];
+    const removed: string[] = [];
+    for (const [streamId, spec] of desiredById) {
+      if (!current.has(streamId)) { supervisor.start(spec); added.push(streamId); }
+    }
+    for (const streamId of current) {
+      if (!desiredById.has(streamId)) { supervisor.stop(streamId); removed.push(streamId); }
+    }
+    return { added, removed, total: desiredById.size };
+  };
+
   const server = startHealthServer({
     provider: supervisor,
     port: opts.healthPort,
     hostname: opts.healthHost,
     dashboardHtml: opts.dashboardHtml,
+    onReload: reload,
   });
 
   let shutdownDone = false;
@@ -75,5 +94,5 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     await new Promise<void>(resolve => server.close(() => resolve()));
   };
 
-  return { supervisor, server, shutdown };
+  return { supervisor, server, reload, shutdown };
 }
