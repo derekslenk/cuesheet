@@ -28,18 +28,10 @@ const createSatSummer2025Tables = async () => {
     
     console.log('Database connection established.');
     
-    // Generate table names for sat_summer_2025
-    const streamsTableName = getTableName(BASE_TABLE_NAMES.STREAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
-    
-    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, {
-      year: 2025,
-      season: 'summer',
-      suffix: 'sat'
-    });
+    // Generate table names for sat_summer_2025 (historical event key — this
+    // one-off targets the prior event's tables, not the active EVENT_KEY).
+    const streamsTableName = getTableName(BASE_TABLE_NAMES.STREAMS, '2025_summer_sat');
+    const teamsTableName = getTableName(BASE_TABLE_NAMES.TEAMS, '2025_summer_sat');
     
     console.log(`Creating tables: ${streamsTableName} and ${teamsTableName}`);
     

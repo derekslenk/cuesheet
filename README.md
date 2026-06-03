@@ -45,6 +45,11 @@ Create `.env.local` in the project root:
 # File storage directory (optional, defaults to ./files)
 FILE_DIRECTORY=C:\\OBS\\source-switching
 
+# Event key — selects the per-event tables: streams_<EVENT_KEY> / teams_<EVENT_KEY>
+# (optional, defaults to 2026_summer_sat). Lowercase letters, digits, underscores.
+# Set the SAME value for the webui and the streamlink supervisor so they agree.
+EVENT_KEY=2026_summer_sat
+
 # OBS WebSocket settings (optional, these are defaults)
 OBS_WEBSOCKET_HOST=127.0.0.1
 OBS_WEBSOCKET_PORT=4455
@@ -64,10 +69,18 @@ RELAY_BASE_PORT=9000
 RELAY_PORT_RANGE=2000
 ```
 
+**`EVENT_KEY`** is the single knob that makes CueSheet generic across events.
+Each event's data lives in its own pair of tables, `streams_<EVENT_KEY>` and
+`teams_<EVENT_KEY>`. Point the app at a new event by setting `EVENT_KEY` in the
+environment — no source edit, no rebuild. The webui (which writes those tables)
+and the Streamlink supervisor (which reads them) must use the **same**
+`EVENT_KEY`. An invalid value fails fast at startup rather than silently using
+the wrong table.
+
 #### Streamlink supervisor (runs on the OBS host)
 
 The supervisor reads the same `.env`/environment as the webui (so the `RELAY_*`
-values match) plus its own settings:
+and `EVENT_KEY` values match) plus its own settings:
 
 ```env
 # Absolute paths to the binaries on the OBS host (recommended on Windows)
@@ -84,8 +97,8 @@ SUPERVISOR_LOG_MAX_BYTES=10485760
 SUPERVISOR_LOG_RETAIN=5
 
 # Optional: override the streams table the supervisor reads (defaults to the
-# season table from lib/constants); fallback port allocator for streams without
-# a deterministic relay port (used mainly in tests)
+# EVENT_KEY table, streams_<EVENT_KEY>); fallback port allocator for streams
+# without a deterministic relay port (used mainly in tests)
 STREAMS_TABLE=
 SUPERVISOR_BASE_PORT=9001
 SUPERVISOR_MAX_PORTS=8

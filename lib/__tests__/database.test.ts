@@ -12,7 +12,7 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
 import { initializeDatabase } from '../database';
-import { TABLE_NAMES, DEFAULT_TABLE_CONFIG } from '../constants';
+import { TABLE_NAMES, DEFAULT_EVENT_KEY, EVENT_KEY } from '../constants';
 
 type SqliteDb = Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -120,9 +120,12 @@ describe('initializeDatabase', () => {
   });
 });
 
-describe('DEFAULT_TABLE_CONFIG (event year)', () => {
-  it('targets the 2026 summer SaT event', () => {
-    expect(DEFAULT_TABLE_CONFIG).toEqual({ year: 2026, season: 'summer', suffix: 'sat' });
+describe('EVENT_KEY (active event)', () => {
+  it('defaults to the 2026 summer SaT event', () => {
+    // No EVENT_KEY in the test env, so the resolved key is the default. This
+    // pins the backward-compatible default — changing it renames every table.
+    expect(DEFAULT_EVENT_KEY).toBe('2026_summer_sat');
+    expect(EVENT_KEY).toBe('2026_summer_sat');
   });
 
   it('resolves TABLE_NAMES to the 2026 SaT tables', () => {

@@ -4,40 +4,60 @@ export const BASE_TABLE_NAMES = {
     TEAMS: 'teams',
 } as const;
 
-// Table configuration interface
-export interface TableConfig {
-    year: number;
-    season: 'spring' | 'summer' | 'fall' | 'winter';
-    suffix?: string;
-}
-
-// Default configuration. Bumped to 2026 for the 2026-06-13 stream-a-thon
-// event. Existing 2025 tables remain in any DB that already holds them
-// (CREATE TABLE IF NOT EXISTS is a no-op for those), but the runtime now
-// reads and writes against teams_2026_summer_sat / streams_2026_summer_sat.
-export const DEFAULT_TABLE_CONFIG: TableConfig = {
-    year: 2026,
-    season: 'summer',
-    suffix: 'sat'
-};
+type BaseTableName = typeof BASE_TABLE_NAMES[keyof typeof BASE_TABLE_NAMES];
 
 /**
- * Generates a full table name using the provided configuration
- * @param baseTableName - The base table name (e.g., 'streams' or 'teams')
- * @param config - Optional configuration object. If not provided, uses DEFAULT_TABLE_CONFIG
- * @returns The full table name with year, season, and suffix
+ * Event key — the per-event suffix appended to the base table names so that
+ * one CueSheet build serves any event by setting EVENT_KEY in the environment
+ * (no source edit, no recompile). A single opaque identifier replaces the old
+ * year/season/suffix triple. The webui (writer) and the streamlink supervisor
+ * (reader) both read this value, so they resolve identical table names with no
+ * coordination.
+ *
+ * Default `2026_summer_sat` keeps the resolved names byte-identical to the
+ * historical year/season/suffix output (`streams_2026_summer_sat` /
+ * `teams_2026_summer_sat`), so adopting EVENT_KEY is a no-op for the existing
+ * database — no migration required.
+ *
+ * Convention: lowercase letters, digits, and underscores (e.g. `worlds_2027`,
+ * `2026_summer_sat`). Validated below so it is safe to interpolate into a SQL
+ * identifier; an invalid value fails fast at startup rather than silently
+ * pointing the app at the wrong (or a non-existent) table.
  */
-export function getTableName(
-    baseTableName: typeof BASE_TABLE_NAMES[keyof typeof BASE_TABLE_NAMES],
-    config: Partial<TableConfig> = {}
-): string {
-    const finalConfig = {...DEFAULT_TABLE_CONFIG, ...config};
-    const suffix = finalConfig.suffix ? `_${finalConfig.suffix}` : '';
+export const DEFAULT_EVENT_KEY = '2026_summer_sat';
+const EVENT_KEY_PATTERN = /^[a-z0-9][a-z0-9_]*$/;
 
-    return `${baseTableName}_${finalConfig.year}_${finalConfig.season}${suffix}`;
+function resolveEventKey(): string {
+    const raw = process.env.EVENT_KEY;
+    if (raw === undefined || raw === '') return DEFAULT_EVENT_KEY;
+    if (!EVENT_KEY_PATTERN.test(raw)) {
+        throw new Error(
+            `EVENT_KEY=${raw} is invalid; use lowercase letters, digits, and ` +
+            `underscores (e.g. "2026_summer_sat", "worlds_2027")`
+        );
+    }
+    return raw;
 }
 
-// Export commonly used full table names with default configuration
+export const EVENT_KEY = resolveEventKey();
+
+/**
+ * Generates a full table name as `<base>_<eventKey>`.
+ * @param baseTableName - The base table name (`streams` or `teams`)
+ * @param eventKey - Override the active EVENT_KEY. Pass an explicit key only
+ *   for historical / cross-event lookups (e.g. one-off migration scripts that
+ *   target a prior event's tables); runtime code should omit it so every table
+ *   name follows the configured EVENT_KEY.
+ * @returns The full table name, e.g. `streams_2026_summer_sat`
+ */
+export function getTableName(
+    baseTableName: BaseTableName,
+    eventKey: string = EVENT_KEY
+): string {
+    return `${baseTableName}_${eventKey}`;
+}
+
+// Export commonly used full table names for the active event.
 export const TABLE_NAMES = {
     STREAMS: getTableName(BASE_TABLE_NAMES.STREAMS),
     TEAMS: getTableName(BASE_TABLE_NAMES.TEAMS),
