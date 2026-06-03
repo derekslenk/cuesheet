@@ -4,6 +4,7 @@ import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, cre
 import { TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
 import { withDb } from '../../../lib/db';
 import { relayUdpUrl } from '../../../lib/relayPort';
+import { requestSupervisorReload } from '../../../lib/supervisorClient';
 
 interface OBSClient {
     call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -181,6 +182,10 @@ export async function POST(request: NextRequest) {
     }
 
     await disconnectFromOBS();
+    // Tell the supervisor to pick up the new stream immediately (best-effort;
+    // non-fatal if it isn't running). Without this the ffmpeg_source shows a
+    // gray box until the supervisor is restarted.
+    await requestSupervisorReload();
     return NextResponse.json(
       { message: 'Stream added successfully', useFfmpegSource: useFfmpeg, obsInputUrl },
       { status: 201 }

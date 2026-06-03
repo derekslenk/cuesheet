@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/database';
 import { TABLE_NAMES } from '@/lib/constants';
 import { deleteTeamComponents, deleteStreamComponents, clearTextFilesForStream } from '@/lib/obsClient';
+import { requestSupervisorReload } from '@/lib/supervisorClient';
 
 export async function PUT(
     request: Request,
@@ -132,8 +133,12 @@ export async function DELETE(
             );
             
             await db.run('COMMIT');
-            
-            return NextResponse.json({ 
+
+            // Stop the supervisor pipelines for the now-deleted streams
+            // (best-effort; non-fatal if the supervisor isn't running).
+            await requestSupervisorReload();
+
+            return NextResponse.json({
                 message: 'Team and all associated components deleted successfully',
                 deletedStreams: streams.length,
                 obsCleanup: obsCleanupResults || 'OBS cleanup was not performed'
