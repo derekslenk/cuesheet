@@ -31,7 +31,7 @@ describe('buildStreamlinkCmd', () => {
 });
 
 describe('buildFfmpegRelayCmd', () => {
-  it('copies streams (no re-encode), pushes MPEG-TS to UDP localhost:port', () => {
+  it('copies streams (no re-encode) and tees MPEG-TS to both the OBS and preview UDP ports', () => {
     const { cmd, args } = buildFfmpegRelayCmd({ port: 9001 });
 
     expect(cmd).toBe('ffmpeg');
@@ -39,9 +39,22 @@ describe('buildFfmpegRelayCmd', () => {
       '-re',
       '-i', 'pipe:0',
       '-c', 'copy',
-      '-f', 'mpegts',
-      'udp://127.0.0.1:9001?pkt_size=1316',
+      '-map', '0',
+      '-f', 'tee',
     ]));
+    // Single tee target string carrying both branches.
+    const teeTarget = args[args.length - 1];
+    expect(teeTarget).toBe(
+      '[f=mpegts]udp://127.0.0.1:9001?pkt_size=1316|' +
+      '[f=mpegts:onfail=ignore]udp://127.0.0.1:12001?pkt_size=1316'
+    );
+  });
+
+  it('keeps the OBS branch unguarded and the preview branch onfail=ignore', () => {
+    const teeTarget = buildFfmpegRelayCmd({ port: 9001 }).args.at(-1)!;
+    const [obsBranch, previewBranch] = teeTarget.split('|');
+    expect(obsBranch).not.toContain('onfail');          // OBS path must never be skipped
+    expect(previewBranch).toContain('onfail=ignore');   // preview must never block OBS
   });
 
   it('honors a custom ffmpeg binary path', () => {
@@ -56,7 +69,8 @@ describe('buildFfmpegRelayCmd', () => {
   });
 
   it('emits a stable URL string callers can pass straight to OBS ffmpeg_source.input', () => {
-    const { obsInputUrl } = buildFfmpegRelayCmd({ port: 9042 });
+    const { obsInputUrl, previewPort } = buildFfmpegRelayCmd({ port: 9042 });
     expect(obsInputUrl).toBe('udp://127.0.0.1:9042');
+    expect(previewPort).toBe(12042);
   });
 });

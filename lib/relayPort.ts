@@ -33,3 +33,33 @@ export function relayPort(streamId: number | string): number {
 export function relayUdpUrl(streamId: number | string): string {
   return `udp://${RELAY_HOST}:${relayPort(streamId)}`;
 }
+
+/**
+ * Preview relay port — a second, deterministic UDP target the supervisor's
+ * ffmpeg `tee` muxer fans the stream out to (alongside the OBS-facing port),
+ * so the webui can transmux it to browser-playable HLS without contending
+ * with OBS for the unicast packets.
+ *
+ * Derived as relayPort + RELAY_PREVIEW_OFFSET (default 3000). With the default
+ * base/range (9000 / 2000 → relay ports 9000–10999) the preview band is
+ * 12000–13999, so the two ranges never overlap. The supervisor (tee target)
+ * and the webui (HLS packager input) both compute this from the same stream
+ * id with zero coordination — same contract as relayPort().
+ */
+export const RELAY_PREVIEW_OFFSET = parseInt(process.env.RELAY_PREVIEW_OFFSET || '3000', 10);
+
+export function previewPortFor(relayPortValue: number): number {
+  const port = relayPortValue + RELAY_PREVIEW_OFFSET;
+  if (port < 1 || port > 65535) {
+    throw new RangeError(`computed preview port ${port} is out of range [1,65535]`);
+  }
+  return port;
+}
+
+export function previewPort(streamId: number | string): number {
+  return previewPortFor(relayPort(streamId));
+}
+
+export function previewUdpUrl(streamId: number | string): string {
+  return `udp://${RELAY_HOST}:${previewPort(streamId)}`;
+}

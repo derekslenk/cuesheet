@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "hls.js": "^1.6.16",
     "next": "^15.4.1",
     "obs-websocket-js": "^5.0.6",
     "react": "^19.1.0",
