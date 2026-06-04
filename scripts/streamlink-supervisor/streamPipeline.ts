@@ -83,6 +83,7 @@ export class StreamPipeline {
       upstreamUrl: this.upstreamUrl,
       quality: this.quality,
       streamlinkPath: this.streamlinkPath,
+      oauthToken: process.env.TWITCH_OAUTH_TOKEN,
     });
     const ff = buildFfmpegRelayCmd({
       port: this.port,

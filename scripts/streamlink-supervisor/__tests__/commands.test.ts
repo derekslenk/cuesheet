@@ -1,7 +1,7 @@
 import { buildStreamlinkCmd, buildFfmpegRelayCmd } from '../commands';
 
 describe('buildStreamlinkCmd', () => {
-  it('writes raw TS to stdout, picks best quality, disables Twitch ads, restarts live on EOF', () => {
+  it('writes raw TS to stdout, picks best quality, restarts live on EOF', () => {
     const { cmd, args } = buildStreamlinkCmd({
       upstreamUrl: 'https://twitch.tv/team_alpha',
       quality: 'best',
@@ -11,8 +11,29 @@ describe('buildStreamlinkCmd', () => {
     expect(args).toContain('https://twitch.tv/team_alpha');
     expect(args).toContain('best');
     expect(args).toContain('--stdout');
-    expect(args).toContain('--twitch-disable-ads');
     expect(args).toContain('--hls-live-restart');
+    // --twitch-disable-ads is obsolete (removed after streamlink 7.5.0); ad
+    // filtering is automatic, so we no longer pass it.
+    expect(args).not.toContain('--twitch-disable-ads');
+  });
+
+  it('omits the auth header when no OAuth token is given', () => {
+    const { args } = buildStreamlinkCmd({ upstreamUrl: 'https://x' });
+    expect(args).not.toContain('--twitch-api-header');
+  });
+
+  it('adds the Twitch OAuth auth header when a token is given (Turbo → ad-free)', () => {
+    const { args } = buildStreamlinkCmd({ upstreamUrl: 'https://x', oauthToken: 'abc123' });
+    const i = args.indexOf('--twitch-api-header');
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(args[i + 1]).toBe('Authorization=OAuth abc123');
+  });
+
+  it('trims the token and treats blank/whitespace as no token', () => {
+    expect(buildStreamlinkCmd({ upstreamUrl: 'https://x', oauthToken: '   ' }).args)
+      .not.toContain('--twitch-api-header');
+    const args = buildStreamlinkCmd({ upstreamUrl: 'https://x', oauthToken: '  tok  ' }).args;
+    expect(args[args.indexOf('--twitch-api-header') + 1]).toBe('Authorization=OAuth tok');
   });
 
   it('honors a custom streamlink binary path (Windows install)', () => {

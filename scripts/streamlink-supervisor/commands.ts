@@ -2,6 +2,14 @@ export interface StreamlinkCmdInput {
   upstreamUrl: string;
   quality?: string;
   streamlinkPath?: string;
+  /**
+   * Twitch OAuth token (the account's `auth-token`). When set, it is sent as an
+   * `Authorization: OAuth <token>` API header. With a Twitch Turbo account this
+   * yields genuinely ad-free streams (no ad-break gaps); without Turbo it has
+   * no ad effect. Kept out of code/git — supplied via the TWITCH_OAUTH_TOKEN
+   * env var by the runtime.
+   */
+  oauthToken?: string;
 }
 
 export interface StreamlinkCmd {
@@ -11,15 +19,18 @@ export interface StreamlinkCmd {
 
 export function buildStreamlinkCmd(input: StreamlinkCmdInput): StreamlinkCmd {
   const quality = input.quality ?? 'best';
+  const args = ['--stdout', '--hls-live-restart'];
+  // Authenticated requests can prevent ads outright (Turbo). streamlink filters
+  // ad segments automatically since 7.5.0, so --twitch-disable-ads is obsolete
+  // and intentionally omitted.
+  const token = input.oauthToken?.trim();
+  if (token) {
+    args.push('--twitch-api-header', `Authorization=OAuth ${token}`);
+  }
+  args.push(input.upstreamUrl, quality);
   return {
     cmd: input.streamlinkPath ?? 'streamlink',
-    args: [
-      '--stdout',
-      '--twitch-disable-ads',
-      '--hls-live-restart',
-      input.upstreamUrl,
-      quality,
-    ],
+    args,
   };
 }
 
