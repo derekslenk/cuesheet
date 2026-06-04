@@ -52,7 +52,7 @@ describe('buildStreamlinkCmd', () => {
 });
 
 describe('buildFfmpegRelayCmd', () => {
-  it('copies streams (no re-encode) and tees MPEG-TS to both the OBS and preview UDP ports', () => {
+  it('copies streams (no re-encode) and tees to both the OBS and preview UDP ports', () => {
     const { cmd, args } = buildFfmpegRelayCmd({ port: 9001 });
 
     expect(cmd).toBe('ffmpeg');
@@ -60,14 +60,18 @@ describe('buildFfmpegRelayCmd', () => {
       '-re',
       '-i', 'pipe:0',
       '-c', 'copy',
-      '-map', '0',
+      // OBS pinned to first video + optional first audio (not the old `-map 0`).
+      '-map', '0:v:0',
+      '-map', '0:a:0?',
       '-f', 'tee',
     ]));
-    // Single tee target string carrying both branches.
+    expect(args).not.toContain('0'); // the bare `-map 0` (all streams) is gone
+    // Single tee target string: OBS leg direct mpegts | preview leg in a fifo.
     const teeTarget = args[args.length - 1];
     expect(teeTarget).toBe(
       '[f=mpegts]udp://127.0.0.1:9001?pkt_size=1316|' +
-      '[f=mpegts:onfail=ignore]udp://127.0.0.1:12001?pkt_size=1316'
+      '[f=fifo:fifo_format=mpegts:drop_pkts_on_overflow=1:attempt_recovery=1:' +
+      'recover_any_error=1:recovery_wait_time=1]udp://127.0.0.1:12001?pkt_size=1316'
     );
   });
 
@@ -83,11 +87,16 @@ describe('buildFfmpegRelayCmd', () => {
     expect(previewPort).toBe(12001);
   });
 
-  it('keeps the OBS branch unguarded and the preview branch onfail=ignore', () => {
+  it('keeps the OBS leg direct and isolates only the preview leg in a fifo', () => {
     const teeTarget = buildFfmpegRelayCmd({ port: 9001 }).args.at(-1)!;
     const [obsBranch, previewBranch] = teeTarget.split('|');
-    expect(obsBranch).not.toContain('onfail');          // OBS path must never be skipped
-    expect(previewBranch).toContain('onfail=ignore');   // preview must never block OBS
+    // OBS leg: plain mpegts, never wrapped in a fifo (no buffering / drop risk).
+    expect(obsBranch).toContain('[f=mpegts]');
+    expect(obsBranch).not.toContain('fifo');
+    // Preview leg: fifo muxer (own thread, drops on overflow) so it can never
+    // backpressure the OBS leg.
+    expect(previewBranch).toContain('f=fifo');
+    expect(previewBranch).toContain('drop_pkts_on_overflow=1');
   });
 
   it('honors a custom ffmpeg binary path', () => {

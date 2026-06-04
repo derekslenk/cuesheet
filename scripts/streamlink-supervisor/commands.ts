@@ -96,16 +96,29 @@ export function buildFfmpegRelayCmd(input: FfmpegRelayInput): FfmpegRelayCmd {
     };
   }
 
-  // Dual-output tee: OBS branch (unguarded) | preview branch (onfail=ignore).
+  // Dual-output tee.
+  //   OBS leg:     direct mpegts — lowest latency, no buffering, byte-identical
+  //                to the single-output relay. OBS is never wrapped in a fifo.
+  //   Preview leg: wrapped in the `fifo` muxer so it runs in its OWN thread and
+  //                drops packets on overflow. This is the critical isolation:
+  //                a slow/stalled/absent preview consumer can never backpressure
+  //                the shared tee write loop and stall the OBS leg — the exact
+  //                failure that forced preview off when both legs shared a thread.
   const previewTarget = `udp://127.0.0.1:${previewPort}?pkt_size=1316`;
-  const teeTarget = `[f=mpegts]${obsTarget}|[f=mpegts:onfail=ignore]${previewTarget}`;
+  const fifoOpts =
+    'fifo_format=mpegts:drop_pkts_on_overflow=1:attempt_recovery=1:recover_any_error=1:recovery_wait_time=1';
+  const teeTarget = `[f=mpegts]${obsTarget}|[f=fifo:${fifoOpts}]${previewTarget}`;
   return {
     cmd,
     args: [
       '-re',
       '-i', 'pipe:0',
       '-c', 'copy',
-      '-map', '0',
+      // Pin OBS to exactly the first video + (optional) first audio. The old
+      // `-map 0` forwarded every stream — extra audio tracks, timed-metadata /
+      // data streams — which OBS can choke on. `?` keeps audio optional.
+      '-map', '0:v:0',
+      '-map', '0:a:0?',
       '-f', 'tee',
       teeTarget,
     ],
