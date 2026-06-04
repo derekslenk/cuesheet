@@ -50,6 +50,18 @@ describe('buildFfmpegRelayCmd', () => {
     );
   });
 
+  it('emits a single-output OBS-only relay (no tee) when previewTee is false', () => {
+    const { cmd, args, obsInputUrl, previewPort } = buildFfmpegRelayCmd({ port: 9001, previewTee: false });
+
+    expect(cmd).toBe('ffmpeg');
+    expect(args).toEqual(['-re', '-i', 'pipe:0', '-c', 'copy', '-f', 'mpegts', 'udp://127.0.0.1:9001?pkt_size=1316']);
+    expect(args).not.toContain('tee');       // nothing shares ffmpeg's write loop
+    expect(args.join(' ')).not.toContain('12001'); // preview port never targeted
+    // obsInputUrl / previewPort stay identical to tee mode so callers don't care.
+    expect(obsInputUrl).toBe('udp://127.0.0.1:9001');
+    expect(previewPort).toBe(12001);
+  });
+
   it('keeps the OBS branch unguarded and the preview branch onfail=ignore', () => {
     const teeTarget = buildFfmpegRelayCmd({ port: 9001 }).args.at(-1)!;
     const [obsBranch, previewBranch] = teeTarget.split('|');

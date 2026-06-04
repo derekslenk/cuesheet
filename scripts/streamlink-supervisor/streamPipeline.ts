@@ -1,5 +1,15 @@
 import { buildStreamlinkCmd, buildFfmpegRelayCmd } from './commands';
 
+/**
+ * Whether to fan the relay out to the preview port (in-browser preview).
+ * Opt-in via PREVIEW_RELAY (on/1/true/yes); defaults OFF because the tee
+ * was observed to periodically stall the OBS feed. See buildFfmpegRelayCmd.
+ */
+function previewTeeEnabled(): boolean {
+  const v = (process.env.PREVIEW_RELAY ?? '').trim().toLowerCase();
+  return v === 'on' || v === '1' || v === 'true' || v === 'yes';
+}
+
 export type StreamPipelineStatus = 'pending' | 'running' | 'exited';
 export type ChildSource = 'streamlink' | 'ffmpeg';
 
@@ -74,7 +84,11 @@ export class StreamPipeline {
       quality: this.quality,
       streamlinkPath: this.streamlinkPath,
     });
-    const ff = buildFfmpegRelayCmd({ port: this.port, ffmpegPath: this.ffmpegPath });
+    const ff = buildFfmpegRelayCmd({
+      port: this.port,
+      ffmpegPath: this.ffmpegPath,
+      previewTee: previewTeeEnabled(),
+    });
 
     this.slChild = this.spawn(sl.cmd, sl.args, { stdio: ['ignore', 'pipe', 'pipe'] });
     this.ffChild = this.spawn(ff.cmd, ff.args, { stdio: ['pipe', 'ignore', 'pipe'] });
