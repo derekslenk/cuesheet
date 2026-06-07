@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -17,57 +18,90 @@ namespace CueSheetMonitor
         static readonly Brush Green = new SolidColorBrush(Color.FromRgb(0x4F, 0xD1, 0x8A));
         static readonly Brush Red   = new SolidColorBrush(Color.FromRgb(0xE8, 0x5A, 0x5A));
 
-        readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        // UseProxy=false avoids WinHTTP/WPAD proxy auto-detection, which runs on the
+        // first request and can block for many seconds -> the startup freeze.
+        readonly HttpClient _http = new HttpClient(new HttpClientHandler { UseProxy = false })
+        {
+            Timeout = TimeSpan.FromSeconds(2)
+        };
         readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        bool _busy;
 
         public MainWindow()
         {
             InitializeComponent();
             _timer.Tick += async (s, e) => await Refresh();
-            Loaded += async (s, e) => { TryDarkTitleBar(); await Refresh(); _timer.Start(); };
+            Loaded += (s, e) =>
+            {
+                TryDarkTitleBar();
+                _timer.Start();
+                _ = Refresh();   // fire-and-forget: never block the first paint on a poll
+            };
+        }
+
+        sealed class Snapshot
+        {
+            public bool SupUp;
+            public string SupText = "Supervisor    DOWN";
+            public List<string> Streams = new();
+            public bool WebUp;
+            public string WebText = "Web UI        DOWN";
+            public string RelayText = "relay procs:  streamlink=0   ffmpeg=0";
         }
 
         async Task Refresh()
         {
+            if (_busy) return;          // skip if a prior poll is still in flight
+            _busy = true;
             try
             {
-                var json = await _http.GetStringAsync("http://127.0.0.1:8080/health");
+                // All blocking I/O runs off the UI thread; UI updates resume here after await.
+                Snapshot snap = await Task.Run(Poll);
+                DotSup.Fill = snap.SupUp ? Green : Red;
+                TxtSup.Text = snap.SupText;
+                ListStreams.Items.Clear();
+                foreach (var line in snap.Streams) ListStreams.Items.Add(line);
+                DotWeb.Fill = snap.WebUp ? Green : Red;
+                TxtWeb.Text = snap.WebText;
+                TxtRelay.Text = snap.RelayText;
+            }
+            catch { /* a failed refresh must never crash or freeze the UI */ }
+            finally { _busy = false; }
+        }
+
+        Snapshot Poll()
+        {
+            var snap = new Snapshot();
+            try
+            {
+                var json = _http.GetStringAsync("http://127.0.0.1:8080/health").GetAwaiter().GetResult();
                 using var doc = JsonDocument.Parse(json);
                 var streams = doc.RootElement.GetProperty("streams");
-                DotSup.Fill = Green;
-                TxtSup.Text = $"Supervisor    UP    ({streams.GetArrayLength()} streams)";
-                ListStreams.Items.Clear();
+                snap.SupUp = true;
+                snap.SupText = $"Supervisor    UP    ({streams.GetArrayLength()} streams)";
                 foreach (var st in streams.EnumerateArray())
                 {
                     string id = st.GetProperty("streamId").GetString() ?? "?";
                     string status = st.GetProperty("status").GetString() ?? "?";
                     string url = st.GetProperty("obsInputUrl").GetString() ?? "";
                     int rc = st.GetProperty("restartCount").GetInt32();
-                    ListStreams.Items.Add($"{id}   [{status}]   {url}   restarts={rc}");
+                    snap.Streams.Add($"{id}   [{status}]   {url}   restarts={rc}");
                 }
             }
-            catch
-            {
-                DotSup.Fill = Red;
-                TxtSup.Text = "Supervisor    DOWN";
-                ListStreams.Items.Clear();
-            }
+            catch { snap.SupUp = false; }
 
             try
             {
-                var resp = await _http.GetAsync("http://127.0.0.1:3000/");
-                DotWeb.Fill = Green;
-                TxtWeb.Text = $"Web UI        UP    (HTTP {(int)resp.StatusCode})";
+                var resp = _http.GetAsync("http://127.0.0.1:3000/").GetAwaiter().GetResult();
+                snap.WebUp = true;
+                snap.WebText = $"Web UI        UP    (HTTP {(int)resp.StatusCode})";
             }
-            catch
-            {
-                DotWeb.Fill = Red;
-                TxtWeb.Text = "Web UI        DOWN";
-            }
+            catch { snap.WebUp = false; }
 
             int sl = Process.GetProcessesByName("streamlink").Length;
             int ff = Process.GetProcessesByName("ffmpeg").Length;
-            TxtRelay.Text = $"relay procs:  streamlink={sl}   ffmpeg={ff}";
+            snap.RelayText = $"relay procs:  streamlink={sl}   ffmpeg={ff}";
+            return snap;
         }
 
         void RunHelper(string script)
@@ -83,7 +117,11 @@ namespace CueSheetMonitor
                     CreateNoWindow = true
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to run {script}: {ex.Message}", "CueSheet",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         static void OpenUrl(string url)
