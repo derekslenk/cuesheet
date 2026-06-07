@@ -104,14 +104,16 @@ namespace CueSheetMonitor
             return snap;
         }
 
-        void RunHelper(string script)
+        void RunHelper(string script, string which = "")
         {
             try
             {
+                var psArgs = $"-NoProfile -ExecutionPolicy Bypass -File \"{Path.Combine(REPO, script)}\"";
+                if (!string.IsNullOrEmpty(which)) psArgs += $" {which}";
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "powershell",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{Path.Combine(REPO, script)}\"",
+                    Arguments = psArgs,
                     WorkingDirectory = REPO,
                     UseShellExecute = false,
                     CreateNoWindow = true
@@ -119,7 +121,7 @@ namespace CueSheetMonitor
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to run {script}: {ex.Message}", "CueSheet",
+                MessageBox.Show($"Failed to run {script} {which}: {ex.Message}", "CueSheet",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -129,8 +131,12 @@ namespace CueSheetMonitor
             try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
         }
 
-        void BtnStart_Click(object sender, RoutedEventArgs e) => RunHelper("mon-start.ps1");
-        void BtnStop_Click(object sender, RoutedEventArgs e) => RunHelper("mon-stop.ps1");
+        // Supervisor and webui can be started/stopped independently — e.g. start
+        // the webui WITHOUT the supervisor for a load-test run.
+        void BtnStartSup_Click(object sender, RoutedEventArgs e) => RunHelper("mon-start.ps1", "sup");
+        void BtnStartWeb_Click(object sender, RoutedEventArgs e) => RunHelper("mon-start.ps1", "web");
+        void BtnStopAll_Click(object sender, RoutedEventArgs e) => RunHelper("mon-stop.ps1", "both");
+        void BtnStopSup_Click(object sender, RoutedEventArgs e) => RunHelper("mon-stop.ps1", "sup");
         void BtnDash_Click(object sender, RoutedEventArgs e) => OpenUrl("http://localhost:8080/");
         void BtnWeb_Click(object sender, RoutedEventArgs e) => OpenUrl("http://localhost:3000/");
 
