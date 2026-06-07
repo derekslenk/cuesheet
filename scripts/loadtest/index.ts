@@ -36,7 +36,7 @@ import { existsSync, mkdirSync, copyFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { relayPort } from '../../lib/relayPort';
-import { SOURCE_SWITCHER_NAMES } from '../../lib/constants';
+import { SCREEN_POSITIONS } from '../../lib/constants';
 
 const WEBUI = process.env.LOADTEST_WEBUI ?? 'http://127.0.0.1:3000';
 const FFMPEG = process.env.FFMPEG_PATH ?? 'ffmpeg';
@@ -208,7 +208,7 @@ async function cmdStart(): Promise<void> {
 async function cmdCycle(intervalMs: number): Promise<void> {
   const streams = await loadTestStreams();
   if (streams.length === 0) { console.log('no LOADTEST streams'); return; }
-  const screens = SOURCE_SWITCHER_NAMES;
+  const screens = SCREEN_POSITIONS;
   console.log(`cycling ${streams.length} stream(s) across ${screens.length} screen(s) every ${intervalMs}ms. Ctrl+C to stop.`);
   let stopped = false;
   process.on('SIGINT', () => { stopped = true; });
