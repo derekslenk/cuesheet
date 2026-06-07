@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { ensurePreview, touchPreview, previewDir } from '@/lib/previewManager';
+import { ensurePreview, touchPreview, previewDir, PreviewCapacityError } from '@/lib/previewManager';
 
 // Spawns ffmpeg + reads temp files — must run on the Node runtime, never edge,
 // and must never be statically cached (the playlist changes every second).
@@ -24,7 +24,16 @@ export async function GET(
   }
 
   // First touch starts the packager; subsequent touches keep it alive.
-  ensurePreview(id);
+  // ensurePreview throws PreviewCapacityError when the concurrent ceiling is
+  // hit — surface that as 429 so a wall of previews can't self-DoS the host.
+  try {
+    ensurePreview(id);
+  } catch (e) {
+    if (e instanceof PreviewCapacityError) {
+      return new Response('preview capacity reached', { status: 429 });
+    }
+    throw e;
+  }
   touchPreview(id);
 
   const path = join(previewDir(id), file);
@@ -49,10 +58,13 @@ export async function GET(
     return new Response('preview not ready', { status: 503 });
   }
 
-  return new Response(new Uint8Array(data), {
+  // Zero-copy view over the Buffer (avoids a second full-segment heap copy).
+  // The playlist changes every second → never cache; .ts segments are immutable
+  // once written → allow brief caching so a re-fetch never re-reads disk.
+  return new Response(new Uint8Array(data.buffer, data.byteOffset, data.byteLength), {
     headers: {
       'Content-Type': isPlaylist ? 'application/vnd.apple.mpegurl' : 'video/mp2t',
-      'Cache-Control': 'no-store',
+      'Cache-Control': isPlaylist ? 'no-store' : 'public, max-age=5, immutable',
     },
   });
 }

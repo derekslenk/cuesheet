@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../../lib/database';
 import { TABLE_NAMES } from '../../../../lib/constants';
 import { deleteStreamComponents, clearTextFilesForStream } from '../../../../lib/obsClient';
+import { stopPreview } from '../../../../lib/previewManager';
 
 // GET single stream
 export async function GET(
@@ -144,6 +145,11 @@ export async function DELETE(
       // Continue with database deletion even if OBS cleanup fails
     }
     
+    // Stop any in-flight preview packager for this stream (best-effort) so its
+    // ffmpeg + UDP socket + temp dir don't outlive the stream it previews.
+    const numericId = Number(resolvedParams.id);
+    if (Number.isInteger(numericId)) stopPreview(numericId);
+
     // Delete stream from database
     await db.run(
       `DELETE FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`,

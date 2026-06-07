@@ -52,7 +52,10 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     streamlinkPath: opts.streamlinkPath,
     ffmpegPath: opts.ffmpegPath,
     onStderr: (streamId, source, chunk) => {
-      loggerFor(streamId).write(`[${source}] ${chunk}`);
+      // Redact the Twitch OAuth token before it lands in on-disk logs —
+      // streamlink can echo the Authorization header into stderr.
+      const safe = chunk.replace(/OAuth\s+\S+/gi, 'OAuth [REDACTED]');
+      loggerFor(streamId).write(`[${source}] ${safe}`);
     },
   });
 

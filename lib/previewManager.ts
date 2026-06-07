@@ -23,6 +23,17 @@ import { previewUdpUrl } from './relayPort';
 const ROOT = join(tmpdir(), 'cuesheet-preview');
 const IDLE_MS = parseInt(process.env.PREVIEW_IDLE_MS || '20000', 10);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
+// Ceiling on concurrent packagers so previewing many tiles can't spawn
+// unbounded ffmpeg on the broadcast host (the route maps overflow to HTTP 429).
+const MAX_CONCURRENT = parseInt(process.env.PREVIEW_MAX_CONCURRENT || '6', 10);
+
+/** Thrown by ensurePreview when the concurrent-packager ceiling is reached. */
+export class PreviewCapacityError extends Error {
+  constructor() {
+    super('preview capacity reached');
+    this.name = 'PreviewCapacityError';
+  }
+}
 
 interface Session {
   proc: ChildProcess;
@@ -60,6 +71,11 @@ export function ensurePreview(streamId: number): string {
   if (existing && existing.proc.exitCode === null && existing.proc.signalCode === null) {
     existing.lastAccess = Date.now();
     return existing.dir;
+  }
+
+  // Refuse a NEW packager once at capacity (existing ones above already returned).
+  if (sessions.size >= MAX_CONCURRENT) {
+    throw new PreviewCapacityError();
   }
 
   const dir = previewDir(streamId);
