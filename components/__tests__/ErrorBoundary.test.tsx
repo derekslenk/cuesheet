@@ -1,5 +1,11 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ErrorBoundary } from '../ErrorBoundary';
+import { isDev } from '@/lib/isDev';
+
+// isDev() is mocked so the dev/prod branches are controllable regardless of how
+// next/jest inlines process.env.NODE_ENV. Default (undefined) = production.
+jest.mock('@/lib/isDev', () => ({ isDev: jest.fn() }));
+const mockIsDev = isDev as jest.Mock;
 
 // Component that throws an error for testing
 const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
@@ -116,63 +122,35 @@ describe('ErrorBoundary', () => {
   });
 
   describe('development mode', () => {
-    const originalEnv = process.env.NODE_ENV;
-    
-    beforeAll(() => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'development',
-        writable: true
-      });
-    });
-    
-    afterAll(() => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: originalEnv,
-        writable: true
-      });
-    });
-
     it('shows error details in development mode', () => {
+      mockIsDev.mockReturnValue(true);
+
       render(
         <ErrorBoundary>
           <ThrowError shouldThrow={true} />
         </ErrorBoundary>
       );
-      
+
       expect(screen.getByText('Error Details (Development)')).toBeInTheDocument();
-      
+
       // Click to expand details
       fireEvent.click(screen.getByText('Error Details (Development)'));
-      
+
       // Should show the error stack
       expect(screen.getByText(/Test error message/)).toBeInTheDocument();
     });
   });
 
   describe('production mode', () => {
-    const originalEnv = process.env.NODE_ENV;
-    
-    beforeAll(() => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'production',
-        writable: true
-      });
-    });
-    
-    afterAll(() => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: originalEnv,
-        writable: true
-      });
-    });
-
     it('hides error details in production mode', () => {
+      mockIsDev.mockReturnValue(false);
+
       render(
         <ErrorBoundary>
           <ThrowError shouldThrow={true} />
         </ErrorBoundary>
       );
-      
+
       expect(screen.queryByText('Error Details (Development)')).not.toBeInTheDocument();
     });
   });

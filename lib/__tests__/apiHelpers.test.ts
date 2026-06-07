@@ -18,6 +18,12 @@ jest.mock('next/server', () => ({
   },
 }));
 
+// isDev() is mocked so the dev/prod detail branches are controllable regardless
+// of how next/jest inlines process.env.NODE_ENV. Default (undefined) = production.
+jest.mock('../isDev', () => ({ isDev: jest.fn() }));
+import { isDev } from '../isDev';
+const mockIsDev = isDev as jest.Mock;
+
 // Mock console.error to silence expected error logs
 const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -215,24 +221,12 @@ describe('apiHelpers', () => {
   });
 
   describe('environment-specific behavior', () => {
-    const originalEnv = process.env.NODE_ENV;
-
-    afterAll(() => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: originalEnv,
-        writable: true
-      });
-    });
-
     it('includes error details in development', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'development',
-        writable: true
-      });
+      mockIsDev.mockReturnValue(true);
       const originalError = new Error('Test error');
-      
+
       createDatabaseError('test operation', originalError);
-      
+
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
           details: originalError,
@@ -242,14 +236,11 @@ describe('apiHelpers', () => {
     });
 
     it('excludes error details in production', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'production',
-        writable: true
-      });
+      mockIsDev.mockReturnValue(false);
       const originalError = new Error('Test error');
-      
+
       createDatabaseError('test operation', originalError);
-      
+
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
           details: undefined,

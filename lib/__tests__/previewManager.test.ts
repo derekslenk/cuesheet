@@ -22,9 +22,9 @@ function makeProc() {
   };
 }
 
-const spawnMock = jest.fn(() => makeProc());
-const mkdirSyncMock = jest.fn();
-const rmSyncMock = jest.fn();
+const spawnMock = jest.fn((..._args: unknown[]) => makeProc());
+const mkdirSyncMock = jest.fn((..._args: unknown[]) => undefined);
+const rmSyncMock = jest.fn((..._args: unknown[]) => undefined);
 
 jest.mock('child_process', () => ({ spawn: (...a: unknown[]) => spawnMock(...a) }));
 jest.mock('fs', () => ({ mkdirSync: (...a: unknown[]) => mkdirSyncMock(...a), rmSync: (...a: unknown[]) => rmSyncMock(...a) }));
