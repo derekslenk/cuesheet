@@ -32,7 +32,7 @@
  *   LOADTEST_FONT, LOADTEST_W/H/FPS, LOADTEST_CLIP_SECONDS.
  */
 import { spawn, spawnSync, ChildProcess } from 'child_process';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { relayPort } from '../../lib/relayPort';
@@ -40,7 +40,11 @@ import { SOURCE_SWITCHER_NAMES } from '../../lib/constants';
 
 const WEBUI = process.env.LOADTEST_WEBUI ?? 'http://127.0.0.1:3000';
 const FFMPEG = process.env.FFMPEG_PATH ?? 'ffmpeg';
-const FONT = process.env.LOADTEST_FONT ?? 'C\\:/Windows/Fonts/arial.ttf';
+// Source font on disk (default: Windows Arial). It is copied into the clip dir
+// as a clean relative `font.ttf` (see ensureFont) so the drawtext filtergraph
+// never has to embed a Windows drive-letter path — the `C:` colon collides with
+// ffmpeg's filter-option `:` separator and the `\:` escape is unreliable.
+const FONT_SRC = process.env.LOADTEST_FONT ?? 'C:/Windows/Fonts/arial.ttf';
 const TEAM = 'LOADTEST';
 const NAME_RE = /^STREAM \d{4}$/;
 const CLIPS = join(tmpdir(), 'cuesheet-loadtest');
@@ -98,16 +102,33 @@ async function supervisorUp(): Promise<boolean> {
   } catch { return false; }
 }
 
+// Copy the source font into the clip dir as a colon-free relative `font.ttf`.
+// encodeClip runs ffmpeg with cwd=CLIPS and references `fontfile=font.ttf`, so
+// the filtergraph never carries a Windows absolute path. Returns the bare
+// filename used inside the filter (intentionally relative, not absolute).
+function ensureFont(): string {
+  mkdirSync(CLIPS, { recursive: true });
+  const dest = join(CLIPS, 'font.ttf');
+  if (!existsSync(dest)) {
+    if (!existsSync(FONT_SRC)) {
+      throw new Error(`font not found at ${FONT_SRC} — set LOADTEST_FONT to a .ttf path`);
+    }
+    copyFileSync(FONT_SRC, dest);
+  }
+  return 'font.ttf';
+}
+
 function encodeClip(label: string): string {
   mkdirSync(CLIPS, { recursive: true });
+  const font = ensureFont();
   const out = clipFor(label);
   if (existsSync(out)) return out;
   const big = Math.round(H / 5);
   const small = Math.round(H / 12);
   const vf =
-    `drawtext=fontfile=${FONT}:text='${label}':fontcolor=white:fontsize=${big}:` +
+    `drawtext=fontfile=${font}:text='${label}':fontcolor=white:fontsize=${big}:` +
     `box=1:boxcolor=black@0.6:x=(w-text_w)/2:y=(h-text_h)/2-40,` +
-    `drawtext=fontfile=${FONT}:text='%{pts\\:hms}':fontcolor=yellow:fontsize=${small}:` +
+    `drawtext=fontfile=${font}:text='%{pts\\:hms}':fontcolor=yellow:fontsize=${small}:` +
     `x=(w-text_w)/2:y=h-${small * 2}`;
   const args = [
     '-y',
@@ -119,7 +140,8 @@ function encodeClip(label: string): string {
     '-c:a', 'aac', '-b:a', '64k', '-shortest',
     '-f', 'mpegts', out,
   ];
-  const r = spawnSync(FFMPEG, args, { stdio: 'inherit' });
+  // cwd=CLIPS so the relative `fontfile=font.ttf` in -vf resolves correctly.
+  const r = spawnSync(FFMPEG, args, { stdio: 'inherit', cwd: CLIPS });
   if (r.status !== 0) throw new Error(`ffmpeg failed to encode clip for ${label} (exit ${r.status})`);
   return out;
 }
