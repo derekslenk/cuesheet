@@ -22,12 +22,14 @@ function makeProc() {
   };
 }
 
-const spawnMock = jest.fn((..._args: unknown[]) => makeProc());
-const mkdirSyncMock = jest.fn((..._args: unknown[]) => undefined);
-const rmSyncMock = jest.fn((..._args: unknown[]) => undefined);
+const spawnMock = jest.fn(() => makeProc());
+const mkdirSyncMock = jest.fn();
+const rmSyncMock = jest.fn();
 
-jest.mock('child_process', () => ({ spawn: (...a: unknown[]) => spawnMock(...a) }));
-jest.mock('fs', () => ({ mkdirSync: (...a: unknown[]) => mkdirSyncMock(...a), rmSync: (...a: unknown[]) => rmSyncMock(...a) }));
+// The mocks ignore call args (the tests assert call counts/results, not args),
+// which keeps the wrappers free of unused-parameter lint noise.
+jest.mock('child_process', () => ({ spawn: () => spawnMock() }));
+jest.mock('fs', () => ({ mkdirSync: () => mkdirSyncMock(), rmSync: () => rmSyncMock() }));
 
 type PM = typeof import('../previewManager');
 function freshModule(): PM {
