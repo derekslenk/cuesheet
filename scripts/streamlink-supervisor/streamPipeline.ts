@@ -10,6 +10,23 @@ function previewTeeEnabled(): boolean {
   return v === 'on' || v === '1' || v === 'true' || v === 'yes';
 }
 
+/**
+ * Gameday-toggleable streamlink quality. STREAMLINK_QUALITY accepts any
+ * streamlink quality spec — a single value ("720p60", "1080p60", "best") or a
+ * comma-separated fallback chain ("720p60,720p,best", tried left to right).
+ * Returns undefined when unset so buildStreamlinkCmd keeps its "best" default.
+ *
+ * Why this matters: CPU is the binding constraint at scale (load test: the box
+ * saturates ~37 concurrent 1080p60 real streams — streamlink pull + OBS work,
+ * not RAM/VRAM). Dropping to 720p cuts both the pull and the decode cost
+ * substantially, trading resolution for headroom. Set it in .env.local and
+ * restart the supervisor to flip every pipeline.
+ */
+function streamlinkQuality(): string | undefined {
+  const v = (process.env.STREAMLINK_QUALITY ?? '').trim();
+  return v === '' ? undefined : v;
+}
+
 export type StreamPipelineStatus = 'pending' | 'running' | 'exited';
 export type ChildSource = 'streamlink' | 'ffmpeg';
 
@@ -81,7 +98,9 @@ export class StreamPipeline {
   start(): void {
     const sl = buildStreamlinkCmd({
       upstreamUrl: this.upstreamUrl,
-      quality: this.quality,
+      // Explicit per-pipeline quality wins; otherwise the env toggle; otherwise
+      // buildStreamlinkCmd falls back to "best".
+      quality: this.quality ?? streamlinkQuality(),
       streamlinkPath: this.streamlinkPath,
       oauthToken: process.env.TWITCH_OAUTH_TOKEN,
     });

@@ -108,6 +108,49 @@ describe('StreamPipeline', () => {
     expect(onExit).toHaveBeenCalledWith({ source: 'ffmpeg', code: null, signal: null });
   });
 
+  it('honors STREAMLINK_QUALITY env as the gameday quality toggle', () => {
+    const old = process.env.STREAMLINK_QUALITY;
+    process.env.STREAMLINK_QUALITY = '720p60';
+    try {
+      const sl = makeFakeChild(101);
+      const ff = makeFakeChild(102);
+      const spawn = makeSpawn([sl, ff]);
+      const pipeline = new StreamPipeline({
+        streamId: 'team_alpha',
+        upstreamUrl: 'https://twitch.tv/team_alpha',
+        port: 9001,
+        spawn: spawn as any,
+      });
+      pipeline.start();
+      expect(spawn.calls[0].cmd).toBe('streamlink');
+      expect(spawn.calls[0].args).toContain('720p60');
+      expect(spawn.calls[0].args).not.toContain('best');
+    } finally {
+      if (old === undefined) delete process.env.STREAMLINK_QUALITY;
+      else process.env.STREAMLINK_QUALITY = old;
+    }
+  });
+
+  it('falls back to "best" when STREAMLINK_QUALITY is unset', () => {
+    const old = process.env.STREAMLINK_QUALITY;
+    delete process.env.STREAMLINK_QUALITY;
+    try {
+      const sl = makeFakeChild(101);
+      const ff = makeFakeChild(102);
+      const spawn = makeSpawn([sl, ff]);
+      const pipeline = new StreamPipeline({
+        streamId: 'team_alpha',
+        upstreamUrl: 'https://twitch.tv/team_alpha',
+        port: 9001,
+        spawn: spawn as any,
+      });
+      pipeline.start();
+      expect(spawn.calls[0].args).toContain('best');
+    } finally {
+      if (old !== undefined) process.env.STREAMLINK_QUALITY = old;
+    }
+  });
+
   it('when streamlink exits, ffmpeg is killed, status becomes exited, onExit fires with the upstream code', () => {
     const sl = makeFakeChild(101);
     const ff = makeFakeChild(102);
