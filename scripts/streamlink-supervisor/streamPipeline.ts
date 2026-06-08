@@ -15,8 +15,8 @@ export type ChildSource = 'streamlink' | 'ffmpeg';
 
 export interface ChildProcessLike {
   pid: number | null;
-  stdout: { pipe(dest: unknown): unknown } | null;
-  stdin: { end(): void } | null;
+  stdout: { pipe(dest: unknown): unknown; on(event: 'error', cb: (err: Error) => void): void } | null;
+  stdin: { end(): void; on(event: 'error', cb: (err: Error) => void): void } | null;
   stderr: { on(event: 'data', cb: (chunk: Buffer | string) => void): void } | null;
   kill(signal?: string): boolean;
   on(event: 'exit', listener: (code: number | null, signal: string | null) => void): unknown;
@@ -98,6 +98,16 @@ export class StreamPipeline {
     this.ffChild = this.spawn(ff.cmd, ff.args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
 
     if (this.slChild.stdout && this.ffChild.stdin) {
+      // CRITICAL: swallow pipe errors. When ffmpeg exits, streamlink's stdout
+      // keeps writing into ffmpeg's now-closed stdin → EPIPE on the destination
+      // stream. Node/Bun's .pipe() does NOT handle destination errors, so an
+      // unhandled EPIPE here throws and crashes the ENTIRE supervisor process —
+      // taking down every other healthy pipeline, not just this one (observed
+      // under load with ~19 concurrent streams). The real exit + respawn is
+      // driven by attachExit below; these handlers just keep the broken pipe
+      // from becoming an unhandled error.
+      this.ffChild.stdin.on('error', () => { /* ffmpeg gone; attachExit respawns this pipeline */ });
+      this.slChild.stdout.on('error', () => { /* upstream read error; handled via exit */ });
       this.slChild.stdout.pipe(this.ffChild.stdin);
     }
 
@@ -109,6 +119,10 @@ export class StreamPipeline {
 
     this.attachExit(this.slChild, 'streamlink', this.ffChild);
     this.attachExit(this.ffChild, 'ffmpeg', this.slChild);
+    // Also swallow spawn/process 'error' events (e.g. ENOENT, or an OS-level
+    // error after spawn). Without a listener these too crash the whole process.
+    this.attachError(this.slChild, 'streamlink');
+    this.attachError(this.ffChild, 'ffmpeg');
     this.attachStderr(this.slChild, 'streamlink');
     this.attachStderr(this.ffChild, 'ffmpeg');
   }
@@ -126,6 +140,19 @@ export class StreamPipeline {
       if (this.exitReported) return;
       this.exitReported = true;
       this.onExit?.({ source, code, signal });
+    });
+  }
+
+  private attachError(child: ChildProcessLike, source: ChildSource): void {
+    // A child 'error' (failed spawn, OS error) with no listener crashes the
+    // process. Route it through the same exit path so the pipeline respawns
+    // instead of taking the whole supervisor down.
+    child.on('error', (err: Error) => {
+      try { this.onStderr?.(source, `process error: ${err.message}`); } catch { /* logging best-effort */ }
+      this.status = 'exited';
+      if (this.exitReported) return;
+      this.exitReported = true;
+      this.onExit?.({ source, code: null, signal: null });
     });
   }
 

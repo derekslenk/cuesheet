@@ -3,8 +3,8 @@ import { StreamPipeline } from '../streamPipeline';
 
 interface FakeChild extends EventEmitter {
   pid: number | null;
-  stdout: { pipe: jest.Mock };
-  stdin: { end: jest.Mock };
+  stdout: { pipe: jest.Mock; on: jest.Mock };
+  stdin: { end: jest.Mock; on: jest.Mock };
   stderr: EventEmitter;
   kill: jest.Mock;
   __exit: (code: number | null, signal: string | null) => void;
@@ -13,8 +13,10 @@ interface FakeChild extends EventEmitter {
 function makeFakeChild(pid: number): FakeChild {
   const ee = new EventEmitter() as FakeChild;
   ee.pid = pid;
-  ee.stdout = { pipe: jest.fn() };
-  ee.stdin = { end: jest.fn() };
+  // stdout/stdin carry an `on` so start() can attach 'error' handlers to the
+  // streamlink→ffmpeg pipe (the EPIPE guard).
+  ee.stdout = { pipe: jest.fn(), on: jest.fn() };
+  ee.stdin = { end: jest.fn(), on: jest.fn() };
   ee.stderr = new EventEmitter();
   ee.kill = jest.fn(() => true);
   ee.__exit = (code, signal) => ee.emit('exit', code, signal);
@@ -66,6 +68,44 @@ describe('StreamPipeline', () => {
     expect(pipeline.status).toBe('running');
     expect(pipeline.pids).toEqual({ streamlink: 101, ffmpeg: 102 });
     expect(pipeline.obsInputUrl).toBe('udp://127.0.0.1:9001');
+  });
+
+  it('attaches error handlers to BOTH ends of the streamlink->ffmpeg pipe (EPIPE guard)', () => {
+    const sl = makeFakeChild(101);
+    const ff = makeFakeChild(102);
+    const pipeline = new StreamPipeline({
+      streamId: 'team_alpha',
+      upstreamUrl: 'https://x',
+      port: 9001,
+      spawn: makeSpawn([sl, ff]) as any,
+    });
+
+    pipeline.start();
+
+    // Without these, ffmpeg exiting mid-stream → EPIPE on ff.stdin → unhandled
+    // error → the WHOLE supervisor crashes (all pipelines), not just this one.
+    expect(ff.stdin.on).toHaveBeenCalledWith('error', expect.any(Function));
+    expect(sl.stdout.on).toHaveBeenCalledWith('error', expect.any(Function));
+  });
+
+  it('a child process "error" event drives onExit (respawn) instead of throwing', () => {
+    const sl = makeFakeChild(101);
+    const ff = makeFakeChild(102);
+    const onExit = jest.fn();
+    const pipeline = new StreamPipeline({
+      streamId: 'team_alpha',
+      upstreamUrl: 'https://x',
+      port: 9001,
+      spawn: makeSpawn([sl, ff]) as any,
+      onExit,
+    });
+
+    pipeline.start();
+    // An unhandled 'error' on an EventEmitter throws; the attached handler must
+    // swallow it and route through the normal exit/respawn path.
+    expect(() => ff.emit('error', new Error('EPIPE'))).not.toThrow();
+    expect(pipeline.status).toBe('exited');
+    expect(onExit).toHaveBeenCalledWith({ source: 'ffmpeg', code: null, signal: null });
   });
 
   it('when streamlink exits, ffmpeg is killed, status becomes exited, onExit fires with the upstream code', () => {
