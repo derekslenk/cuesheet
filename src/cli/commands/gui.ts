@@ -104,10 +104,13 @@ export async function run(_argv: string[], ctx: CommandContext): Promise<void> {
   // Keybinding handler
   // ---------------------------------------------------------------------------
   onKey(({ str, key }) => {
-    // Ctrl-C or q → quit
+    // Ctrl-C or q → quit immediately. In raw mode the terminal swallows SIGINT,
+    // so Ctrl-C arrives here as a keypress. Restore the terminal and exit now
+    // rather than waiting up to POLL_MS for the render loop to notice the flag.
     if ((key?.ctrl && key.name === 'c') || str === 'q' || str === 'Q') {
       running = false;
-      return;
+      cleanup();
+      process.exit(0);
     }
 
     if (busy) {

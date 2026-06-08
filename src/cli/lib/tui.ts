@@ -151,6 +151,10 @@ export function stopInput(): void {
   if (process.stdin.isTTY) {
     try { process.stdin.setRawMode(false); } catch { /* non-TTY in tests */ }
   }
+  // CRITICAL: startInput() called resume(), which keeps the event loop alive.
+  // Pause stdin here or the process hangs after the TUI loop ends (the terminal
+  // looks restored but the program never exits until the user hits Ctrl-C).
+  try { process.stdin.pause(); } catch { /* ignore */ }
   _rawActive = false;
 }
 
