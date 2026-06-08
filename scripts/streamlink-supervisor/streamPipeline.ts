@@ -91,8 +91,11 @@ export class StreamPipeline {
       previewTee: previewTeeEnabled(),
     });
 
-    this.slChild = this.spawn(sl.cmd, sl.args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    this.ffChild = this.spawn(ff.cmd, ff.args, { stdio: ['pipe', 'ignore', 'pipe'] });
+    // windowsHide:true stops Windows from popping a console window per child —
+    // otherwise every stream flashes two windows (streamlink + ffmpeg). stdio is
+    // already piped/ignored so the consoles serve no purpose. No-op off Windows.
+    this.slChild = this.spawn(sl.cmd, sl.args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    this.ffChild = this.spawn(ff.cmd, ff.args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
 
     if (this.slChild.stdout && this.ffChild.stdin) {
       this.slChild.stdout.pipe(this.ffChild.stdin);
