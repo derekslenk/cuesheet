@@ -122,7 +122,9 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body::after { animation: none; }
+  body::after,
+  .status-dot.streaming,
+  .title::after { animation: none; }
 }
 
 ::selection {
@@ -139,25 +141,33 @@ body::after {
   border: 1px solid currentColor;
 }
 
+/* Each state also carries a non-color cue (shape / border style) so it is
+   distinguishable without relying on hue — WCAG 1.4.1. */
 .status-dot.connected {
+  /* filled square */
   background-color: var(--crt-green);
   color: var(--crt-green);
   box-shadow: var(--glow-green);
 }
 
 .status-dot.disconnected {
+  /* hollow square, dashed border */
   background-color: transparent;
   color: var(--crt-red-dim);
+  border-style: dashed;
 }
 
 .status-dot.streaming {
+  /* filled circle (distinct shape from connected) */
   background-color: var(--crt-red);
   color: var(--crt-red);
+  border-radius: 50%;
   box-shadow: var(--glow-red);
   animation: crt-pulse 1.2s ease-in-out infinite;
 }
 
 .status-dot.idle {
+  /* hollow square, solid dim border */
   background-color: transparent;
   color: var(--crt-text-dim);
 }
@@ -251,7 +261,10 @@ body::after {
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  /* explicit dim tokens instead of opacity so border + label stay ≥3:1 — WCAG 1.4.11 */
+  color: var(--crt-text-dim);
+  border-color: var(--crt-line);
+  background: var(--crt-bg);
   cursor: not-allowed;
   box-shadow: none;
   text-shadow: none;
@@ -526,6 +539,24 @@ body::after {
 @keyframes crt-caret {
   0%, 50% { opacity: 1; }
   50.01%, 100% { opacity: 0; }
+}
+
+/* Header logo + wordmark — centralized so palette tweaks live in this file */
+.logo-badge {
+  border: 1px solid var(--crt-green-dim);
+  border-radius: 2px;
+  background: var(--crt-green-faint);
+  box-shadow: var(--glow-green);
+}
+
+.terminal-title {
+  letter-spacing: 0.12em;
+  text-shadow: var(--glow-green);
+}
+
+.terminal-subtitle {
+  color: var(--crt-text-dim);
+  letter-spacing: 0.08em;
 }
 
 .subtitle {

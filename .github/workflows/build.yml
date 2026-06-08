@@ -1,4 +1,4 @@
-name: Lint and Build
+name: Lint, Test and Build
 
 on:
   push:
@@ -35,6 +35,13 @@ jobs:
 
       - name: Run linter
         run: npm run lint
+
+      - name: Run tests
+        # Plain jest (not test:ci) — gate on tests passing, not the 70%
+        # coverageThreshold, which the app's overall coverage doesn't yet meet.
+        run: npm test
+        env:
+          CI: 'true'
 
       - name: Audit sqlite.open call sites
         run: npm run audit:sqlite-opens

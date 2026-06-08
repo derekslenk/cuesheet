@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isDev } from './isDev';
 
 // Standard error response structure
 export interface APIError {
@@ -71,7 +72,7 @@ export function createDatabaseError(
     'Database Error',
     500,
     message,
-    process.env.NODE_ENV === 'development' ? originalError : undefined
+    isDev() ? originalError : undefined
   );
 }
 
@@ -85,7 +86,7 @@ export function createOBSError(
     'OBS Error',
     502,
     message,
-    process.env.NODE_ENV === 'development' ? originalError : undefined
+    isDev() ? originalError : undefined
   );
 }
 
@@ -104,7 +105,7 @@ export function withErrorHandling<T extends unknown[]>(
           'Internal Server Error',
           500,
           'An unexpected error occurred',
-          process.env.NODE_ENV === 'development' ? error.stack : undefined
+          isDev() ? error.stack : undefined
         );
       }
       

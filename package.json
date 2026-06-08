@@ -24,12 +24,14 @@
     "supervisor:build": "bun build --compile scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor",
     "supervisor:build:win": "bun build --compile --target=bun-windows-x64 scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor.exe",
     "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
+    "loadtest": "tsx scripts/loadtest/index.ts",
     "load:setactive": "tsx scripts/loadDriver.ts",
     "soak:atomic-write": "tsx scripts/atomicWriteSoak.ts",
     "soak:atomic-write:mjs": "node scripts/atomicWriteSoak.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "hls.js": "^1.6.16",
     "next": "^15.4.1",
     "obs-websocket-js": "^5.0.6",
     "react": "^19.1.0",

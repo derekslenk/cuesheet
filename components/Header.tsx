@@ -14,29 +14,14 @@ export default function Header() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 flex items-center justify-center text-green"
-              style={{
-                border: '1px solid var(--crt-green-dim)',
-                borderRadius: '2px',
-                background: 'var(--crt-green-faint)',
-                boxShadow: 'var(--glow-green)',
-              }}
-            >
+            <div className="logo-badge w-10 h-10 flex items-center justify-center text-green">
               <svg className="icon-md" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
               </svg>
             </div>
             <div>
-              <h1
-                className="text-xl font-bold text-green"
-                style={{ letterSpacing: '0.12em', textShadow: 'var(--glow-green)' }}
-              >
-                CUESHEET
-              </h1>
-              <p className="text-sm" style={{ color: 'var(--crt-text-dim)', letterSpacing: '0.08em' }}>
-                &gt; STREAM CONTROL
-              </p>
+              <h1 className="terminal-title text-xl font-bold text-green">CUESHEET</h1>
+              <p className="terminal-subtitle text-sm">&gt; STREAM CONTROL</p>
             </div>
           </div>
           

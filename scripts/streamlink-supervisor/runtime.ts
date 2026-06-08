@@ -6,6 +6,7 @@ import { startHealthServer } from './healthServer';
 import { FileLogger } from './fileLogger';
 import { loadStreamSpecs, MinimalDb } from './streamSpecsLoader';
 import { SpawnFn } from './streamPipeline';
+import { redactSecrets } from './redact';
 
 export interface StartRuntimeOptions {
   db: MinimalDb;
@@ -52,7 +53,9 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     streamlinkPath: opts.streamlinkPath,
     ffmpegPath: opts.ffmpegPath,
     onStderr: (streamId, source, chunk) => {
-      loggerFor(streamId).write(`[${source}] ${chunk}`);
+      // Redact the Twitch OAuth token before it lands in on-disk logs —
+      // streamlink can echo the Authorization header into stderr.
+      loggerFor(streamId).write(`[${source}] ${redactSecrets(chunk)}`);
     },
   });
 

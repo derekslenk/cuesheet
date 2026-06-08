@@ -1,4 +1,13 @@
-import { relayPort, relayUdpUrl, RELAY_BASE_PORT, RELAY_PORT_RANGE } from '../relayPort';
+import {
+  relayPort,
+  relayUdpUrl,
+  previewPort,
+  previewUdpUrl,
+  previewPortFor,
+  RELAY_BASE_PORT,
+  RELAY_PORT_RANGE,
+  RELAY_PREVIEW_OFFSET,
+} from '../relayPort';
 
 describe('relayPort', () => {
   it('is deterministic for a given id', () => {
@@ -32,5 +41,35 @@ describe('relayPort', () => {
 
   it('keeps ports within range when ids wrap', () => {
     expect(relayPort(RELAY_PORT_RANGE + 1)).toBe(RELAY_BASE_PORT + 1);
+  });
+});
+
+describe('previewPort', () => {
+  it('is relayPort + RELAY_PREVIEW_OFFSET', () => {
+    expect(previewPort(1)).toBe(relayPort(1) + RELAY_PREVIEW_OFFSET);
+    expect(previewPortFor(relayPort(42))).toBe(relayPort(42) + RELAY_PREVIEW_OFFSET);
+  });
+
+  it('never collides with any relay port across the event range', () => {
+    const ids = Array.from({ length: 200 }, (_, i) => i + 1);
+    const relayPorts = new Set(ids.map(relayPort));
+    const previewPorts = ids.map(previewPort);
+    // The preview band sits entirely above the relay band — zero overlap.
+    previewPorts.forEach(p => expect(relayPorts.has(p)).toBe(false));
+  });
+
+  it('is deterministic and distinct per id (so the webui packager and the tee target agree)', () => {
+    expect(previewPort(7)).toBe(previewPort(7));
+    const ids = Array.from({ length: 60 }, (_, i) => i + 1);
+    expect(new Set(ids.map(previewPort)).size).toBe(ids.length);
+  });
+
+  it('builds a preview udp url for the id', () => {
+    expect(previewUdpUrl(1)).toBe(`udp://127.0.0.1:${relayPort(1) + RELAY_PREVIEW_OFFSET}`);
+  });
+
+  it('rejects invalid ids (same contract as relayPort)', () => {
+    expect(() => previewPort(0)).toThrow();
+    expect(() => previewPort('abc')).toThrow();
   });
 });

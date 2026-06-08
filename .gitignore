@@ -135,3 +135,12 @@ obs-scene/source-switching/*.snapshot-*
 
 # Compiled single-executable supervisor binaries (npm run supervisor:build*)
 dist/
+
+# Windows WPF monitor build artifacts
+monitor/bin/
+monitor/obj/
+
+# supervisor / webui runtime logs
+*.out.log
+*.err.log
+

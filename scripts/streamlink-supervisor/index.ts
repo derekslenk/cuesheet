@@ -9,6 +9,9 @@
  * Designed to run as a Windows service via NSSM on the OBS host.
  * See scripts/streamlink-supervisor/README.md for the install procedure.
  */
+// MUST be first: loads .env/.env.local (FILE_DIRECTORY, EVENT_KEY) before the
+// imports below read process.env at module-eval time. See loadEnv.ts.
+import './loadEnv';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
