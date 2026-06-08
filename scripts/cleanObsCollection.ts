@@ -131,15 +131,15 @@ async function removeInputs(obs: OBSWebSocket, names: string[], passes = 2): Pro
   return remaining;
 }
 
-async function main() {
-  const o = parseArgs(process.argv);
+export async function run(argv: string[]): Promise<void> {
+  const o = parseArgs(['', '', ...argv]);
   const url = `ws://${o.host}:${o.port}`;
   const obs = new OBSWebSocket();
   try {
     await obs.connect(url, o.password || undefined);
   } catch (err: unknown) {
     console.error(`ERROR: cannot reach OBS WebSocket at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-    process.exit(1);
+    process.exitCode = 1; return;
   }
   console.log(`Connected to ${url}`);
 
@@ -170,7 +170,7 @@ async function main() {
   if (toDelete.length === scenes.length) {
     console.error('REFUSING: keep-set matched no scenes — would delete everything. Check --keep.');
     await obs.disconnect();
-    process.exit(1);
+    process.exitCode = 1; return;
   }
 
   const survivingNames = new Set(o.keep.filter((k) => scenes.some((s) => s.sceneName === k)));
@@ -238,4 +238,6 @@ async function main() {
   await obs.disconnect();
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch((e) => { console.error(e); process.exit(1); });
+}

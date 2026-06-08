@@ -133,8 +133,13 @@ obs-scene/source-switching/*.snapshot-*
 # Serena MCP: agent-local memories/config — keep docs canonical in README/AGENTS.md/CLAUDE.md
 .serena/
 
-# Compiled single-executable supervisor binaries (npm run supervisor:build*)
+# Compiled single-executable binaries (npm run supervisor:build* / binary:build*)
 dist/
+# Release-staging dir for the cuesheet binaries (.github/workflows/release.yml)
+release/
+
+# oh-my-claudecode agent working state (plans, handoffs, logs, session state)
+.omc/
 
 # Windows WPF monitor build artifacts
 monitor/bin/
@@ -143,4 +148,7 @@ monitor/obj/
 # supervisor / webui runtime logs
 *.out.log
 *.err.log
+
+# transient bun build --compile artifacts
+*.bun-build
 

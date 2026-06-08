@@ -53,6 +53,96 @@ Windows OBS host, run `npm run build` on Windows.
 The Streamlink supervisor can likewise be shipped as a single `.exe` — see
 [`scripts/streamlink-supervisor/README.md`](scripts/streamlink-supervisor/README.md#single-executable-build-bun).
 
+## Unified `cuesheet` binary
+
+The old per-task launch scripts (`run-dev.cmd`, `run-sup.cmd`, `watch.ps1`,
+`gui.ps1`, `mon-start.ps1`, …) have been replaced by a **single cross-platform
+binary**, `cuesheet`, built with `bun build --compile`. One executable runs the
+web UI, the Streamlink supervisor (compiled in — no `tsx`), the monitors, and the
+ops/test tools on Windows, macOS, and Linux.
+
+### Download (GitHub releases)
+
+Each tagged release attaches a prebuilt binary per platform (verify against
+`SHA256SUMS.txt`):
+
+| File | Platform |
+| --- | --- |
+| `cuesheet-windows-x64.exe` | Windows x64 |
+| `cuesheet-macos-arm64` | macOS (Apple Silicon) |
+| `cuesheet-macos-x64` | macOS (Intel) |
+| `cuesheet-linux-x64` | Linux x64 |
+
+The binary is self-contained — no Node/Bun/`node_modules` needed. The only runtime
+dependencies are `streamlink` and `ffmpeg` on PATH (run `cuesheet doctor` to check).
+On macOS/Linux, `chmod +x` the download first.
+
+> **Standalone vs. repo-only.** The released binary runs the supervisor and all
+> monitoring/ops commands anywhere: `sup`, `status`, `watch`, `gui`, `start`/`stop`,
+> `doctor`, `loadtest`, `soak`, `clean-obs`, `measure-latency`. The one exception is
+> **`cuesheet dev`** — it runs the Next.js dev server, so it needs the project source
+> + `node_modules` and only works from a repo checkout, not a standalone download.
+> For a production webui, deploy the `next build` standalone bundle (see "Production
+> build" above).
+
+Cut a release by pushing a tag — `git tag v0.1.0 && git push origin v0.1.0` — and the
+[`release` workflow](.github/workflows/release.yml) cross-compiles every target and
+publishes them with checksums.
+
+### Build (from source)
+
+```bash
+npm run binary:build:win     # -> dist/cuesheet.exe   (Windows x64)
+npm run binary:build:mac     # -> dist/cuesheet-macos (macOS arm64)
+npm run binary:build:linux   # -> dist/cuesheet-linux (Linux x64)
+npm run binary:build         # -> dist/cuesheet       (host-native)
+npm run binary:smoke         # smoke-test a built binary (--help / status / doctor)
+```
+
+During development you can run the same CLI without compiling:
+
+```bash
+npm run cli:dev -- <command>        # e.g. npm run cli:dev -- status
+# or directly: bun run src/cli/main.ts <command>
+```
+
+### Commands
+
+```
+cuesheet dev                              # Next.js web UI (:3000) — spawns `next dev`
+cuesheet sup                              # Streamlink supervisor (:8080) — runs in-process
+cuesheet start [--which both|sup|web]     # launch dev/supervisor detached (tracked)
+cuesheet stop  [--which both|sup|web]     # stop exactly what `start` launched
+cuesheet status [--json|--logs|--diagnose]  # one-shot status (exit 0 = all up)
+cuesheet watch                            # live status, refreshes every 2s
+cuesheet gui                              # full-screen TUI control center (start/stop/restart)
+cuesheet doctor                           # diagnose deps, ports, paths, resolved config
+cuesheet loadtest | loaddriver | soak | clean-obs | measure-latency | verify-switcher-coverage
+```
+
+`cuesheet stop` tracks the PIDs it launched (in a managed run-state file) and
+terminates only those process groups — unlike the old `mon-stop.ps1`, it never
+blanket-kills unrelated `node` / `ffmpeg` / `streamlink` processes (e.g. a
+running load test). Config resolution follows precedence **flag -> env ->
+`.env.local` -> built-in default**; run `cuesheet doctor` to see every resolved
+value and where it came from.
+
+### Migration from the old scripts
+
+| Old (Windows-only)            | New (all platforms)                       |
+| ----------------------------- | ----------------------------------------- |
+| `run-dev.cmd`                 | `cuesheet dev`                            |
+| `run-sup.cmd`                 | `cuesheet sup`                            |
+| `watch.cmd` / `watch.ps1`     | `cuesheet watch`                          |
+| `status.cmd` / `status.ps1`   | `cuesheet status`                         |
+| `mon-start.ps1`               | `cuesheet start --which both\|sup\|web`   |
+| `mon-stop.ps1`                | `cuesheet stop`                           |
+| `gui.cmd` / `gui.ps1`         | `cuesheet gui`                            |
+| `monitor.cmd` (.NET WPF)      | `cuesheet gui` (cross-platform TUI)       |
+
+> The .NET WPF monitor (`monitor/CueSheetMonitor.*`) is **deprecated** in favor
+> of the cross-platform `cuesheet gui` TUI and will be removed in a follow-up.
+
 ## Configuration
 
 ### Environment Variables

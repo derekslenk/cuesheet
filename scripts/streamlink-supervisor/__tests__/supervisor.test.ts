@@ -5,8 +5,8 @@ import { PortAllocator } from '../portAllocator';
 
 interface FakeChild extends EventEmitter {
   pid: number | null;
-  stdout: { pipe: jest.Mock };
-  stdin: { end: jest.Mock };
+  stdout: { pipe: jest.Mock; on: jest.Mock };
+  stdin: { end: jest.Mock; on: jest.Mock };
   stderr: EventEmitter;
   kill: jest.Mock;
   __exit: (code: number | null, signal: string | null) => void;
@@ -15,8 +15,8 @@ interface FakeChild extends EventEmitter {
 function fakeChild(pid: number): FakeChild {
   const ee = new EventEmitter() as FakeChild;
   ee.pid = pid;
-  ee.stdout = { pipe: jest.fn() };
-  ee.stdin = { end: jest.fn() };
+  ee.stdout = { pipe: jest.fn(), on: jest.fn() };
+  ee.stdin = { end: jest.fn(), on: jest.fn() };
   ee.stderr = new EventEmitter();
   ee.kill = jest.fn(() => true);
   ee.__exit = (code, signal) => ee.emit('exit', code, signal);

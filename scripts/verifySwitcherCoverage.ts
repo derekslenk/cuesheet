@@ -24,17 +24,19 @@ import { buildStreamGroupName, type StreamGroupInput } from '../lib/streamGroupN
 
 // ── CLI arg parsing ──────────────────────────────────────────────────────────
 
-const args = process.argv.slice(2);
+function parseCoverageArgs(argv: string[]): { scenePath: string; dbPath: string } {
+  let scenePath = path.resolve(process.cwd(), 'obs-scene/SaT.json');
+  let dbPath = path.join(path.resolve(process.env.FILE_DIRECTORY || './files'), 'sources.db');
 
-let scenePath = path.resolve(process.cwd(), 'obs-scene/SaT.json');
-let dbPath = path.join(path.resolve(process.env.FILE_DIRECTORY || './files'), 'sources.db');
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--scene' && args[i + 1]) {
-    scenePath = path.resolve(args[++i]);
-  } else if (args[i] === '--db' && args[i + 1]) {
-    dbPath = path.resolve(args[++i]);
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--scene' && argv[i + 1]) {
+      scenePath = path.resolve(argv[++i]);
+    } else if (argv[i] === '--db' && argv[i + 1]) {
+      dbPath = path.resolve(argv[++i]);
+    }
   }
+
+  return { scenePath, dbPath };
 }
 
 // ── Type helpers ─────────────────────────────────────────────────────────────
@@ -107,11 +109,13 @@ async function queryStreams(dbFilePath: string): Promise<StreamGroupInput[]> {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
+export async function run(argv: string[]): Promise<void> {
+  const { scenePath, dbPath } = parseCoverageArgs(argv);
+
   // Step 1: Parse scene JSON.
   if (!fs.existsSync(scenePath)) {
     console.error(`❌ Scene file not found: ${scenePath}`);
-    process.exit(1);
+    process.exitCode = 1; return;
   }
 
   const sceneJson = JSON.parse(fs.readFileSync(scenePath, 'utf8')) as SceneCollection;
@@ -153,7 +157,7 @@ async function main(): Promise<void> {
     console.log(
       `✅ Switcher coverage check: 0 stream groups × ${numSwitchers} switchers = 0 expected; 0 matched`,
     );
-    process.exit(0);
+    return;
   }
 
   // Step 4: Check coverage per switcher.
@@ -179,7 +183,7 @@ async function main(): Promise<void> {
     console.log(
       `✅ Switcher coverage check: ${streamGroupNames.length} stream groups × ${numSwitchers} switchers = ${totalExpected} expected; ${totalMatched} matched`,
     );
-    process.exit(0);
+    return;
   }
 
   console.error(
@@ -188,10 +192,12 @@ async function main(): Promise<void> {
   for (const [switcherName, missing] of [...missingMap.entries()].sort()) {
     console.error(`  Missing in ${switcherName}: ${missing.join(', ')}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 }
 
-main().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch((err) => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
+}

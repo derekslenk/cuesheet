@@ -236,10 +236,20 @@ function cmdStop(): void {
 
 async function cmdTeardown(): Promise<void> {
   cmdStop();
+  // Let the generators' last frames drain and OBS settle before we start
+  // removing sources, so the deletes below act on idle (not actively-decoding)
+  // inputs.
+  await sleep(1000);
   const streams = await loadTestStreams();
+  // PACED deletes. Each /api/streams DELETE fans out to many obs-websocket calls
+  // (RemoveSceneItem + RemoveScene + RemoveInput + 7× switcher read/write). Firing
+  // 40 of those back-to-back floods obs-websocket and CRASHES OBS — observed at
+  // 40 warm sources. A short gap lets OBS release each source's decoder/VRAM
+  // before the next removal. ~250ms × 40 ≈ 10s, fine for a teardown.
   for (const s of streams) {
     try { await api('DELETE', `/api/streams/${s.id}`); console.log(`  deleted ${s.name}`); }
     catch (e) { console.error(`  delete ${s.name} failed:`, (e as Error).message); }
+    await sleep(250);
   }
   const teamId = await getTeamId();
   if (teamId !== null) {
@@ -272,9 +282,9 @@ function help(): void {
 Stop the streamlink supervisor before 'start' (port conflict).`);
 }
 
-async function main(): Promise<void> {
-  const cmd = process.argv[2];
-  const arg = process.argv[3];
+export async function run(argv: string[]): Promise<void> {
+  const cmd = argv[0];
+  const arg = argv[1];
   switch (cmd) {
     case 'seed': await cmdSeed(parseInt(arg ?? '40', 10)); break;
     case 'prep': cmdPrep(parseInt(arg ?? '40', 10)); break;
@@ -287,7 +297,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error('loadtest error:', err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch((err: unknown) => {
+    console.error('loadtest error:', err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

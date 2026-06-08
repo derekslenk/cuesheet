@@ -1,0 +1,68 @@
+name: cuesheet-binary
+
+# Build the unified `cuesheet` binary on each OS and smoke-test it (AC15).
+# Per-target matrix: each runner builds its native binary and runs the
+# read-only smoke checks (--help / status --json / doctor).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/cli/**'
+      - 'scripts/streamlink-supervisor/**'
+      - 'package.json'
+      - '.github/workflows/cuesheet-binary.yml'
+  pull_request:
+    paths:
+      - 'src/cli/**'
+      - 'scripts/streamlink-supervisor/**'
+      - 'package.json'
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: type-check
+        run: npm run type-check
+      - name: unit tests (CLI)
+        run: npx jest src/cli --no-coverage
+
+  build-smoke:
+    needs: gate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            artifact: cuesheet.exe
+          - os: macos-latest
+            target: mac
+            artifact: cuesheet-macos
+          - os: ubuntu-latest
+            target: linux
+            artifact: cuesheet-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: build binary (${{ matrix.target }})
+        run: npm run binary:build:${{ matrix.target }}
+      - name: smoke
+        run: node scripts/smokeBinary.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}

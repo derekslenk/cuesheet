@@ -1,0 +1,102 @@
+name: release
+
+# Build the `cuesheet` binaries and attach them to a GitHub Release.
+#
+# Trigger by pushing a version tag:   git tag v0.1.0 && git push origin v0.1.0
+# or run manually via the Actions tab (workflow_dispatch) with a tag name.
+#
+# Bun's `--compile --target=...` cross-compiles every OS from one runner, so a
+# single Linux job produces all artifacts. The released binaries run the
+# supervisor + monitoring + ops tools standalone (only streamlink/ffmpeg on PATH
+# are needed at runtime). `cuesheet dev` is NOT standalone — it runs the Next.js
+# dev server and needs a repo checkout — so it is intentionally not a release use
+# case (see README "Unified cuesheet binary").
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write # required to create the release + upload assets
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: install deps
+        run: npm ci
+
+      - name: gate (type-check + unit tests)
+        run: |
+          npm run type-check
+          npx jest src/cli --no-coverage
+
+      - name: build all targets
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          bun build --compile --target=bun-windows-x64  src/cli/main.ts --outfile release/cuesheet-windows-x64.exe
+          bun build --compile --target=bun-darwin-x64   src/cli/main.ts --outfile release/cuesheet-macos-x64
+          bun build --compile --target=bun-darwin-arm64 src/cli/main.ts --outfile release/cuesheet-macos-arm64
+          bun build --compile --target=bun-linux-x64    src/cli/main.ts --outfile release/cuesheet-linux-x64
+
+      - name: smoke-test the linux build
+        run: |
+          chmod +x release/cuesheet-linux-x64
+          release/cuesheet-linux-x64 --help >/dev/null
+          release/cuesheet-linux-x64 status --json >/dev/null || true   # exit 1 when services down is fine
+          echo "linux binary runs"
+
+      - name: checksums
+        run: |
+          cd release
+          sha256sum cuesheet-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: create release + upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## cuesheet ${{ github.event.inputs.tag || github.ref_name }}
+
+            Single-binary CLI for the CueSheet OBS stack. Download the file for your OS,
+            mark it executable (macOS/Linux), and run `cuesheet --help`.
+
+            **Runs standalone** (only needs `streamlink` + `ffmpeg` on PATH):
+            `sup` (supervisor), `status`, `watch`, `gui`, `start`/`stop`, `doctor`,
+            and the ops tools (`loadtest`, `soak`, `clean-obs`, `measure-latency`, …).
+
+            **Needs a repo checkout** (not a release use case): `cuesheet dev` runs the
+            Next.js dev server, which requires the project source + `node_modules`.
+
+            Verify a download against `SHA256SUMS.txt`.
+
+            | File | Platform |
+            | --- | --- |
+            | `cuesheet-windows-x64.exe` | Windows x64 |
+            | `cuesheet-macos-arm64` | macOS (Apple Silicon) |
+            | `cuesheet-macos-x64` | macOS (Intel) |
+            | `cuesheet-linux-x64` | Linux x64 |
+          files: |
+            release/cuesheet-windows-x64.exe
+            release/cuesheet-macos-x64
+            release/cuesheet-macos-arm64
+            release/cuesheet-linux-x64
+            release/SHA256SUMS.txt
