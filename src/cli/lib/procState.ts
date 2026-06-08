@@ -54,29 +54,59 @@ export function read(env: NodeJS.ProcessEnv = process.env): RunState {
 }
 
 /**
- * Atomically persist run-state.json. Writes to a temp file in the SAME
- * directory (so rename is atomic on the same filesystem) then renames over the
- * target, under a best-effort O_EXCL lock so concurrent writers serialize.
+ * Persist state to a temp file in the SAME directory (so rename is atomic on the
+ * same filesystem) then rename over the target. Does NOT touch the lock — the
+ * caller MUST already hold it (write() / withLockedState()).
+ */
+function writeUnlocked(state: RunState, env: NodeJS.ProcessEnv): void {
+  const file = runStatePath(env);
+  const dir = dataDir(env);
+  const tmp = path.join(
+    dir,
+    `.run-state.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`,
+  );
+  const body = JSON.stringify(state, null, 2);
+  const fd = fs.openSync(tmp, 'w');
+  try {
+    fs.writeSync(fd, body);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  fs.renameSync(tmp, file);
+}
+
+/**
+ * Atomically persist run-state.json under a best-effort O_EXCL lock.
+ *
+ * Prefer {@link withLockedState} for read-modify-write: a bare write() only
+ * locks the persist, not a preceding read(), so two concurrent processes doing
+ * read()+write() could lose an update.
  */
 export function write(state: RunState, env: NodeJS.ProcessEnv = process.env): void {
   ensureStateDirs(env);
-  const file = runStatePath(env);
-  const dir = dataDir(env);
-  const release = acquireLock(dir);
+  const release = acquireLock(dataDir(env));
   try {
-    const tmp = path.join(
-      dir,
-      `.run-state.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`,
-    );
-    const body = JSON.stringify(state, null, 2);
-    const fd = fs.openSync(tmp, 'w');
-    try {
-      fs.writeSync(fd, body);
-      fs.fsyncSync(fd);
-    } finally {
-      fs.closeSync(fd);
-    }
-    fs.renameSync(tmp, file);
+    writeUnlocked(state, env);
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Run a read → mutate → persist transaction with the lock held for the WHOLE
+ * duration, so concurrent start/stop processes can't clobber each other's
+ * records (e.g. parallel `start --which sup` and `start --which web`). The
+ * mutator receives the freshly-read state and mutates it in place.
+ */
+function withLockedState<T>(env: NodeJS.ProcessEnv, fn: (state: RunState) => T): T {
+  ensureStateDirs(env);
+  const release = acquireLock(dataDir(env));
+  try {
+    const state = read(env);
+    const result = fn(state);
+    writeUnlocked(state, env);
+    return result;
   } finally {
     release();
   }
@@ -117,17 +147,19 @@ function acquireLock(dir: string): () => void {
         }
         continue;
       }
-      busyWait(5);
+      sleepSync(5);
     }
   }
 }
 
-/** Synchronous sub-millisecond spin (no async to keep the API blocking). */
-function busyWait(ms: number): void {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    /* spin */
-  }
+/**
+ * Block the current thread for `ms` WITHOUT spinning the CPU. `Atomics.wait` on
+ * a private SharedArrayBuffer parks the thread (allowed on the main thread in
+ * Node/Bun), so start/stop stay synchronous without burning a core.
+ */
+function sleepSync(ms: number): void {
+  if (ms <= 0) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /**
@@ -139,22 +171,19 @@ export function makeFingerprint(argv: readonly string[], cwd: string): string {
   return crypto.createHash('sha256').update(payload).digest('hex').slice(0, 16);
 }
 
-/** Add (or replace, by role) a record and persist atomically. */
+/** Add (or replace, by role) a record under a single locked transaction. */
 export function add(record: ProcessRecord, env: NodeJS.ProcessEnv = process.env): void {
-  const state = read(env);
-  state.processes = state.processes.filter((p) => p.role !== record.role);
-  state.processes.push(record);
-  write(state, env);
+  withLockedState(env, (state) => {
+    state.processes = state.processes.filter((p) => p.role !== record.role);
+    state.processes.push(record);
+  });
 }
 
-/** Remove the record for a role (if any) and persist atomically. */
+/** Remove the record for a role (if any) under a single locked transaction. */
 export function remove(role: Role, env: NodeJS.ProcessEnv = process.env): void {
-  const state = read(env);
-  const next = state.processes.filter((p) => p.role !== role);
-  if (next.length !== state.processes.length) {
-    state.processes = next;
-    write(state, env);
-  }
+  withLockedState(env, (state) => {
+    state.processes = state.processes.filter((p) => p.role !== role);
+  });
 }
 
 /** Get the record for a role, or undefined. */
@@ -168,17 +197,13 @@ export function list(env: NodeJS.ProcessEnv = process.env): ProcessRecord[] {
 }
 
 /**
- * Whether the recorded process is still the SAME live process.
+ * Whether the recorded pid currently exists (LIVENESS ONLY).
  *
- * Liveness is `process.kill(pid, 0)` (true if the pid exists and we may signal
- * it). PID reuse is guarded by the recorded startTime + fingerprint: we can't
- * cheaply read another process's real start time cross-platform without native
- * deps, so we treat the record's own stored startTime as the launch identity
- * and rely on the fingerprint to scope kills to processes WE launched. This is
- * a documented best-effort: kill(0) confirms existence, the stored
- * startTime/fingerprint scope intent, and the process-group kill targets only
- * the tracked tree. A truly reused PID with no record match is reported here as
- * not-live by the absence of a matching record, and reconcile() drops it.
+ * This is `process.kill(pid, 0)` plus a structural check that the record has its
+ * identity fields. It does NOT prove the live pid is still OUR process — a
+ * recycled pid would also report live here. Use {@link isSafeToKill} before
+ * terminating anything; isLive is for "is this slot occupied" decisions
+ * (skip-if-running, reconcile) where killing is not involved.
  */
 export function isLive(record: ProcessRecord): boolean {
   if (!record || typeof record.pid !== 'number' || record.pid <= 0) return false;
@@ -195,6 +220,49 @@ export function isLive(record: ProcessRecord): boolean {
     if (code === 'EPERM') return true;
     // ESRCH (no such process) or anything else → not live.
     return false;
+  }
+}
+
+/**
+ * Best-effort IDENTITY guard: is the live pid actually a process WE launched
+ * (same runtime/binary), rather than an unrelated process that reused the pid?
+ * `stop` calls this before killing, so a recycled pid can never take down a
+ * stranger's process tree (the exact failure mode this design replaced
+ * mon-stop.ps1 to avoid).
+ *
+ * Compares the live process's image/command against our own runtime
+ * (`basename(process.execPath)` — the cuesheet binary, or bun/node in dev;
+ * `start` and `stop` always run under the same runtime). If the process info
+ * can't be read, returns false — conservative: clear the record rather than
+ * risk killing the wrong process.
+ */
+export function isSafeToKill(record: ProcessRecord): boolean {
+  if (!isLive(record)) return false;
+  const self = path.basename(process.execPath).toLowerCase();
+  if (!self) return false;
+  try {
+    if (process.platform === 'win32') {
+      const out = execFileSync(
+        'tasklist',
+        ['/FI', `PID eq ${record.pid}`, '/FO', 'CSV', '/NH'],
+        { stdio: ['ignore', 'pipe', 'ignore'] },
+      )
+        .toString()
+        .toLowerCase();
+      return out.includes(self);
+    }
+    // POSIX: prefer /proc (Linux); fall back to `ps` (macOS).
+    let cmd: string;
+    try {
+      cmd = fs.readFileSync(`/proc/${record.pid}/cmdline`, 'utf8').replace(/\0/g, ' ');
+    } catch {
+      cmd = execFileSync('ps', ['-p', String(record.pid), '-o', 'command='], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString();
+    }
+    return cmd.toLowerCase().includes(self);
+  } catch {
+    return false; // can't verify identity → don't kill
   }
 }
 
@@ -241,7 +309,7 @@ export function killRecord(record: ProcessRecord): boolean {
   }
 
   // Grace period, then SIGKILL anything that lingers.
-  busyWait(400);
+  sleepSync(400);
   try {
     process.kill(pgid, 'SIGKILL');
   } catch (err: unknown) {
@@ -262,18 +330,16 @@ export function killRecord(record: ProcessRecord): boolean {
  * definition no longer correspond to a live process we own.
  */
 export function reconcile(env: NodeJS.ProcessEnv = process.env): ProcessRecord[] {
-  const state = read(env);
-  const live: ProcessRecord[] = [];
-  const removed: ProcessRecord[] = [];
-  for (const rec of state.processes) {
-    if (isLive(rec)) live.push(rec);
-    else removed.push(rec);
-  }
-  if (removed.length > 0) {
+  return withLockedState(env, (state) => {
+    const live: ProcessRecord[] = [];
+    const removed: ProcessRecord[] = [];
+    for (const rec of state.processes) {
+      if (isLive(rec)) live.push(rec);
+      else removed.push(rec);
+    }
     state.processes = live;
-    write(state, env);
-  }
-  return removed;
+    return removed;
+  });
 }
 
 /** All recorded processes that are still live (after no mutation). */

@@ -120,8 +120,11 @@ passthrough('verify-switcher-coverage', './commands/verifySwitcherCoverage.js', 
 function optsToArgv(opts: Record<string, unknown>): string[] {
   const argv: string[] = [];
   for (const [k, v] of Object.entries(opts)) {
-    if (v === true) argv.push(`--${k}`);
-    else if (v !== false && v != null) argv.push(`--${k}`, String(v));
+    // commander exposes camelCase keys (e.g. `healthHost`); emit kebab-case
+    // flags (`--health-host`) so the underlying tool's parser sees them right.
+    const flag = `--${k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`;
+    if (v === true) argv.push(flag);
+    else if (v !== false && v != null) argv.push(flag, String(v));
   }
   return argv;
 }

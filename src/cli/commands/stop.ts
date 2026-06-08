@@ -42,12 +42,20 @@ export async function run(argv: string[], ctx: CommandContext): Promise<void> {
 
   for (const record of records) {
     if (!procState.isLive(record)) {
-      // Stale: the PID is gone (or was reused by an unrelated process). Clear
-      // the entry WITHOUT killing — killing here is exactly the bug mon-stop.ps1
-      // had (it could signal a reused PID belonging to something else).
+      // Stale: the PID is gone. Clear the entry WITHOUT killing.
       procState.remove(record.role, ctx.env);
       cleared++;
       ctx.logger.warn(`cleared stale ${record.role} record (pid ${record.pid} not live)`);
+      continue;
+    }
+
+    if (!procState.isSafeToKill(record)) {
+      // The pid is live but is no longer OUR process (the OS reused it). Clear
+      // the record WITHOUT killing — signalling it would hit an unrelated
+      // process, exactly the mon-stop.ps1 bug we set out to avoid.
+      procState.remove(record.role, ctx.env);
+      cleared++;
+      ctx.logger.warn(`cleared ${record.role} record (pid ${record.pid} reused by an unrelated process; not killing)`);
       continue;
     }
 

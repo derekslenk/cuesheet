@@ -20,6 +20,7 @@
  */
 import { spawn } from 'node:child_process';
 import net from 'node:net';
+import fs from 'node:fs';
 import { parseArgs } from 'node:util';
 import * as procState from '../lib/procState.js';
 import { openProcessLog, writeLogLine } from '../lib/log.js';
@@ -105,11 +106,15 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
 
   const pid = child.pid;
   if (pid === undefined) {
+    try { fs.closeSync(fd); } catch { /* already closed */ }
     throw new CliError(`failed to spawn ${spec.role}`, EXIT.GENERIC);
   }
 
   const startTime = new Date().toISOString();
   writeLogLine(fd, `--- cuesheet start ${spec.role} (pid ${pid}) ---`);
+  // The detached child holds its own dup of the log fd; the parent no longer
+  // needs it. Closing matters for the long-lived gui (its restart re-runs this).
+  try { fs.closeSync(fd); } catch { /* already closed */ }
 
   const record: ProcessRecord = {
     role: spec.role,
@@ -125,6 +130,17 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
   child.unref();
 
   ctx.logger.info(`started ${spec.role} (pid ${pid}) → ${logPath}`);
+
+  // Dead-on-arrival check: if the child exits within a short window (e.g. the
+  // supervisor can't open its DB, or `next` can't find the app dir), drop the
+  // record so status/gui never show a phantom pid, and point at the log.
+  await delay(300);
+  if (child.exitCode !== null || child.signalCode !== null) {
+    procState.remove(spec.role, ctx.env);
+    ctx.logger.warn(
+      `${spec.role} exited immediately (code ${child.exitCode ?? child.signalCode}); see ${logPath}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +171,11 @@ export function computeReexecArgs(
   const runtime = execPath.replace(/\\/g, '/').split('/').pop()?.toLowerCase() ?? '';
   const underInterpreter = /^(bun|bunx|node|nodejs|tsx|deno)(\.exe)?$/.test(runtime);
   return underInterpreter && argv1 ? [argv1, subcommand] : [subcommand];
+}
+
+/** Promise-based delay (no CPU spin). */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Validate/normalize the --which flag. */

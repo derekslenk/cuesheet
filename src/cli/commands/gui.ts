@@ -36,6 +36,7 @@ import {
 } from '../lib/tui.js';
 import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
 import * as procState from '../lib/procState.js';
+import { Writable } from 'node:stream';
 import { run as startRun } from './start.js';
 import { run as stopRun } from './stop.js';
 import { consoleLogger } from '../lib/log.js';
@@ -71,10 +72,14 @@ export async function run(_argv: string[], ctx: CommandContext): Promise<void> {
 
   // Build a shared CommandContext for delegated start/stop calls.
   // We silence their output (we control the screen); errors are caught below.
+  // A sink that DROPS everything. Delegated start/stop must not write to the
+  // terminal while we own the alt-screen — writing to process.stderr would
+  // interleave with the ANSI render and corrupt the TUI.
+  const devNull = new Writable({ write(_chunk, _enc, cb) { cb(); } });
   const silentCtx: CommandContext = {
     ...ctx,
-    stdout: process.stderr, // discard to stderr in case something leaks
-    stderr: process.stderr,
+    stdout: devNull,
+    stderr: devNull,
     logger: {
       info: () => {},
       warn: () => {},

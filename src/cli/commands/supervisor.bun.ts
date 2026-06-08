@@ -90,7 +90,10 @@ export async function run(_argv: string[], ctx: CommandContext): Promise<void> {
     ctx.stdout.write(`[supervisor]   ${s.streamId} → ${s.obsInputUrl}\n`);
   });
 
+  let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
+    if (shuttingDown) return; // a second Ctrl-C must not re-enter shutdown
+    shuttingDown = true;
     ctx.stdout.write(`[supervisor] received ${signal}, shutting down\n`);
     await runtime.shutdown();
     process.exit(0);

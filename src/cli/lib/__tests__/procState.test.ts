@@ -11,6 +11,7 @@ import {
   list,
   listLive,
   isLive,
+  isSafeToKill,
   reconcile,
   makeFingerprint,
   killRecord,
@@ -34,6 +35,22 @@ function record(over: Partial<ProcessRecord> = {}): ProcessRecord {
     ...over,
   };
 }
+
+describe('isSafeToKill (identity guard)', () => {
+  it('is true for a live process whose image matches our runtime (this test process)', () => {
+    // record().pid === process.pid, whose image is the test runtime
+    // (== basename(process.execPath)), so the identity check passes.
+    expect(isSafeToKill(record())).toBe(true);
+  });
+
+  it('is false for a dead pid', () => {
+    expect(isSafeToKill(record({ pid: 2 ** 31 - 1 }))).toBe(false);
+  });
+
+  it('is false for a structurally stale record (missing identity fields)', () => {
+    expect(isSafeToKill(record({ startTime: '', cmdFingerprint: '' }))).toBe(false);
+  });
+});
 
 describe('procState read/write basics', () => {
   it('returns empty state when the file is missing', () => {

@@ -166,14 +166,24 @@ function spawnDev({ cmd, args, cwd, env, stdout, stderr }: SpawnDevOpts): Promis
     const forward = (signal: NodeJS.Signals) => {
       if (!child.killed) child.kill(signal);
     };
-    process.on('SIGINT', () => forward('SIGINT'));
-    process.on('SIGTERM', () => forward('SIGTERM'));
+    const onSigint = () => forward('SIGINT');
+    const onSigterm = () => forward('SIGTERM');
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+    // Remove our process-level listeners once the child settles, so repeated
+    // in-process invocations don't accumulate handlers (or pin `child`).
+    const detachSignals = () => {
+      process.removeListener('SIGINT', onSigint);
+      process.removeListener('SIGTERM', onSigterm);
+    };
 
     child.once('error', (err) => {
+      detachSignals();
       reject(new CliError(`Failed to start Next.js: ${err.message}`, EXIT.GENERIC));
     });
 
     child.once('close', (code, signal) => {
+      detachSignals();
       if (signal) {
         // Killed by signal (normal Ctrl-C path) — exit cleanly
         resolve();
