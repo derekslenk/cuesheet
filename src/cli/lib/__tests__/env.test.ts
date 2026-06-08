@@ -9,7 +9,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-import { resolve, resolveAll, buildChildEnv } from '../env';
+import { resolve, resolveAll, buildChildEnv, loadProjectEnvFiles } from '../env';
 import type { ConfigFlags } from '../env';
 
 // ---------------------------------------------------------------------------
@@ -269,5 +269,34 @@ describe('buildChildEnv()', () => {
     const cfg = resolveAll({ streamlinkPath: '/sl' }, mkEnv(), os.tmpdir());
     buildChildEnv(cfg, base);
     expect(base.STREAMLINK_PATH).toBeUndefined();
+  });
+});
+
+describe('loadProjectEnvFiles', () => {
+  /** A directory that looks like the CueSheet project root. */
+  function fakeRoot(): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cuesheet-penv-'));
+    fs.writeFileSync(path.join(root, 'package.json'), '{}');
+    fs.mkdirSync(path.join(root, 'node_modules'));
+    fs.mkdirSync(path.join(root, 'app'));
+    return root;
+  }
+
+  it('fills keys from the project-root .env.local WITHOUT overriding real env', () => {
+    const root = fakeRoot();
+    fs.writeFileSync(path.join(root, '.env.local'), 'EVENT_KEY=from_local\nFILE_DIRECTORY=/data\n');
+    const env = mkEnv({ EVENT_KEY: 'already_set' });
+    loadProjectEnvFiles(env, [root]);
+    expect(env.EVENT_KEY).toBe('already_set'); // real env wins, not overridden
+    expect(env.FILE_DIRECTORY).toBe('/data'); // missing key filled from .env.local
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('is a no-op when no project root is resolvable', () => {
+    const env = mkEnv();
+    const notARoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cuesheet-noroot-'));
+    loadProjectEnvFiles(env, [notARoot]);
+    expect(env.EVENT_KEY).toBeUndefined();
+    fs.rmSync(notARoot, { recursive: true, force: true });
   });
 });

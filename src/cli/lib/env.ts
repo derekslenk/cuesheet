@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { findProjectRoot } from './paths.js';
 import type { ResolvedValue } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,35 @@ function parseEnvLocal(filePath: string): Record<string, string> {
     if (key) result[key] = val;
   }
   return result;
+}
+
+/**
+ * Load .env.local (then .env) from the resolved project root into `env`,
+ * filling ONLY keys not already set — so real environment values (and Bun's cwd
+ * auto-load) still win, matching Next's precedence. Mirrors
+ * scripts/streamlink-supervisor/loadEnv.ts, but anchored to findProjectRoot
+ * instead of cwd / import.meta.url, so a supervisor launched from a non-project
+ * directory (e.g. dist/) still sees EVENT_KEY / FILE_DIRECTORY and can't drift
+ * from the webui's event tables. No-op when no project root is found (truly
+ * standalone — rely on the real environment).
+ */
+export function loadProjectEnvFiles(
+  env: NodeJS.ProcessEnv = process.env,
+  startDirs: Array<string | undefined> = [
+    env.CUESHEET_PROJECT_ROOT,
+    process.cwd(),
+    path.dirname(process.execPath),
+  ],
+): void {
+  const root = findProjectRoot(startDirs, env);
+  if (!root) return;
+  // .env.local wins over .env, so load it first; we only fill missing keys.
+  for (const name of ['.env.local', '.env']) {
+    const parsed = parseEnvLocal(path.join(root, name));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (env[key] === undefined) env[key] = value;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

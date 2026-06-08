@@ -11,6 +11,9 @@
  * same SIGINT/SIGTERM shutdown. Config values are pulled through lib/env.ts
  * resolveAll() so CLI flags / .env.local / OS defaults all take effect.
  */
+// MUST be first: loads the project-root .env.local into process.env BEFORE
+// lib/constants reads EVENT_KEY at module-eval time (see supervisorEnv.ts).
+import '../lib/supervisorEnv.js';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { Database as BunDatabase } from 'bun:sqlite';
