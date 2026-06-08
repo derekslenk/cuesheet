@@ -47,7 +47,7 @@ import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/t
 const POLL_MS = 2000;
 
 /** Service display labels. */
-const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui   ' };
+const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui' };
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -187,53 +187,70 @@ function buildFrame(
   busy: boolean,
 ): string[] {
   const w = termWidth();
-  const inner = w - 2; // inside the border characters
+  const inner = w - 2; // chars strictly BETWEEN the ║ borders
 
   const lines: string[] = [];
 
-  // Top border
+  // Top border with title.
   lines.push('╔' + pad('═ cuesheet dashboard ', inner, '═') + '╗');
 
-  // Header row
-  lines.push('║  ' + 'Service      Status   PID      Latency   Detail'.padEnd(inner - 2) + ' ║');
-  lines.push('║  ' + ('─'.repeat(inner - 2)) + ' ║');
+  // Column header — same layout helper as the data rows so columns line up.
+  lines.push(boxLine(svcRow('', 'Service', 'Status', 'PID', 'Latency', 'Detail'), inner));
+  lines.push('╟' + '─'.repeat(inner) + '╢');
 
-  // Service rows
+  // Service rows.
   const byRole = new Map<Role, ProcessRecord>(records.map((r) => [r.role, r]));
-
   for (const h of health) {
     const rec   = byRole.get(h.service) ?? null;
     const state = serviceState(h.up, rec !== null && procState.isLive(rec));
     const glyph = STATE_GLYPH[state];
-    const sym   = glyph.symbol;
-    const label = SVC_LABELS[h.service];
-    const st    = glyph.label.padEnd(5);
-    const pid   = rec ? String(rec.pid).padEnd(8) : '—       ';
-    const lat   = h.latencyMs !== null ? `${h.latencyMs} ms`.padStart(7) : '      —';
-    const det   = (state === 'starting' ? 'starting… (warming up)' : (h.detail ?? '')).slice(0, 30);
-    const row   = `${sym} ${label} ${st}  ${pid} ${lat}   ${det}`;
-    lines.push('║  ' + row.padEnd(inner - 2) + ' ║');
+    const pid   = rec ? String(rec.pid) : '—';
+    const lat   = h.latencyMs !== null ? `${h.latencyMs} ms` : '—';
+    const detail =
+      state === 'starting' ? 'starting…'
+      : !h.up && /unable to connect/i.test(h.detail) ? 'unreachable'
+      : (h.detail ?? '');
+    lines.push(boxLine(svcRow(glyph.symbol, SVC_LABELS[h.service], glyph.label, pid, lat, detail), inner));
   }
 
-  // Separator + timestamp
-  const ts    = new Date().toLocaleTimeString();
-  const tsStr = ` last updated: ${ts} ─ refreshing every ${POLL_MS / 1000}s `;
-  lines.push('╟' + pad(tsStr, inner, '─') + '║');
+  // Timestamp separator.
+  const ts = new Date().toLocaleTimeString();
+  lines.push('╟' + pad(` last updated: ${ts} ─ refreshing every ${POLL_MS / 1000}s `, inner, '─') + '╢');
 
-  // Status/feedback line
-  const fbStr = busy ? `  ⟳ ${statusMsg}` : (statusMsg ? `  ${statusMsg}` : '');
-  if (fbStr) {
-    lines.push('║' + fbStr.padEnd(inner) + '║');
-  }
+  // Feedback line (only when there's a message).
+  const fb = busy ? `⟳ ${statusMsg}` : statusMsg;
+  if (fb) lines.push(boxLine(fb, inner));
 
-  // Keybinding hint
-  const hint = '  [s] start  [x] stop  [r] restart  [q] quit';
-  lines.push('║' + hint.padEnd(inner) + '║');
+  // Keybindings.
+  lines.push(boxLine('[s] start   [x] stop   [r] restart   [q] quit', inner));
 
-  // Bottom border
+  // Bottom border.
   lines.push('╚' + '═'.repeat(inner) + '╝');
 
   return lines;
+}
+
+/** One interior box line: '║' + a leading space + body, clipped/padded to exactly `inner`. */
+function boxLine(body: string, inner: number): string {
+  const interior = ' ' + body;
+  const fitted = interior.length > inner ? interior.slice(0, inner) : interior.padEnd(inner);
+  return '║' + fitted + '║';
+}
+
+/**
+ * Format one service-table row with FIXED column widths. The column header and
+ * every data row go through this, so the columns always line up regardless of
+ * label length (supervisor vs web-ui).
+ */
+function svcRow(sym: string, svc: string, status: string, pid: string, lat: string, detail: string): string {
+  return (
+    sym.padEnd(1) + ' ' +
+    svc.padEnd(11) + ' ' +
+    status.padEnd(6) + ' ' +
+    pid.padEnd(8) + ' ' +
+    lat.padStart(8) + '  ' +
+    detail
+  );
 }
 
 /** Right-pad `str` to `width` using `fill`, or truncate if already longer. */
