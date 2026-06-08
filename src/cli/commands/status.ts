@@ -14,6 +14,7 @@
 
 import { parseArgs } from 'node:util';
 import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
+import { formatStreamLines } from '../lib/streamsView.js';
 import * as procState from '../lib/procState.js';
 import { tailLog } from '../lib/log.js';
 import { logPathFor } from '../lib/paths.js';
@@ -123,6 +124,15 @@ function printTable(
 
   write('');
 
+  // Supervised streams (only present when the supervisor answered /health).
+  const supStreams = health.find((h) => h.service === 'sup')?.streams;
+  if (supStreams) {
+    for (const line of formatStreamLines(supStreams, { color: process.stdout.isTTY === true })) {
+      write(line);
+    }
+    write('');
+  }
+
   if (showLogs) {
     printLogs(rows, ctx);
   }
@@ -210,6 +220,9 @@ function printJson(
     if (showLogs) {
       const logPath = row.logPath ?? logPathFor(row.service, process.env);
       entry.logs = tailLog(logPath, 20);
+    }
+    if (row.service === 'sup') {
+      entry.streams = health.find((h) => h.service === 'sup')?.streams ?? [];
     }
     return entry;
   });

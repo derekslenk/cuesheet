@@ -100,6 +100,30 @@ describe('checkHealth', () => {
     expect(results.every((r) => r.up === false)).toBe(true);
   });
 
+  it('parses the supervised streams from the supervisor /health body', async () => {
+    const streams = [
+      { streamId: 'alpha', status: 'running', restartCount: 0, obsInputUrl: 'udp://127.0.0.1:9001' },
+      { streamId: 'beta', status: 'escalated', restartCount: 3, obsInputUrl: 'udp://127.0.0.1:9002' },
+    ];
+    (globalThis as unknown as Record<string, unknown>).fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.startsWith('http://127.0.0.1:8080')) {
+        return {
+          ok: true, status: 200, statusText: 'OK',
+          json: async () => ({ status: 'ok', streams }),
+        } as unknown as Response;
+      }
+      return { ok: true, status: 200, statusText: 'OK' } as Response;
+    });
+
+    const results = await checkHealth();
+    const sup = results.find((r) => r.service === 'sup')!;
+    const web = results.find((r) => r.service === 'web')!;
+
+    expect(sup.streams).toEqual(streams);
+    expect(web.streams).toBeUndefined(); // the web probe doesn't parse streams
+  });
+
   it('respects custom host/port overrides', async () => {
     const mock: FetchMock = jest.fn(async () => ({ ok: true, status: 200, statusText: 'OK' }) as Response);
     (globalThis as unknown as Record<string, unknown>).fetch = mock;

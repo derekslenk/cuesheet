@@ -35,6 +35,7 @@ import {
   linesToString,
 } from '../lib/tui.js';
 import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
+import { formatStreamLines } from '../lib/streamsView.js';
 import * as procState from '../lib/procState.js';
 import { Writable } from 'node:stream';
 import { run as startRun } from './start.js';
@@ -153,7 +154,11 @@ export async function run(_argv: string[], ctx: CommandContext): Promise<void> {
   try {
     while (running) {
       const frame = buildFrame(health, records, statusMsg, busy);
-      render(frame, { altScreen: true });
+      const supStreams = health.find((h) => h.service === 'sup')?.streams;
+      const full = supStreams
+        ? [...frame, '', ...formatStreamLines(supStreams, { color: true })]
+        : frame;
+      render(full, { altScreen: true });
 
       // Sleep in short slices so keypresses wake the loop promptly.
       await sleep(POLL_MS);
@@ -254,6 +259,10 @@ async function nonTtyFallback(ctx: CommandContext): Promise<void> {
     const pid = rec ? `pid=${rec.pid}` : 'not tracked';
     const detail = state === 'starting' ? 'starting… (warming up)' : h.detail;
     lines.push(`  ${glyph.symbol} ${SVC_LABELS[h.service]}  ${glyph.label}  ${pid}  ${detail}`);
+  }
+  const supStreams = health.find((h) => h.service === 'sup')?.streams;
+  if (supStreams) {
+    lines.push(...formatStreamLines(supStreams, { color: false }));
   }
   lines.push('');
   ctx.stdout.write(linesToString(lines) + '\n');

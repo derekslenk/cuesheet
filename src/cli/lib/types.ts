@@ -59,6 +59,14 @@ export interface RunState {
   processes: ProcessRecord[];
 }
 
+/** One supervised stream, as reported by the supervisor's /health endpoint. */
+export interface StreamStatus {
+  streamId: string;
+  status: string; // 'running' | 'starting' | 'escalated' | ...
+  restartCount: number;
+  obsInputUrl: string;
+}
+
 /** Health snapshot for a single service (used by status/watch/gui). */
 export interface HealthResult {
   service: Role;
@@ -66,6 +74,8 @@ export interface HealthResult {
   up: boolean;
   detail: string;
   latencyMs: number | null;
+  /** Supervised streams (supervisor only; parsed from /health when up). */
+  streams?: StreamStatus[];
 }
 
 /** A resolved config value plus where it came from (for `doctor`). */

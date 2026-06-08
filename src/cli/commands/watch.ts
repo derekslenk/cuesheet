@@ -11,6 +11,7 @@
 
 import { parseArgs } from 'node:util';
 import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
+import { formatStreamLines } from '../lib/streamsView.js';
 import * as procState from '../lib/procState.js';
 import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/types.js';
 
@@ -113,6 +114,14 @@ function printFrame(
     const detail = state === 'starting' ? 'starting… (warming up)' : h.detail;
 
     write(`  ${sym} ${svc} ${status} ${pid} ${lat}   ${detail}`);
+  }
+
+  const supStreams = health.find((h) => h.service === 'sup')?.streams;
+  if (supStreams) {
+    write('');
+    for (const line of formatStreamLines(supStreams, { color: process.stdout.isTTY === true })) {
+      write(line);
+    }
   }
 
   write('');

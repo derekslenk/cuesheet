@@ -6,7 +6,7 @@
  * captured as `up: false` — this function never throws.
  */
 
-import type { HealthResult } from './types.js';
+import type { HealthResult, StreamStatus } from './types.js';
 
 /** Default endpoints; callers may override via params. */
 const DEFAULTS = {
@@ -66,7 +66,7 @@ export async function checkHealth(params: HealthParams = {}): Promise<HealthResu
   const webPort = params.webPort ?? DEFAULTS.web.port;
 
   const [supResult, webResult] = await Promise.all([
-    probe('sup', `http://${supHost}:${supPort}/health`, PROBE_TIMEOUT_MS.sup),
+    probe('sup', `http://${supHost}:${supPort}/health`, PROBE_TIMEOUT_MS.sup, { parseStreams: true }),
     probe('web', `http://${webHost}:${webPort}`, PROBE_TIMEOUT_MS.web),
   ]);
 
@@ -77,7 +77,12 @@ export async function checkHealth(params: HealthParams = {}): Promise<HealthResu
  * Fetch a single URL and map the outcome to a {@link HealthResult}.
  * Never rejects — all errors become `up: false`.
  */
-async function probe(service: 'sup' | 'web', url: string, timeoutMs: number): Promise<HealthResult> {
+async function probe(
+  service: 'sup' | 'web',
+  url: string,
+  timeoutMs: number,
+  opts: { parseStreams?: boolean } = {},
+): Promise<HealthResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const start = Date.now();
@@ -85,11 +90,21 @@ async function probe(service: 'sup' | 'web', url: string, timeoutMs: number): Pr
   try {
     const res = await fetch(url, { signal: controller.signal });
     const latencyMs = Date.now() - start;
-    clearTimeout(timer);
 
     if (res.ok) {
-      return { service, url, up: true, detail: `HTTP ${res.status}`, latencyMs };
+      let streams: StreamStatus[] | undefined;
+      if (opts.parseStreams) {
+        try {
+          const body = (await res.json()) as { streams?: unknown };
+          streams = Array.isArray(body?.streams) ? (body.streams as StreamStatus[]) : [];
+        } catch {
+          streams = []; // up but unparseable body — treat as no streams
+        }
+      }
+      clearTimeout(timer);
+      return { service, url, up: true, detail: `HTTP ${res.status}`, latencyMs, streams };
     }
+    clearTimeout(timer);
     return {
       service,
       url,
