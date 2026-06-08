@@ -2,6 +2,9 @@
   "name": "cuesheet",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "cuesheet": "dist/cuesheet"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -23,6 +26,12 @@
     "supervisor": "tsx scripts/streamlink-supervisor/index.ts",
     "supervisor:build": "bun build --compile scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor",
     "supervisor:build:win": "bun build --compile --target=bun-windows-x64 scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor.exe",
+    "cli:dev": "bun run src/cli/main.ts",
+    "binary:build": "bun build --compile src/cli/main.ts --outfile dist/cuesheet",
+    "binary:build:win": "bun build --compile --target=bun-windows-x64 src/cli/main.ts --outfile dist/cuesheet.exe",
+    "binary:build:mac": "bun build --compile --target=bun-darwin-arm64 src/cli/main.ts --outfile dist/cuesheet-macos",
+    "binary:build:linux": "bun build --compile --target=bun-linux-x64 src/cli/main.ts --outfile dist/cuesheet-linux",
+    "binary:smoke": "node scripts/smokeBinary.mjs",
     "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
     "loadtest": "tsx scripts/loadtest/index.ts",
     "load:setactive": "tsx scripts/loadDriver.ts",
@@ -31,6 +40,7 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "commander": "^12.1.0",
     "hls.js": "^1.6.16",
     "next": "^15.4.1",
     "obs-websocket-js": "^5.0.6",

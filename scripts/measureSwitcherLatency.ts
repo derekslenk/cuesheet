@@ -434,8 +434,8 @@ function writeToPluginContract(fullReport: string): void {
 // Main
 // ---------------------------------------------------------------------------
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv);
+export async function run(argv: string[]): Promise<void> {
+  const args = parseArgs(['', '', ...argv]);
 
   const { latencyReport, encodingReport, warmStats } = await measureMacOBS(args);
 
@@ -464,7 +464,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(err => {
-  console.error('Unhandled error:', err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch(err => {
+    console.error('Unhandled error:', err);
+    process.exit(1);
+  });
+}

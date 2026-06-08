@@ -146,8 +146,8 @@ function defaultOutputPath(strategy: StrategyName): string {
   return path.resolve(process.cwd(), 'docs', `atomic-write-soak.${strategy}.${iso}.json`);
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv);
+export async function run(argv: string[]): Promise<void> {
+  const args = parseArgs(['', '', ...argv]);
 
   fs.mkdirSync(args.targetDir, { recursive: true });
   const targetPath = strategyOutputBase(args.strategy, args.targetDir);
@@ -188,10 +188,12 @@ async function main(): Promise<void> {
   fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), 'utf8');
   process.stdout.write(`\nJSON report → ${outputPath}\n`);
 
-  process.exit(report.passed ? 0 : 1);
+  process.exitCode = report.passed ? 0 : 1;
 }
 
-main().catch(err => {
-  process.stderr.write(`Unhandled error: ${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(2);
-});
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch(err => {
+    process.stderr.write(`Unhandled error: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(2);
+  });
+}

@@ -272,9 +272,9 @@ function help(): void {
 Stop the streamlink supervisor before 'start' (port conflict).`);
 }
 
-async function main(): Promise<void> {
-  const cmd = process.argv[2];
-  const arg = process.argv[3];
+export async function run(argv: string[]): Promise<void> {
+  const cmd = argv[0];
+  const arg = argv[1];
   switch (cmd) {
     case 'seed': await cmdSeed(parseInt(arg ?? '40', 10)); break;
     case 'prep': cmdPrep(parseInt(arg ?? '40', 10)); break;
@@ -287,7 +287,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error('loadtest error:', err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch((err: unknown) => {
+    console.error('loadtest error:', err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

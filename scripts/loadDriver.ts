@@ -151,8 +151,8 @@ function makeFetchFn(): FetchFn {
   };
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv);
+export async function run(argv: string[]): Promise<void> {
+  const args = parseArgs(['', '', ...argv]);
 
   process.stdout.write(`Fetching stream pool from ${args.webuiUrl}/api/streams ...\n`);
   const streams = await fetchStreams(args.webuiUrl);
@@ -198,10 +198,12 @@ async function main(): Promise<void> {
   process.stdout.write(`\nJSON report → ${outputPath}\n`);
 
   const slo = evaluateSLO(report);
-  process.exit(slo.overallPass ? 0 : 1);
+  process.exitCode = slo.overallPass ? 0 : 1;
 }
 
-main().catch(err => {
-  process.stderr.write(`Unhandled error: ${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(2);
-});
+if (import.meta.main) {
+  run(process.argv.slice(2)).catch(err => {
+    process.stderr.write(`Unhandled error: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(2);
+  });
+}

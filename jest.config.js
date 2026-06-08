@@ -23,6 +23,10 @@ const config = {
   // Module name mapping for absolute imports (correct property name)
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    // Strip ESM `.js` specifiers so ts-jest resolves the `.ts` source. The CLI
+    // uses NodeNext-style `.js` import specifiers (required for bun --compile),
+    // which jest's resolver would otherwise fail to find.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   
   // Coverage settings
