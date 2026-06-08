@@ -236,10 +236,20 @@ function cmdStop(): void {
 
 async function cmdTeardown(): Promise<void> {
   cmdStop();
+  // Let the generators' last frames drain and OBS settle before we start
+  // removing sources, so the deletes below act on idle (not actively-decoding)
+  // inputs.
+  await sleep(1000);
   const streams = await loadTestStreams();
+  // PACED deletes. Each /api/streams DELETE fans out to many obs-websocket calls
+  // (RemoveSceneItem + RemoveScene + RemoveInput + 7× switcher read/write). Firing
+  // 40 of those back-to-back floods obs-websocket and CRASHES OBS — observed at
+  // 40 warm sources. A short gap lets OBS release each source's decoder/VRAM
+  // before the next removal. ~250ms × 40 ≈ 10s, fine for a teardown.
   for (const s of streams) {
     try { await api('DELETE', `/api/streams/${s.id}`); console.log(`  deleted ${s.name}`); }
     catch (e) { console.error(`  delete ${s.name} failed:`, (e as Error).message); }
+    await sleep(250);
   }
   const teamId = await getTeamId();
   if (teamId !== null) {
