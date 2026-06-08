@@ -5,8 +5,8 @@ import { startRuntime } from '../runtime';
 function fakeChild(pid: number) {
   const ee = new EventEmitter() as any;
   ee.pid = pid;
-  ee.stdout = { pipe: jest.fn() };
-  ee.stdin = { end: jest.fn() };
+  ee.stdout = { pipe: jest.fn(), on: jest.fn() };
+  ee.stdin = { end: jest.fn(), on: jest.fn() };
   ee.stderr = new EventEmitter();
   ee.kill = jest.fn(() => true);
   return ee;
