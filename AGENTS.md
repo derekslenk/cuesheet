@@ -26,6 +26,7 @@ CueSheet (npm package `cuesheet`) is a Next.js 15 / React 19 web app for control
 | `contexts` | React contexts, e.g. `ApiKeyContext` (see `contexts/AGENTS.md`). |
 | `lib` | Core logic: DB access, OBS client, atomic writes, constants, helpers, security (see `lib/AGENTS.md`). |
 | `scripts` | `tsx`/Node maintenance, migration, soak, and latency scripts (see `scripts/AGENTS.md`). |
+| `src` | Source for the unified **`cuesheet`** CLI binary (commander router + per-command modules + libs); built via `bun build --compile` into one cross-platform executable that replaces the old `.cmd`/`.ps1` launchers (see `src/cli/AGENTS.md`). |
 | `docs` | Architecture, runbooks, plugin contract, schema docs (see `docs/AGENTS.md`). |
 | `types` | Shared TypeScript types (see `types/AGENTS.md`). |
 | `public` | Static assets (see `public/AGENTS.md`). |
@@ -34,6 +35,7 @@ CueSheet (npm package `cuesheet`) is a Next.js 15 / React 19 web app for control
 ## For AI Agents
 ### Working In This Directory
 - Build: `npm run build`. Dev: `npm run dev`. Test: `npm test` (CI: `npm run test:ci`). Lint: `npm run lint`. Type-check: `npm run type-check`.
+- Unified launcher: the **`cuesheet`** binary (`src/cli`) replaces the removed root `.cmd`/`.ps1` scripts and runs on Windows/macOS/Linux. Build with `npm run binary:build:{win,mac,linux}`; dev via `npm run cli:dev -- <command>`. Commands: `dev`, `sup`, `start`, `stop`, `status`, `watch`, `gui`, `doctor`, plus ops passthroughs (`loadtest`, `soak`, `clean-obs`, …). `cuesheet sup` embeds the Streamlink supervisor in-process.
 - OBS plugin contract: live source switching is performed by writing `${FILE_DIRECTORY}/${screen}.txt` (screen basenames in `lib/constants` `SCREEN_POSITIONS`); writes must be atomic (`lib/atomicWrite`) so the plugin never reads a torn file.
 - Persistence is SQLite (`sqlite`/`sqlite3`); table names are resolved via `lib/constants` (`TABLE_NAMES`) and are season/year-aware — never hard-code a year.
 - Two OBS deployment hosts exist (Mac dev, Windows prod); both run the source-switcher plugin and expose obs-websocket.
