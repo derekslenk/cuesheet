@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Dropdown from '@/components/Dropdown';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
-import { useActiveSourceLookup, useDebounce, PerformanceMonitor } from '@/lib/performance';
+import { useActiveSourceLookup, useDebounce, useSmartPolling, PerformanceMonitor } from '@/lib/performance';
 import { SCREEN_POSITIONS } from '@/lib/constants';
 
 import { StreamWithTeam } from '@/types';
@@ -111,6 +111,31 @@ export default function Home() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Keep the program/preview/studio-mode indicators live. fetchData only runs on
+  // mount and after a transition, so preview changes made directly in OBS (or a
+  // transient OBS reconnect) would otherwise leave the scene buttons stale until
+  // a manual refresh. This lightweight poll touches ONLY the OBS scene state — it
+  // deliberately does not refetch streams/activeSources, so it never clobbers an
+  // in-flight optimistic source edit. Smart-polling pauses while the tab is hidden.
+  const refreshObsSceneState = useCallback(async () => {
+    try {
+      const res = await fetch('/api/obsStatus');
+      const data = await res.json();
+      if (data.connected) {
+        setStudioModeEnabled(data.studioModeEnabled || false);
+        setCurrentPreviewScene(data.currentPreviewScene || null);
+        setCurrentScene(data.currentScene || null);
+      } else {
+        setStudioModeEnabled(false);
+        setCurrentPreviewScene(null);
+      }
+    } catch {
+      // Transient fetch/parse failure — keep last known state rather than flicker.
+    }
+  }, []);
+
+  useSmartPolling(refreshObsSceneState, 5000, []);
 
   const handleSetActive = useCallback(async (screen: ScreenType, id: number | null) => {
     const selectedStream = streams.find((stream) => stream.id === id);

@@ -4,11 +4,40 @@ import { useState } from 'react';
 import { useApiKey } from '@/contexts/ApiKeyContext';
 
 export default function SettingsPage() {
-  const { setApiKey, clearApiKey, isAuthenticated } = useApiKey();
+  const { apiKey, setApiKey, clearApiKey, isAuthenticated } = useApiKey();
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // "Apply playback settings to existing OBS sources" — retrofits the current
+  // OBS_RESTART_ON_ACTIVATE / close_when_inactive policy onto already-added
+  // Media Sources so Studio-Mode preview/program behavior changes without
+  // deleting and re-adding streams.
+  const [playbackBusy, setPlaybackBusy] = useState(false);
+  const [playbackMsg, setPlaybackMsg] = useState('');
+  const [playbackErr, setPlaybackErr] = useState('');
+
+  const handleApplyPlayback = async () => {
+    setPlaybackBusy(true);
+    setPlaybackMsg('');
+    setPlaybackErr('');
+    try {
+      const headers: Record<string, string> = {};
+      if (apiKey) headers['x-api-key'] = apiKey;
+      const res = await fetch('/api/obsPlaybackSettings', { method: 'POST', headers });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPlaybackMsg(data.message || 'Playback settings applied');
+      } else {
+        setPlaybackErr(data.details || data.error || 'Failed to apply playback settings');
+      }
+    } catch {
+      setPlaybackErr('Failed to reach the server');
+    } finally {
+      setPlaybackBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +169,36 @@ export default function SettingsPage() {
               {isLoading ? 'Validating...' : (isAuthenticated ? 'Update API Key' : 'Save API Key')}
             </button>
           </form>
+
+          {/* OBS Playback Settings Section */}
+          <div className="glass-panel p-6 border border-base01" style={{ marginTop: '24px' }}>
+            <h2 className="text-xl font-semibold text-white mb-2">OBS Playback Settings</h2>
+            <p className="text-sm text-base1 mb-4">
+              Re-applies the current playback policy (<code>OBS_RESTART_ON_ACTIVATE</code>,
+              keep-warm, no clear-on-end) to every existing Media Source in OBS. Use this
+              after changing the env var so Studio Mode preview/program behavior updates on
+              streams you already added — no need to delete and re-add them.
+            </p>
+
+            {playbackErr && (
+              <div className="glass-panel p-3 border border-red/30 mb-3">
+                <p className="text-red text-sm">{playbackErr}</p>
+              </div>
+            )}
+            {playbackMsg && (
+              <div className="glass-panel p-3 border border-green/30 mb-3">
+                <p className="text-green text-sm">{playbackMsg}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleApplyPlayback}
+              disabled={playbackBusy}
+              className="btn-secondary text-sm"
+            >
+              {playbackBusy ? 'Applying…' : 'Apply to existing OBS sources'}
+            </button>
+          </div>
 
           {/* Information Section */}
           <div className="glass-panel p-6 border border-blue/30" style={{ marginTop: '24px' }}>

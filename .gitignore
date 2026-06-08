@@ -149,3 +149,6 @@ monitor/obj/
 *.out.log
 *.err.log
 
+# transient bun build --compile artifacts
+*.bun-build
+
