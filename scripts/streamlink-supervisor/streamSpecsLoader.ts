@@ -2,7 +2,8 @@ import { StreamSpec } from './supervisor';
 import { relayPort } from '../../lib/relayPort';
 
 export interface MinimalDb {
-  all<T = unknown>(sql: string): Promise<T[]>;
+  all<T = unknown>(sql: string, ...params: unknown[]): Promise<T[]>;
+  run(sql: string, ...params: unknown[]): Promise<void>;
 }
 
 export interface LoadStreamSpecsOptions {
@@ -10,10 +11,13 @@ export interface LoadStreamSpecsOptions {
   tableName: string;
 }
 
-interface StreamRow {
+export interface StreamRow {
   id?: number;
   obs_source_name?: string;
   url?: string;
+  // 1 = operator-stopped (skip); 0/null/undefined = enabled. Absent on legacy
+  // DBs that predate scripts/addDisabledToStreams.ts — treated as enabled.
+  disabled?: number | null;
 }
 
 // Table names are interpolated (sqlite identifiers can't be parameterized).
@@ -21,23 +25,69 @@ interface StreamRow {
 // <base>_<year>_<season>[_<suffix>] — letters, digits, underscores only.
 const SAFE_TABLE_NAME = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
-export async function loadStreamSpecs(opts: LoadStreamSpecsOptions): Promise<StreamSpec[]> {
-  if (!SAFE_TABLE_NAME.test(opts.tableName)) {
-    throw new Error(`invalid table name: ${opts.tableName}`);
+export function assertSafeTableName(tableName: string): void {
+  if (!SAFE_TABLE_NAME.test(tableName)) {
+    throw new Error(`invalid table name: ${tableName}`);
   }
+}
 
-  const rows = await opts.db.all<StreamRow>(
-    `SELECT id, obs_source_name, url FROM ${opts.tableName}`
-  );
+export function isValidRow(r: StreamRow): boolean {
+  return Number.isInteger(r.id) && (r.id as number) > 0
+    && typeof r.obs_source_name === 'string' && r.obs_source_name.length > 0
+    && typeof r.url === 'string' && r.url.length > 0;
+}
 
-  return rows
-    .filter(r => Number.isInteger(r.id) && (r.id as number) > 0
-              && typeof r.obs_source_name === 'string' && r.obs_source_name.length > 0
-              && typeof r.url === 'string' && r.url.length > 0)
-    .map(r => ({
-      streamId: r.obs_source_name!,
-      upstreamUrl: r.url!,
-      // Deterministic port shared with the webui ffmpeg_source input.
-      port: relayPort(r.id!),
-    }));
+export function rowToSpec(r: StreamRow): StreamSpec {
+  return {
+    streamId: r.obs_source_name!,
+    upstreamUrl: r.url!,
+    // Deterministic port shared with the webui ffmpeg_source input.
+    port: relayPort(r.id!),
+  };
+}
+
+// Raw rows for the whole table. Prefer the `disabled` column; fall back to the
+// legacy column set on DBs predating the migration (every row then enabled).
+export async function loadStreamRows(opts: LoadStreamSpecsOptions): Promise<StreamRow[]> {
+  assertSafeTableName(opts.tableName);
+  try {
+    return await opts.db.all<StreamRow>(
+      `SELECT id, obs_source_name, url, disabled FROM ${opts.tableName}`
+    );
+  } catch {
+    return await opts.db.all<StreamRow>(
+      `SELECT id, obs_source_name, url FROM ${opts.tableName}`
+    );
+  }
+}
+
+// Enabled, valid specs only — this is what makes "Stop" durable (disabled rows
+// are excluded from the supervised set on startup AND reload).
+export async function loadStreamSpecs(opts: LoadStreamSpecsOptions): Promise<StreamSpec[]> {
+  const rows = await loadStreamRows(opts);
+  return rows.filter(r => isValidRow(r) && !r.disabled).map(rowToSpec);
+}
+
+// One stream by obs_source_name, regardless of `disabled` (Start re-enables it).
+// Returns null if there's no valid matching row.
+export async function loadStreamSpec(
+  opts: LoadStreamSpecsOptions,
+  streamId: string
+): Promise<StreamSpec | null> {
+  assertSafeTableName(opts.tableName);
+  let rows: StreamRow[];
+  try {
+    rows = await opts.db.all<StreamRow>(
+      `SELECT id, obs_source_name, url, disabled FROM ${opts.tableName} WHERE obs_source_name = ?`,
+      streamId
+    );
+  } catch {
+    rows = await opts.db.all<StreamRow>(
+      `SELECT id, obs_source_name, url FROM ${opts.tableName} WHERE obs_source_name = ?`,
+      streamId
+    );
+  }
+  const row = rows[0];
+  if (!row || !isValidRow(row)) return null;
+  return rowToSpec(row);
 }
