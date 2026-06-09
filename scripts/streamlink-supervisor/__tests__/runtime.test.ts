@@ -17,7 +17,7 @@ describe('startRuntime', () => {
     const children = Array.from({ length: rows.length * 4 }, (_, i) => fakeChild(100 + i));
     let i = 0;
     return {
-      db: { all: jest.fn().mockResolvedValue(rows) },
+      db: { all: jest.fn().mockResolvedValue(rows), run: jest.fn() },
       tableName: 'streams_2026_summer_sat',
       spawn: jest.fn(() => children[i++]) as any,
       ports: { basePort: 9001, max: 8 },

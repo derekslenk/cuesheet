@@ -3,7 +3,7 @@ import { relayPort } from '../../lib/relayPort';
 
 export interface MinimalDb {
   all<T = unknown>(sql: string, ...params: unknown[]): Promise<T[]>;
-  run(sql: string, ...params: unknown[]): Promise<void>;
+  run(sql: string, ...params: unknown[]): Promise<unknown>;
 }
 
 export interface LoadStreamSpecsOptions {

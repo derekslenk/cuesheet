@@ -9,6 +9,7 @@ describe('loadStreamSpecs', () => {
         { id: 1, name: 'Alpha', obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/team_alpha', team_id: 1 },
         { id: 2, name: 'Beta',  obs_source_name: 'team_beta_main',  url: 'https://twitch.tv/team_beta',  team_id: 2 },
       ]),
+      run: jest.fn(),
     };
 
     const specs = await loadStreamSpecs({ db, tableName: 'streams_2026_summer_sat' });
@@ -31,6 +32,7 @@ describe('loadStreamSpecs', () => {
         { obs_source_name: 'team_no_id',             url: 'https://twitch.tv/team_no_id' }, // no id -> skipped
         { id: 5, obs_source_name: 'team_gamma_main', url: 'https://twitch.tv/team_gamma' },
       ]),
+      run: jest.fn(),
     };
 
     const specs = await loadStreamSpecs({ db, tableName: 'streams_2026_summer_sat' });
@@ -45,6 +47,7 @@ describe('loadStreamSpecs', () => {
         { id: 2, obs_source_name: 'team_beta_main',  url: 'https://twitch.tv/team_beta',  disabled: 1 },
         { id: 3, obs_source_name: 'team_gamma_main', url: 'https://twitch.tv/team_gamma', disabled: null },
       ]),
+      run: jest.fn(),
     };
 
     const specs = await loadStreamSpecs({ db, tableName: 'streams_2026_summer_sat' });
@@ -58,7 +61,7 @@ describe('loadStreamSpecs', () => {
       .mockResolvedValueOnce([
         { id: 1, obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/team_alpha' },
       ]);
-    const db = { all };
+    const db = { all, run: jest.fn() };
 
     const specs = await loadStreamSpecs({ db, tableName: 'streams_2026_summer_sat' });
 
@@ -68,13 +71,13 @@ describe('loadStreamSpecs', () => {
   });
 
   it('returns an empty array when the table has no rows', async () => {
-    const db = { all: jest.fn().mockResolvedValue([]) };
+    const db = { all: jest.fn().mockResolvedValue([]), run: jest.fn() };
     const specs = await loadStreamSpecs({ db, tableName: 'streams_2026_summer_sat' });
     expect(specs).toEqual([]);
   });
 
   it('rejects table names that are not safe SQL identifiers (defense against injection via env var)', async () => {
-    const db = { all: jest.fn() };
+    const db = { all: jest.fn(), run: jest.fn() };
     await expect(
       loadStreamSpecs({ db, tableName: 'streams; DROP TABLE teams;--' })
     ).rejects.toThrow(/invalid table name/i);
@@ -108,6 +111,7 @@ describe('loadStreamRows', () => {
         { id: 1, obs_source_name: 'a', url: 'https://twitch.tv/a', disabled: 0 },
         { id: 2, obs_source_name: 'b', url: 'https://twitch.tv/b', disabled: 1 },
       ]),
+      run: jest.fn(),
     };
     const rows = await loadStreamRows({ db, tableName: 'streams_2026_summer_sat' });
     expect(db.all).toHaveBeenCalledWith('SELECT id, obs_source_name, url, disabled FROM streams_2026_summer_sat');
@@ -119,6 +123,7 @@ describe('loadStreamSpec', () => {
   it('loads one stream by obs_source_name (parameterized) and maps it', async () => {
     const db = {
       all: jest.fn().mockResolvedValue([{ id: 4, obs_source_name: 'team_q', url: 'https://twitch.tv/q', disabled: 0 }]),
+      run: jest.fn(),
     };
     const spec = await loadStreamSpec({ db, tableName: 'streams_2026_summer_sat' }, 'team_q');
     expect(db.all).toHaveBeenCalledWith(
@@ -131,13 +136,14 @@ describe('loadStreamSpec', () => {
   it('loads a disabled stream too (Start re-enables it)', async () => {
     const db = {
       all: jest.fn().mockResolvedValue([{ id: 4, obs_source_name: 'team_q', url: 'https://twitch.tv/q', disabled: 1 }]),
+      run: jest.fn(),
     };
     const spec = await loadStreamSpec({ db, tableName: 'streams_2026_summer_sat' }, 'team_q');
     expect(spec?.streamId).toBe('team_q');
   });
 
   it('returns null when no row matches', async () => {
-    const db = { all: jest.fn().mockResolvedValue([]) };
+    const db = { all: jest.fn().mockResolvedValue([]), run: jest.fn() };
     const spec = await loadStreamSpec({ db, tableName: 'streams_2026_summer_sat' }, 'ghost');
     expect(spec).toBeNull();
   });
