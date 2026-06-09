@@ -16,14 +16,16 @@ const ensureDirectoryExists = (dirPath: string) => {
 };
 
 export const initializeDatabase = async (database: Database<sqlite3.Database, sqlite3.Statement>) => {
-  // Create streams table
+  // Create streams table. `disabled` is also added (idempotently) by
+  // scripts/addDisabledToStreams.ts for databases that predate this column.
   await database.exec(`
     CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.STREAMS} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       obs_source_name TEXT NOT NULL,
       url TEXT NOT NULL,
-      team_id INTEGER NOT NULL
+      team_id INTEGER NOT NULL,
+      disabled INTEGER NOT NULL DEFAULT 0
     )
   `);
 
@@ -53,6 +55,12 @@ export const getDatabase = async () => {
       filename: dbPath,
       driver: sqlite3.Database,
     });
+    // WAL lets the web app and the streamlink supervisor read/write sources.db
+    // concurrently (two processes). WAL is a persistent property of the DB file
+    // (set once, idempotent); busy_timeout is per-connection and must be set on
+    // every opener. WAL requires a LOCAL filesystem — keep FILE_DIRECTORY local.
+    await db.exec('PRAGMA journal_mode = WAL;');
+    await db.exec('PRAGMA busy_timeout = 5000;');
     console.log('Database connection established.');
     
     // Initialize database tables
