@@ -1,3 +1,4 @@
+<!-- Parent: ../../AGENTS.md -->
 <!-- Generated: 2026-06-08 | Updated: 2026-06-08 -->
 
 # cuesheet CLI (`src/cli`)
@@ -27,6 +28,15 @@ user-facing command surface and the plan at
 | `types/bun-shims.d.ts` | Surgical `bun:sqlite` + `*.html` + `import.meta.main` type shims so the bun-only supervisor type-checks without pulling all of bun-types globally. |
 | `commands/*.ts` | One file per subcommand, each exporting `run(argv, ctx)`. |
 | `commands/supervisor.bun.ts` | Bun-only: runs the supervisor in-process via the shared `scripts/streamlink-supervisor/runtime.ts` `startRuntime`. Excluded from the `tsc` gate (import attributes); still bundled by `bun --compile`. |
+| `lib/streamsView.ts` | Pure (no-I/O) formatter for the supervised-stream list, shared by `status`/`watch`/`gui` so all three render identically. |
+| `lib/supervisorEnv.ts` | Side-effect bootstrap that loads the project `.env.local` before `lib/constants` evals; must be the first import in `commands/supervisor.bun.ts`. |
+
+## Subdirectories
+| Dir | Purpose |
+| --- | --- |
+| `commands/` | One module per subcommand, each exporting `run(argv, ctx)` (see `commands/AGENTS.md`). |
+| `lib/` | Pure(ish), unit-tested support libs — paths/env/procState/health/tui/etc. (see `lib/AGENTS.md`). |
+| `types/` | Ambient `bun-shims.d.ts` so bun-only code type-checks (see `types/AGENTS.md`). |
 
 ## Commands
 `dev`, `sup` (alias `supervisor`), `watch`, `status`, `start`, `stop`,

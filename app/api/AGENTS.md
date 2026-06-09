@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-31 | Updated: 2026-05-31 -->
+<!-- Generated: 2026-05-31 | Updated: 2026-06-08 -->
 
 # api
 
@@ -16,7 +16,9 @@ The Next.js App Router API layer for CueSheet. These route handlers expose the t
 | `getActive` | `GET` current source per screen by reading `${screen}.txt` (see `getActive/AGENTS.md`). |
 | `getCurrentScene` | `GET` OBS current program scene (see `getCurrentScene/AGENTS.md`). |
 | `getTeamName` | `GET` a team's name by `team_id` (see `getTeamName/AGENTS.md`). |
+| `obsPlaybackSettings` | `POST` re-apply playback policy to existing OBS ffmpeg sources (see `obsPlaybackSettings/AGENTS.md`). |
 | `obsStatus` | `GET` OBS connection + live status (see `obsStatus/AGENTS.md`). |
+| `preview/[...slug]` | `GET` per-stream HLS preview (ffmpeg packager) for in-browser monitoring (see `preview/[...slug]/AGENTS.md`). |
 | `setActive` | `POST` switch a screen's source via atomic file write — hot path (see `setActive/AGENTS.md`). |
 | `setScene` | `POST` switch OBS layout scene (preview or program) (see `setScene/AGENTS.md`). |
 | `streams` | `GET` all streams; `[id]` for per-stream CRUD (see `streams/AGENTS.md`). |

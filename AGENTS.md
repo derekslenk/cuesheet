@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Updated: 2026-05-31 -->
+<!-- Generated: 2026-05-31 | Updated: 2026-06-08 -->
 
 # CueSheet
 
@@ -31,6 +31,8 @@ CueSheet (npm package `cuesheet`) is a Next.js 15 / React 19 web app for control
 | `types` | Shared TypeScript types (see `types/AGENTS.md`). |
 | `public` | Static assets (see `public/AGENTS.md`). |
 | `files` | Runtime data dir: SQLite DB(s) and the `${screen}.txt` switcher files (see `files/AGENTS.md`). |
+| `monitor` | Deprecated .NET WPF control panel, superseded by `cuesheet gui` (see `monitor/AGENTS.md`). |
+| `obs-scene` | Reference OBS scene-collection exports + sample switcher `.txt` files (see `obs-scene/AGENTS.md`). |
 
 ## For AI Agents
 ### Working In This Directory
