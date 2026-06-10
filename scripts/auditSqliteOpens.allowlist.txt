@@ -11,3 +11,5 @@ scripts/addGroupUuidColumn.ts
 scripts/createSatSummer2025Tables.ts
 scripts/verifyTables.ts
 scripts/verifySwitcherCoverage.ts
+# One-off idempotent migration: adds the `disabled` column to pre-existing DBs.
+scripts/addDisabledToStreams.ts

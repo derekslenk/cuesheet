@@ -62,7 +62,9 @@ function findSqliteOpenSites(files: string[]): Finding[] {
     for (let i = 0; i < lines.length; i++) {
       if (SQLITE_OPEN_PATTERNS.some((p) => p.test(lines[i]))) {
         findings.push({
-          file: path.relative(REPO_ROOT, absPath),
+          // Normalize to forward slashes so matching against the allowlist
+          // (which uses '/') works on Windows, where path.relative yields '\'.
+          file: path.relative(REPO_ROOT, absPath).split(path.sep).join('/'),
           line: i + 1,
           text: lines[i].trim(),
         });
