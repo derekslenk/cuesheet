@@ -33,6 +33,7 @@
     "binary:build:mac": "bun build --compile --target=bun-darwin-arm64 src/cli/main.ts --outfile dist/cuesheet-macos",
     "binary:build:linux": "bun build --compile --target=bun-linux-x64 src/cli/main.ts --outfile dist/cuesheet-linux",
     "binary:smoke": "node scripts/smokeBinary.mjs",
+    "supervisor:smoke": "node scripts/smokeSupervisorBinary.mjs",
     "convert:browser-to-media": "tsx scripts/convertBrowserToMedia.ts",
     "loadtest": "tsx scripts/loadtest/index.ts",
     "load:setactive": "tsx scripts/loadDriver.ts",

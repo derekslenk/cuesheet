@@ -61,6 +61,7 @@ Run this checklist **before doors open**. Both operators sign §9 at the end.
 - [ ] Dashboard reachable: `http://127.0.0.1:8080/` shows overall status `ok` and one row per supervised stream with `running` status, restart count 0
 - [ ] Tail the supervisor stdout (`C:\OBS\logs\supervisor-stdout.log`) — no recent ERROR lines
 - [ ] Supervisor startup log shows `[supervisor] twitch token: present` — if it shows `absent`, the ad mitigation is not configured; add `TWITCH_OAUTH_TOKEN` to the NSSM service env (`nssm set StreamlinkSupervisor AppEnvironmentExtra ...`) and restart the service before the event (`nssm restart StreamlinkSupervisor`)
+- [ ] Binary smoke passes against the deploy artifact: `npm run supervisor:smoke` (builds `dist/supervisor`, boots it on a throwaway port/db, expects `GET /health` → 200). Advisory — investigate any failure before the event, but a known-environmental failure does not block
 
 ### OBS metrics scraper
 
