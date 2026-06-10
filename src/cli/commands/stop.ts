@@ -7,9 +7,9 @@
  * streamlink / ffmpeg, including load-test generators. Instead we read the
  * managed process records and kill only the tracked process groups via
  * lib/procState.killRecord (POSIX negative-PGID; win32 `taskkill /T` on the
- * tracked root). PID reuse is guarded by the recorded fingerprint/startTime:
- * a record whose live PID no longer matches is treated as stale, cleared, and
- * NOT killed (R4/AC6/AC7).
+ * tracked root). PID reuse is guarded by the recorded OS creation time
+ * (isSafeToKill): a record whose live PID no longer matches is treated as
+ * stale, cleared, and NOT killed (R4/AC6/AC7).
  *
  * Always exits 0 — stopping is idempotent. Re-running with nothing live clears
  * stale entries and reports success (AC6).

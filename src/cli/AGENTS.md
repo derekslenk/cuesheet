@@ -21,7 +21,7 @@ user-facing command surface and the plan at
 | `lib/exit.ts` | Exit-code constants (`EXIT.OK/GENERIC/USAGE/DEP_MISSING/PORT_IN_USE`) + `CliError`. |
 | `lib/paths.ts` | THE authority for per-OS data dir, log dir, and `run-state.json` (override via `CUESHEET_HOME`). |
 | `lib/env.ts` | Config resolver with precedence **flag → env → `.env.local` → per-OS default** (POSIX resolves streamlink/ffmpeg via PATH); returns `{value, source}` for `doctor`. |
-| `lib/procState.ts` | Managed process records: atomic run-state writes, fingerprint/PID-reuse guard, process-group-first kill (POSIX negative-PGID / win32 `taskkill /T`). |
+| `lib/procState.ts` | Managed process records: atomic run-state writes, creation-time identity guard (PID-reuse protection), process-group-first kill (POSIX negative-PGID / win32 `taskkill /T`). The cmdFingerprint field is diagnostic metadata only. |
 | `lib/health.ts` | Polls supervisor `:8080/health` + web UI `:3000`; never throws. |
 | `lib/tui.ts` | Minimal terminal render core (screen-diff + raw-mode input + guaranteed cleanup). Logic-free — `commands/gui.ts` is the controller. |
 | `lib/log.ts` | Per-process log files for detached `start` children; `tailLog` for `status --logs`. |
@@ -51,7 +51,7 @@ user-facing command surface and the plan at
 - Every command module exports `run(argv: string[], ctx: CommandContext)` and is wired in `main.ts`; `main.ts` is the only router — don't add ad-hoc entry points.
 - Bun-only code (anything importing `bun:sqlite` or using `with { type: 'text' }`) goes in a `*.bun.ts` file reached by a literal dynamic import; keep it out of paths that the webui's `tsc` must check.
 - Set `process.exitCode` (or throw `CliError`) rather than calling `process.exit()` deep in logic, so output flushes and the process unwinds cleanly.
-- `stop` must only ever terminate processes recorded by `start` (fingerprint-validated) — never blanket-kill by name (that was the `mon-stop.ps1` bug).
+- `stop` must only ever terminate processes recorded by `start` (identity verified by OS creation time via `isSafeToKill`) — never blanket-kill by name (that was the `mon-stop.ps1` bug).
 
 ### Testing Requirements
 - Jest (jsdom via `next/jest`); tests under `src/cli/**/__tests__`. Pure libs (paths/env/exit/procState) and command record-selection logic are unit-tested; the AC6 isolation test in `commands/__tests__/stop.test.ts` spawns a real + an unrelated process and asserts only the tracked one dies.

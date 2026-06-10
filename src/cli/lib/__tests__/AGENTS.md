@@ -12,7 +12,7 @@ must be correct independent of the full CLI wiring.
 | --- | --- |
 | `env.test.ts` | Resolution precedence (flag → env → `.env.local` → per-OS default) and `{value, source}` provenance used by `doctor`. |
 | `paths.test.ts` | Per-OS data/log/run-state paths and `CUESHEET_HOME` override. |
-| `procState.test.ts` | Atomic run-state writes, fingerprint/PID-reuse guard, kill targeting. |
+| `procState.test.ts` | Atomic run-state writes, creation-time identity guard (PID-reuse protection), kill targeting. |
 | `health.test.ts` | Supervisor/webui polling; never-throws contract. |
 | `streamsView.test.ts` | Stream-list summarization + formatting (counts, health coloring, clipping). |
 | `tui.test.ts` | Render core (screen-diff / cleanup) sanity. |

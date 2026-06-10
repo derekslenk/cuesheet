@@ -17,7 +17,7 @@ rendering all live in this directory.
 | `paths.ts` | THE authority for per-OS data dir, log dir, and `run-state.json` (override via `CUESHEET_HOME`). |
 | `env.ts` | Config resolver, precedence **flag → env → `.env.local` → per-OS default** (POSIX resolves streamlink/ffmpeg via PATH); returns `{value, source}` for `doctor`. Also `loadProjectEnvFiles`/`findProjectRoot`. |
 | `supervisorEnv.ts` | Side-effect bootstrap: calls `loadProjectEnvFiles(process.env)` so `lib/constants` sees the project `.env.local` (and the right `EVENT_KEY`) before module-eval. MUST be the first import in `commands/supervisor.bun.ts`. |
-| `procState.ts` | Managed process records: atomic run-state writes, fingerprint/PID-reuse guard, process-group-first kill (POSIX negative-PGID / win32 `taskkill /T`). |
+| `procState.ts` | Managed process records: atomic run-state writes, creation-time identity guard (PID-reuse protection via `isSafeToKill`; cmdFingerprint is diagnostic metadata only), process-group-first kill (POSIX negative-PGID / win32 `taskkill /T`). |
 | `health.ts` | Polls supervisor `:8080/health` + webui `:3000`; never throws. Attaches stream data to the `sup` `HealthResult`. |
 | `streamsView.ts` | Pure formatting (no I/O) of the supervised-stream list — shared by `status`, `watch`, `gui` so all render identically; health-colored rows + running-count header. |
 | `tui.ts` | Minimal terminal render core (screen-diff + raw-mode input + guaranteed cleanup). Logic-free — `commands/gui.ts` is the controller. |
@@ -37,8 +37,10 @@ rendering all live in this directory.
   those paths elsewhere.
 - `env.ts` must keep returning `{value, source}` so `doctor` can show provenance;
   preserve the flag → env → `.env.local` → default precedence.
-- `procState` kill must stay process-group-first and fingerprint-guarded against
-  PID reuse — the isolation guarantee `stop` depends on.
+- `procState` kill must stay process-group-first and creation-time-guarded
+  against PID reuse (`isSafeToKill`) — the isolation guarantee `stop` depends
+  on. The cmdFingerprint field is diagnostic metadata; do not use it as a kill
+  guard.
 - Modules use `.js` import specifiers (ESM/bun); keep that extension convention.
 
 ### Testing Requirements

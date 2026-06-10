@@ -5,9 +5,10 @@
  * State lives in a single run-state.json (path from {@link runStatePath}). The
  * file is written ATOMICALLY (temp file in the same dir + rename) under a
  * best-effort lock so concurrent start/stop invocations never corrupt it
- * (R10/AC8). Before any kill we validate the live process still matches the
- * recorded fingerprint + startTime, so a reused PID is treated as STALE rather
- * than killing an unrelated process (R4/AC6/AC7).
+ * (R10/AC8). Before any kill, process identity is verified by OS creation time
+ * (with image-name fallback), so a reused PID is treated as STALE rather than
+ * killing an unrelated process (R4/AC6/AC7). The cmdFingerprint on each record
+ * is stored for diagnostics only.
  *
  * Termination is process-group-first: callers spawn children DETACHED (POSIX:
  * new process group via `detached:true`; win32: kill the whole tree). On POSIX
@@ -164,7 +165,8 @@ function sleepSync(ms: number): void {
 
 /**
  * Stable fingerprint of how a process was launched (argv + cwd). Stored on the
- * record and re-checked before kill to detect PID reuse.
+ * record for diagnostics/forensics only. PID-reuse protection is the OS
+ * creation-time check in {@link isSafeToKill}, not this fingerprint.
  */
 export function makeFingerprint(argv: readonly string[], cwd: string): string {
   const payload = JSON.stringify({ argv, cwd });

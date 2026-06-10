@@ -249,7 +249,7 @@ A standalone **Streamlink supervisor** feeds those relays. Per stream it runs
 roughly:
 
 ```bash
-streamlink --stdout --twitch-disable-ads --hls-live-restart <twitchUrl> best \
+streamlink --stdout --hls-live-restart <twitchUrl> best \
   | ffmpeg -re -i pipe:0 -c copy -f mpegts "udp://127.0.0.1:<port>?pkt_size=1316"
 ```
 
