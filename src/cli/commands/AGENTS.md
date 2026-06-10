@@ -17,7 +17,7 @@ under `scripts/`.
 | `dev.ts` | `cuesheet dev` — runs the Next.js dev server (+ optionally the supervisor) in the foreground. |
 | `supervisor.bun.ts` | Bun-only: runs the Streamlink supervisor **in-process** via `scripts/streamlink-supervisor/runtime.ts` `startRuntime`. Excluded from the `tsc` gate; bundled by `bun --compile`. Imports `../lib/supervisorEnv` FIRST. |
 | `start.ts` | `cuesheet start --which both\|sup\|web` — spawns detached, log-redirected children and records them via `lib/procState`. |
-| `stop.ts` | `cuesheet stop` — terminates **only** processes recorded by `start` (fingerprint-validated); never blanket-kills by name. |
+| `stop.ts` | `cuesheet stop` — terminates **only** processes recorded by `start` (identity verified by OS creation time via `isSafeToKill`); never blanket-kills by name. |
 | `status.ts` | `cuesheet status [--logs]` — health of supervisor + webui via `lib/health`, stream list via `lib/streamsView`, tails logs via `lib/log`. |
 | `watch.ts` | `cuesheet watch` — periodic non-TTY status refresh. |
 | `gui.ts` | `cuesheet gui` (alias `dashboard`) — interactive TUI controller built on the logic-free `lib/tui` render core. |
@@ -42,8 +42,8 @@ under `scripts/`.
 - Bun-only code (imports `bun:sqlite`, `with { type: 'text' }`) lives in a
   `*.bun.ts` file reached by a literal dynamic import — keep it out of paths the
   webui `tsc` must check.
-- `stop` must only kill `start`-recorded, fingerprint-validated processes —
-  never by name (the `mon-stop.ps1` bug).
+- `stop` must only kill `start`-recorded processes whose identity is verified by
+  OS creation time (`isSafeToKill`) — never by name (the `mon-stop.ps1` bug).
 - Ops passthroughs stay one-liners; put real logic in the underlying `scripts/`
   module's `run(argv)` export.
 
