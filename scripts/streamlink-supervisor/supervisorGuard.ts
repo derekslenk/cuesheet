@@ -82,7 +82,10 @@ const defaultDeps: SupervisorGuardDeps = {
   makeFingerprint: procState.makeFingerprint,
   waitPortFree: defaultWaitPortFree,
   pid: () => process.pid,
-  now: () => new Date().toISOString(),
+  // The supervisor's OWN creation time (not "now"): recording the true start
+  // time lets procState.isSafeToKill match it tightly later, so `cuesheet stop`
+  // and takeover work even across runtimes (tsx vs the compiled binary).
+  now: () => new Date(Date.now() - process.uptime() * 1000).toISOString(),
 };
 
 /**
