@@ -37,10 +37,25 @@ function record(over: Partial<ProcessRecord> = {}): ProcessRecord {
 }
 
 describe('isSafeToKill (identity guard)', () => {
-  it('is true for a live process whose image matches our runtime (this test process)', () => {
-    // record().pid === process.pid, whose image is the test runtime
-    // (== basename(process.execPath)), so the identity check passes.
-    expect(isSafeToKill(record())).toBe(true);
+  it('safe when the live process creation time matches the recorded startTime', () => {
+    const r = record();
+    // Within tolerance, regardless of runtime image → fixes cross-runtime stop.
+    const startTimeMs = (_pid: number) => Date.parse(r.startTime) + 500;
+    expect(isSafeToKill(r, { startTimeMs, imageMatches: () => false })).toBe(true);
+  });
+
+  it('NOT safe when the creation time is far off (pid reused) — even if the image matches', () => {
+    const r = record();
+    const startTimeMs = (_pid: number) => Date.parse(r.startTime) + 60 * 60 * 1000; // 1h later
+    // Decisive: a recycled pid has a wildly different creation time → refuse,
+    // even though the runtime image would match.
+    expect(isSafeToKill(r, { startTimeMs, imageMatches: () => true })).toBe(false);
+  });
+
+  it('falls back to the image match when the creation time is unavailable', () => {
+    const r = record();
+    expect(isSafeToKill(r, { startTimeMs: () => null, imageMatches: () => true })).toBe(true);
+    expect(isSafeToKill(r, { startTimeMs: () => null, imageMatches: () => false })).toBe(false);
   });
 
   it('is false for a dead pid', () => {

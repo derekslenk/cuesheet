@@ -223,28 +223,87 @@ export function isLive(record: ProcessRecord): boolean {
   }
 }
 
+// A live process is the SAME instance we recorded iff its OS creation time is
+// within this window of the recorded startTime. Generous enough for spawn /
+// registration latency + clock-source jitter; far tighter than any realistic
+// pid reuse (a recycled pid is created minutes/hours later).
+const START_TIME_TOLERANCE_MS = 10_000;
+
+export interface IsSafeToKillDeps {
+  /** Live process OS creation time in unix ms, or null if unreadable. */
+  startTimeMs?: (pid: number) => number | null;
+  /** Whether the live pid's image/command matches our runtime basename. */
+  imageMatches?: (pid: number) => boolean;
+}
+
 /**
- * Best-effort IDENTITY guard: is the live pid actually a process WE launched
- * (same runtime/binary), rather than an unrelated process that reused the pid?
- * `stop` calls this before killing, so a recycled pid can never take down a
- * stranger's process tree (the exact failure mode this design replaced
- * mon-stop.ps1 to avoid).
+ * IDENTITY guard: is the live pid the SAME process instance we recorded, rather
+ * than an unrelated process that reused the pid? `stop` and the supervisor guard
+ * call this before killing, so a recycled pid can never take down a stranger
+ * (the failure mode this design replaced mon-stop.ps1 to avoid).
  *
- * Compares the live process's image/command against our own runtime
- * (`basename(process.execPath)` — the cuesheet binary, or bun/node in dev;
- * `start` and `stop` always run under the same runtime). If the process info
- * can't be read, returns false — conservative: clear the record rather than
- * risk killing the wrong process.
+ * Primary signal — process CREATION TIME: a recycled pid has a wildly different
+ * creation time, while the genuine process matches `record.startTime` within a
+ * small tolerance. This is runtime-AGNOSTIC, so it works when the daemon runs as
+ * tsx `node.exe` but is managed by the compiled `cuesheet.exe` (the case the old
+ * `basename(process.execPath)` image match broke on). When the creation time
+ * can't be read, it falls back to that best-effort image match (same-runtime
+ * only). Returns false if neither can verify — conservative: don't kill.
  */
-export function isSafeToKill(record: ProcessRecord): boolean {
+export function isSafeToKill(record: ProcessRecord, deps: IsSafeToKillDeps = {}): boolean {
   if (!isLive(record)) return false;
+  const recorded = Date.parse(record.startTime);
+  const liveStart = (deps.startTimeMs ?? processStartTimeMs)(record.pid);
+  if (liveStart !== null && Number.isFinite(recorded)) {
+    return Math.abs(liveStart - recorded) <= START_TIME_TOLERANCE_MS;
+  }
+  // Couldn't read the creation time → best-effort image match (same-runtime).
+  return (deps.imageMatches ?? liveImageMatches)(record.pid);
+}
+
+/**
+ * Live process OS creation time in unix ms, or null if unreadable.
+ * win32: PowerShell `Get-Process .StartTime`. Other platforms return null so the
+ * caller falls back to the image match (daemons there run same-runtime).
+ */
+// Milliseconds between the Windows FILETIME epoch (1601-01-01 UTC) and the unix
+// epoch (1970-01-01 UTC).
+const FILETIME_TO_UNIX_MS = 11_644_473_600_000;
+
+export function processStartTimeMs(pid: number): number | null {
+  if (process.platform !== 'win32') return null;
+  try {
+    // ToFileTimeUtc() is an unambiguous 100ns tick count since 1601 UTC — no
+    // locale/timezone parsing (the cause of an earlier 4h-off bug). It correctly
+    // accounts for StartTime's local Kind.
+    const out = execFileSync(
+      'powershell',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `try { (Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToFileTimeUtc() } catch { 'NA' }`,
+      ],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    )
+      .toString()
+      .trim();
+    if (!/^\d+$/.test(out)) return null;
+    return Math.round(Number(out) / 10_000 - FILETIME_TO_UNIX_MS);
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort: does the live pid's image/command contain our runtime basename? */
+function liveImageMatches(pid: number): boolean {
   const self = path.basename(process.execPath).toLowerCase();
   if (!self) return false;
   try {
     if (process.platform === 'win32') {
       const out = execFileSync(
         'tasklist',
-        ['/FI', `PID eq ${record.pid}`, '/FO', 'CSV', '/NH'],
+        ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'],
         { stdio: ['ignore', 'pipe', 'ignore'] },
       )
         .toString()
@@ -254,15 +313,15 @@ export function isSafeToKill(record: ProcessRecord): boolean {
     // POSIX: prefer /proc (Linux); fall back to `ps` (macOS).
     let cmd: string;
     try {
-      cmd = fs.readFileSync(`/proc/${record.pid}/cmdline`, 'utf8').replace(/\0/g, ' ');
+      cmd = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ');
     } catch {
-      cmd = execFileSync('ps', ['-p', String(record.pid), '-o', 'command='], {
+      cmd = execFileSync('ps', ['-p', String(pid), '-o', 'command='], {
         stdio: ['ignore', 'pipe', 'ignore'],
       }).toString();
     }
     return cmd.toLowerCase().includes(self);
   } catch {
-    return false; // can't verify identity → don't kill
+    return false;
   }
 }
 
