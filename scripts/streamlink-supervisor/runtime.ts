@@ -28,6 +28,12 @@ export interface StartRuntimeOptions {
   // `cuesheet stop` reaps us. Tests pass false so they never touch the real
   // run-state.json. Default: on.
   manageSingleton?: boolean;
+  /**
+   * Startup status lines (presence log, guard result, etc.).
+   * Defaults to console.log. Injectable for tests so they can assert on
+   * emitted lines without capturing stdout.
+   */
+  log?: (line: string) => void;
 }
 
 export interface SupervisorRuntime {
@@ -54,6 +60,11 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
       host: opts.healthHost,
     });
   }
+
+  // Presence-only so the T-60 checklist can verify the ad mitigation is
+  // configured in the service env without ever logging the secret.
+  const tokenStatus = process.env.TWITCH_OAUTH_TOKEN ? 'present' : 'absent';
+  (opts.log ?? console.log)(`[supervisor] twitch token: ${tokenStatus}`);
 
   const loggers = new Map<string, FileLogger>();
   const loggerFor = (streamId: string): FileLogger => {

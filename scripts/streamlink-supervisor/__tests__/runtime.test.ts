@@ -62,6 +62,49 @@ describe('startRuntime', () => {
     await runtime.shutdown();
   });
 
+  describe('token presence log', () => {
+    let originalToken: string | undefined;
+
+    beforeEach(() => {
+      originalToken = process.env.TWITCH_OAUTH_TOKEN;
+    });
+
+    afterEach(() => {
+      if (originalToken === undefined) {
+        delete process.env.TWITCH_OAUTH_TOKEN;
+      } else {
+        process.env.TWITCH_OAUTH_TOKEN = originalToken;
+      }
+    });
+
+    it('logs "twitch token: present" and never emits the token value', async () => {
+      process.env.TWITCH_OAUTH_TOKEN = 'oauth-FAKETOKEN123';
+      const lines: string[] = [];
+      const deps = { ...makeDeps([]), log: (line: string) => lines.push(line) };
+      const runtime = await startRuntime(deps);
+      await runtime.shutdown();
+
+      const presenceLines = lines.filter(l => /twitch token:/.test(l));
+      expect(presenceLines).toHaveLength(1);
+      expect(presenceLines[0]).toMatch(/twitch token: present/);
+      lines.forEach(line => {
+        expect(line).not.toContain('FAKETOKEN123');
+      });
+    });
+
+    it('logs "twitch token: absent" when TWITCH_OAUTH_TOKEN is unset', async () => {
+      delete process.env.TWITCH_OAUTH_TOKEN;
+      const lines: string[] = [];
+      const deps = { ...makeDeps([]), log: (line: string) => lines.push(line) };
+      const runtime = await startRuntime(deps);
+      await runtime.shutdown();
+
+      const presenceLines = lines.filter(l => /twitch token:/.test(l));
+      expect(presenceLines).toHaveLength(1);
+      expect(presenceLines[0]).toMatch(/twitch token: absent/);
+    });
+  });
+
   it('reload() starts newly-added streams and stops removed ones (no restart)', async () => {
     const deps = makeDeps([
       { id: 1, obs_source_name: 'team_alpha_main', url: 'https://twitch.tv/a' },
