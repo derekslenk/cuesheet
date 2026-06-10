@@ -46,6 +46,18 @@ export interface HealthRequestContext {
   listAll?: () => Promise<DashboardStream[]>;
 }
 
+// decodeURIComponent throws URIError on malformed percent-escapes (e.g. %ZZ).
+// In a raw node:http request listener that throw becomes an uncaught exception
+// that kills the daemon — and every pipeline with it. Decode defensively and
+// let the route answer 400 instead.
+function safeDecode(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 export function handleHealthRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -108,7 +120,12 @@ export function handleHealthRequest(
       res.end(JSON.stringify({ error: 'restart not configured' }));
       return;
     }
-    const streamId = decodeURIComponent(restartMatch[1]);
+    const streamId = safeDecode(restartMatch[1]);
+    if (streamId === null) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'bad request' }));
+      return;
+    }
     const ok = ctx.onRestart(streamId);
     if (ok) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -136,7 +153,12 @@ export function handleHealthRequest(
       res.end(JSON.stringify({ error: `${isStart ? 'start' : 'stop'} not configured` }));
       return;
     }
-    const streamId = decodeURIComponent((startMatch ?? stopMatch)![1]);
+    const streamId = safeDecode((startMatch ?? stopMatch)![1]);
+    if (streamId === null) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'bad request' }));
+      return;
+    }
     handler(streamId)
       .then(ok => {
         if (ok) {
@@ -219,7 +241,18 @@ export function startHealthServer(opts: StartHealthServerOptions): Server {
     onStop: opts.onStop,
     listAll: opts.listAll,
   };
-  const server = createServer((req, res) => handleHealthRequest(req, res, ctx));
+  // Belt-and-suspenders: wrap the handler so no synchronous throw can ever
+  // escape the request callback and kill the daemon process.
+  const server = createServer((req, res) => {
+    try {
+      handleHealthRequest(req, res, ctx);
+    } catch {
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'internal error' }));
+      }
+    }
+  });
   server.listen(opts.port ?? 8080, opts.hostname ?? '127.0.0.1');
   return server;
 }
