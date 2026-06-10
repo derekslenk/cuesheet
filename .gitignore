@@ -152,3 +152,11 @@ monitor/obj/
 # transient bun build --compile artifacts
 *.bun-build
 
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
+
+# SQLite WAL sidecar files (created once WAL mode is enabled)
+*.db-wal
+*.db-shm
