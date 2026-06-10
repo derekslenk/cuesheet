@@ -71,10 +71,22 @@ sources.db  =  resolve(FILE_DIRECTORY || "./files") + "/sources.db"
   `AppDirectory`). Convenient in dev, fragile for a service; prefer the absolute
   path.
 
-The supervisor opens the DB **read-only** and assumes the webui has already
-created `sources.db` and the season table. Point it at a `FILE_DIRECTORY` where
-the webui hasn't run yet and it exits with `SQLITE_CANTOPEN` / `no such table`
-rather than creating anything — **start the webui (or seed the DB) first.**
+The supervisor opens the DB **read-write** (it now owns the durable `disabled`
+write — see [Control endpoints](#control-endpoints-streams) below) but still
+assumes the webui has already created `sources.db` and the season table. Point
+it at a `FILE_DIRECTORY` where the webui hasn't run yet and it exits with
+`SQLITE_CANTOPEN` / `no such table` rather than creating anything — **start the
+webui (or seed the DB) first.**
+
+Both processes share one DB via WAL: the supervisor and the webui open
+`sources.db` in WAL mode with a 5 s `busy_timeout`, so the two processes can
+read/write concurrently. WAL is a persistent property of the DB file (set once,
+idempotent); the per-connection `busy_timeout` is set by every opener. **WAL
+requires a local filesystem — keep `FILE_DIRECTORY` on local disk, never a
+network share.** The shared bun opener (`bunDatabase.ts`) is used by BOTH
+compiled entrypoints (`index.bun.ts` and `src/cli/commands/supervisor.bun.ts`)
+so the read-write handle can't drift between the standalone `supervisor` binary
+and the unified `cuesheet` binary.
 
 The `RELAY_*` trio is how the webui's `ffmpeg_source.input` URL and this relay's
 UDP target agree with zero coordination (`lib/relayPort`): both derive the port
@@ -106,6 +118,29 @@ $ curl -s http://127.0.0.1:8080/health | jq
 
 - `status: ok` — every stream is `running`
 - `status: degraded` — at least one stream is `exited` or `escalated`
+
+## Control endpoints (`/streams`)
+
+The supervisor is the single control backend for per-stream Start / Stop /
+Restart. All routes are loopback-only (same host/port as `/health`), POST a
+JSON body, and key on `obs_source_name` (the `streamId`).
+
+| Route | Method | Effect |
+|---|---|---|
+| `GET /streams` | GET | DB-backed list of **all** streams (incl. stopped) merged with live supervised status. Backs the dashboard so a stopped row can still host a Start button. |
+| `POST /streams/{obs_source_name}/start` | POST | Flips `disabled = 0` in the DB, then starts the pipeline in place. `200 {status:'ok'}`, `404` for an unknown id, `500` on a DB error. |
+| `POST /streams/{obs_source_name}/stop` | POST | Flips `disabled = 1` in the DB, then stops the pipeline. Same response codes. |
+| `POST /streams/{obs_source_name}/restart` | POST | In-place restart of a running/escalated stream (no DB change). `404` for an unknown id. |
+
+- **Durability:** Start/Stop write the `disabled` flag **before** touching the
+  pipeline, so the flag is authoritative even if the start/stop half fails. A
+  `disabled = 1` row is excluded from the supervised set on boot **and** on
+  reload, which is what makes a Stop survive a supervisor restart.
+- **`/reload` is the reconcile authority:** `POST /reload` re-reads the table
+  and converges the running set on the `disabled` filter (starts newly-enabled
+  rows, stops newly-disabled ones). Start/Stop are the fast direct path;
+  `/reload` is the catch-up that absorbs any break-glass DB write the webui made
+  while the supervisor was down.
 
 ## Dashboard (Phase 3.1)
 
@@ -142,9 +177,10 @@ This builds `index.bun.ts` (a Bun-native twin of `index.ts`) with
 [`bun build --compile`](https://bun.sh/docs/bundler/executables). Two things
 make a clean single binary possible:
 
-- **DB:** `index.bun.ts` reads `sources.db` through Bun's built-in `bun:sqlite`
-  (read-only) instead of the `sqlite3` native addon, so there is no `.node` to
-  embed. `lib/database` is untouched — the webui still uses `sqlite3`.
+- **DB:** `index.bun.ts` opens `sources.db` through Bun's built-in `bun:sqlite`
+  (read-write, WAL + `busy_timeout`, via the shared `bunDatabase.ts` opener)
+  instead of the `sqlite3` native addon, so there is no `.node` to embed.
+  `lib/database` is untouched — the webui still uses `sqlite3` (also WAL).
 - **Dashboard:** `dashboard.html` is embedded at compile time
   (`import ... with { type: 'text' }`), so `/` works from inside the packed
   binary with no file on disk.
@@ -249,10 +285,13 @@ nssm remove StreamlinkSupervisor confirm
 - **Network bind on non-loopback:** intentionally `127.0.0.1` only. UDP
   on the loopback interface has effectively zero packet loss and avoids
   any LAN exposure of raw stream content.
-- **Authentication on /health:** loopback only; trust the host boundary.
+- **Authentication on /health or /streams:** loopback only; trust the host
+  boundary. The control endpoints mutate the DB and have no auth — they rely on
+  the `127.0.0.1` bind, so do not expose the health port off-host.
 - **Cross-host failover:** single supervisor per OBS host. If the
   supervisor process dies, NSSM brings it back; if the host dies, the
   fallback runbook (`docs/RUNBOOK_FALLBACK.md`) is in scope.
-- **Plugin DB integration:** that's R4 (post-event) per the iter-3.4
-  plan; the supervisor delivers Streamlink output to OBS via UDP, it
-  does not touch `sources.db` writes (those stay with the webui).
+- **Stream CRUD:** the supervisor writes exactly one column — the `disabled`
+  flag, via the Start/Stop control endpoints. Adding, editing, or deleting
+  stream rows (and all OBS source management) stays with the webui; the
+  supervisor delivers Streamlink output to OBS via UDP.

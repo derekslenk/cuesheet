@@ -9,11 +9,14 @@
 
 declare module 'bun:sqlite' {
   export interface Statement {
-    all(): unknown[];
+    all(...params: unknown[]): unknown[];
+    run(...params: unknown[]): unknown;
   }
   export class Database {
     constructor(filename: string, options?: { readonly?: boolean; create?: boolean });
     query(sql: string): Statement;
+    run(sql: string, ...params: unknown[]): unknown;
+    exec(sql: string): void;
     close(): void;
   }
 }

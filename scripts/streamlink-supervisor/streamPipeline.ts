@@ -147,6 +147,13 @@ export class StreamPipeline {
   }
 
   stop(signal: string = 'SIGTERM'): void {
+    // Mark the exit as already reported BEFORE killing: a deliberate stop must
+    // never drive onExit → respawn. Otherwise restart() (which stops the old
+    // pipeline, keeps the stream in the map, and starts a new one on the SAME
+    // udp port) would, when these killed children exit a moment later, trigger
+    // onPipelineExit → respawn — leaking the restart's pipeline and leaving two
+    // ffmpeg sending to one port (corrupted/double OBS feed).
+    this.exitReported = true;
     this.slChild?.kill(signal);
     this.ffChild?.kill(signal);
     this.status = 'exited';

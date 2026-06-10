@@ -15,6 +15,7 @@ Defined in `lib/database.ts:21-28`.
 | obs_source_name  | TEXT    | NOT NULL                    | OBS source identifier                    |
 | url              | TEXT    | NOT NULL                    | Stream URL                               |
 | team_id          | INTEGER | NOT NULL                    | Implicit FK → teams.team_id (no FK decl) |
+| disabled         | INTEGER | NOT NULL DEFAULT 0          | 1 = operator-stopped; supervisor skips it on startup + reload. Added idempotently by `scripts/addDisabledToStreams.ts` for pre-existing DBs. |
 
 ### teams_{year}_{season}_{suffix}
 
