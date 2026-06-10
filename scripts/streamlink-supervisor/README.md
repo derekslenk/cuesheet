@@ -52,6 +52,10 @@ Env vars:
 | `SUPERVISOR_LOG_RETAIN` | `5` | Number of rotated files kept per stream |
 | `STREAMLINK_PATH` | `streamlink` (PATH) | Absolute path on Windows installs |
 | `FFMPEG_PATH` | `ffmpeg` (PATH) | Absolute path on Windows installs |
+| `TWITCH_OAUTH_TOKEN` | *(unset)* | Twitch account `auth-token`. Passed to streamlink as `Authorization: OAuth <token>` for authenticated sessions. With a Twitch Turbo account this suppresses ad breaks (streamlink ≥7.5 auto-filters ad segments). **SECRET** — keep out of git; redacted from on-disk logs by `redact.ts`; startup logs presence only (`[supervisor] twitch token: present/absent`). |
+| `STREAMLINK_QUALITY` | *(unset — defaults to `best`)* | Quality selection passed to streamlink (e.g. `720p60`, `1080p60`, `best`, or a comma-separated fallback chain like `720p60,720p,best`). Unset keeps `best`. Acts as a CPU headroom lever: 720p cuts both the pull and decode cost substantially. |
+| `PREVIEW_RELAY` | *(unset — preview OFF)* | Set to `on`, `1`, `true`, or `yes` to opt in to the preview tee (fans the relay to a second UDP port for in-browser preview via the webui). Off by default — the dual-output tee was observed to periodically stall the OBS feed. |
+| `SUPERVISOR_PORT_GUARD` | *(unset — guard ON)* | Set to `off` to disable the single-instance startup guard. Break-glass only — normally the guard reclaims a stale supervisor on the health port and self-registers so `cuesheet stop` reaps the process. |
 
 Config loading depends on the entry point:
 
@@ -244,7 +248,10 @@ nssm set StreamlinkSupervisor AppEnvironmentExtra `
   "FILE_DIRECTORY=C:\OBS\source-switching" `
   "SUPERVISOR_LOG_DIR=C:\OBS\logs\streamlink" `
   "STREAMLINK_PATH=C:\Program Files\Streamlink\bin\streamlink.exe" `
-  "FFMPEG_PATH=C:\ffmpeg\bin\ffmpeg.exe"
+  "FFMPEG_PATH=C:\ffmpeg\bin\ffmpeg.exe" `
+  # SECRET — required for ad suppression in production; the compiled binary
+  # loads no .env files so this must be set here. Retrieve from the ops vault.
+  "TWITCH_OAUTH_TOKEN=<token from the ops vault>"
 
 # Restart policy: NSSM auto-restarts on exit. Cap escalation so a sick
 # supervisor doesn't burn CPU restarting forever.
