@@ -136,6 +136,78 @@ describe('Supervisor', () => {
     expect(supervisor.get('team_beta')!.port).toBe(9001);
   });
 
+  it('restart() respawns a running stream in place: same port, restartCount++, old children killed', () => {
+    const c1 = fakeChild(101);
+    const c2 = fakeChild(102);
+    const c3 = fakeChild(103);
+    const c4 = fakeChild(104);
+    const { supervisor, spawn } = makeSupervisor([c1, c2, c3, c4]);
+
+    supervisor.start({ streamId: 'team_alpha', upstreamUrl: 'https://x' });
+    const portBefore = supervisor.get('team_alpha')!.port;
+
+    const ok = supervisor.restart('team_alpha');
+
+    expect(ok).toBe(true);
+    expect(c1.kill).toHaveBeenCalled();
+    expect(c2.kill).toHaveBeenCalled();
+    expect(spawn).toHaveBeenCalledTimes(4); // 2 for start + 2 for restart
+    const state = supervisor.get('team_alpha')!;
+    expect(state.port).toBe(portBefore); // port reused, not reallocated
+    expect(state.status).toBe('running');
+    expect(state.restartCount).toBe(1);
+  });
+
+  it('restart() does NOT cascade-respawn when the old (killed) children later exit', () => {
+    // Regression: restart() SIGTERMs the old pipeline then starts a new one on
+    // the SAME udp port. The old children exit a moment later (as real SIGTERM'd
+    // processes do). Their exit must NOT drive onPipelineExit → respawn, or we
+    // leak the restart's pipeline (its ffmpeg keeps sending to the port) AND
+    // spawn yet another — two ffmpeg on one port → corrupted/double OBS feed.
+    const children = Array.from({ length: 8 }, (_, i) => fakeChild(100 + i));
+    const { supervisor, spawn, flush } = makeSupervisor(children);
+
+    supervisor.start({ streamId: 'team_alpha', upstreamUrl: 'https://x' }); // children[0],[1]
+    supervisor.restart('team_alpha');                                       // kills [0],[1]; spawns [2],[3]
+    expect(spawn).toHaveBeenCalledTimes(4);
+
+    // The old, just-killed children now actually exit.
+    children[0].__exit(null, 'SIGTERM');
+    children[1].__exit(null, 'SIGTERM');
+    flush();
+
+    // No cascade: the deliberately-stopped old pipeline must not respawn.
+    expect(spawn).toHaveBeenCalledTimes(4);
+    const state = supervisor.get('team_alpha')!;
+    expect(state.restartCount).toBe(1);
+    expect(state.status).toBe('running');
+  });
+
+  it('restart() recovers an escalated stream and resets the crash tracker', () => {
+    const children = Array.from({ length: 12 }, (_, i) => fakeChild(100 + i));
+    const { supervisor, flush } = makeSupervisor(children);
+
+    supervisor.start({ streamId: 'team_alpha', upstreamUrl: 'https://x' });
+    // 3 exits in the window → escalated (no further respawn)
+    children[0].__exit(1, null); flush();
+    children[2].__exit(1, null); flush();
+    children[4].__exit(1, null); flush();
+    expect(supervisor.get('team_alpha')!.status).toBe('escalated');
+
+    // Operator restart brings it back to running and forgets prior crashes...
+    expect(supervisor.restart('team_alpha')).toBe(true);
+    expect(supervisor.get('team_alpha')!.status).toBe('running');
+
+    // ...so the next crash respawns (tracker reset) rather than re-escalating.
+    children[6].__exit(1, null); flush();
+    expect(supervisor.get('team_alpha')!.status).toBe('running');
+  });
+
+  it('restart() returns false for an unknown / unsupervised stream', () => {
+    const { supervisor } = makeSupervisor([]);
+    expect(supervisor.restart('nope')).toBe(false);
+  });
+
   it('stopAll() tears down every supervised stream', () => {
     const children = [fakeChild(11), fakeChild(12), fakeChild(21), fakeChild(22)];
     const { supervisor } = makeSupervisor(children);

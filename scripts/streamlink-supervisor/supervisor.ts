@@ -99,6 +99,28 @@ export class Supervisor {
     [...this.streams.keys()].forEach(id => this.stop(id));
   }
 
+  // Operator-triggered restart of a single supervised stream. Reuses the
+  // existing spec and port (no reallocation, no map deletion) and clears the
+  // restart tracker so the fresh pipeline gets a full escalation budget. Works
+  // on both 'running' and 'escalated' streams — this is the recovery action for
+  // a stream the crash-loop guard has given up on. No-op (returns false) if the
+  // stream isn't supervised (e.g. it's operator-stopped/disabled).
+  restart(streamId: string): boolean {
+    const entry = this.streams.get(streamId);
+    if (!entry) return false;
+    entry.pipeline.stop();
+    this.tracker.forget(streamId);
+    const pipeline = this.makePipeline(entry.spec, entry.state.port);
+    entry.pipeline = pipeline;
+    entry.state.restartCount += 1;
+    entry.state.status = 'running';
+    entry.state.lastExitCode = null;
+    entry.state.lastExitSignal = null;
+    entry.state.lastExitSource = null;
+    pipeline.start();
+    return true;
+  }
+
   get(streamId: string): StreamState | undefined {
     return this.streams.get(streamId)?.state;
   }
