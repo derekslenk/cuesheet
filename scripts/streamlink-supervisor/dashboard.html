@@ -189,7 +189,17 @@
       }
       pollStreams();
     }
-    window.__control = control; // referenced by inline onclick handlers
+    // Delegated click handler. The action + stream id are read from data-*
+    // attributes (emitted via escapeHtml in an HTML-attribute context), so the
+    // streamId never enters a JS/HTML code sink — a crafted obs_source_name
+    // (operator-entered, stored in the shared DB) cannot inject script. This
+    // replaces inline onclick handlers, where the browser HTML-decodes the
+    // attribute before JS execution and `&#39;` would decode back to a quote.
+    rowsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn || btn.disabled) return;
+      control(btn.dataset.streamId, btn.dataset.action);
+    });
 
     function renderStreams(streams) {
       if (!streams.length) {
@@ -217,9 +227,9 @@
           '<td class="restarts' + alert + '">' + restarts + '</td>' +
           '<td class="url">' + escapeHtml(s.port ? ("udp://127.0.0.1:" + s.port) : "") + '</td>' +
           '<td class="actions">' +
-            '<button class="btn" ' + (live ? "disabled" : "") + ' onclick="__control(\'' + id + '\',\'start\')">Start</button>' +
-            '<button class="btn" ' + (live ? "" : "disabled") + ' onclick="__control(\'' + id + '\',\'stop\')">Stop</button>' +
-            '<button class="btn" ' + (live ? "" : "disabled") + ' onclick="__control(\'' + id + '\',\'restart\')">Restart</button>' +
+            '<button class="btn" data-stream-id="' + id + '" data-action="start" ' + (live ? "disabled" : "") + '>Start</button>' +
+            '<button class="btn" data-stream-id="' + id + '" data-action="stop" ' + (live ? "" : "disabled") + '>Stop</button>' +
+            '<button class="btn" data-stream-id="' + id + '" data-action="restart" ' + (live ? "" : "disabled") + '>Restart</button>' +
           '</td>' +
         '</tr>';
       }).join("");
