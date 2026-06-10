@@ -104,6 +104,16 @@
     .dot.escalated { background: var(--red); }
     .dot.restarting { background: var(--amber); }
     .dot.stopped { background: var(--gray); }
+    .glyph { font-weight: 700; margin-right: 6px; }
+    .status-cell { white-space: nowrap; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn {
+      font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 4px;
+      border: 1px solid var(--panel-border); background: #1f2530; color: var(--fg);
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { border-color: var(--link); }
     .restarts { font-variant-numeric: tabular-nums; }
     .restarts.alert { color: var(--red); font-weight: 600; }
     .url { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
@@ -122,21 +132,22 @@
   </header>
   <div id="meta">
     <span>Last update: <span id="last-update">never</span></span>
-    <span>Polling every 1 s</span>
+    <span>Polling every 3 s</span>
     <span><a id="raw-link" href="/health" style="color: var(--link); text-decoration: none;">view raw /health JSON</a></span>
   </div>
   <main>
     <table id="streams">
       <thead>
         <tr>
-          <th style="width: 35%">Stream</th>
-          <th style="width: 20%">Status</th>
-          <th style="width: 15%">Restarts</th>
-          <th>OBS input URL</th>
+          <th style="width: 30%">Stream</th>
+          <th style="width: 18%">Status</th>
+          <th style="width: 12%">Restarts</th>
+          <th style="width: 18%">OBS input URL</th>
+          <th style="width: 22%">Actions</th>
         </tr>
       </thead>
       <tbody id="rows">
-        <tr><td colspan="4" class="empty">Connecting to <code>/health</code>…</td></tr>
+        <tr><td colspan="5" class="empty">Connecting to <code>/streams</code>…</td></tr>
       </tbody>
     </table>
   </main>
@@ -145,67 +156,91 @@
     const overallEl = document.getElementById("overall");
     const lastUpdateEl = document.getElementById("last-update");
     const rowsEl = document.getElementById("rows");
-    let lastPayload = null;
+
+    // Non-color status cue (glyph + word) so state is readable without relying
+    // on hue. ● running / ▲ crashed / ■ stopped.
+    const GLYPH = { running: "●", escalated: "▲", stopped: "■" };
+    const LABEL = { running: "running", escalated: "crashed", stopped: "stopped" };
 
     function fmtTime(d) {
       const pad = n => String(n).padStart(2, "0");
       return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
     }
-
-    function renderUnreachable(detail) {
-      overallEl.dataset.state = "unreachable";
-      overallEl.textContent = "unreachable";
-      rowsEl.innerHTML = '<tr><td colspan="4" class="empty">Supervisor /health not responding' +
-        (detail ? ' — ' + escapeHtml(detail) : "") + '. Retrying every 1 s.</td></tr>';
-    }
-
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       })[c]);
     }
-
-    function renderPayload(body) {
-      const state = body.status === "ok" ? "ok" : "degraded";
-      overallEl.dataset.state = state;
-      overallEl.textContent = body.status;
-      const streams = Array.isArray(body.streams) ? body.streams : [];
-      if (streams.length === 0) {
-        rowsEl.innerHTML = '<tr><td colspan="4" class="empty">No streams supervised.</td></tr>';
-        return;
-      }
-      const rows = streams.map(s => {
-        const status = String(s.status || "unknown");
-        const restarts = Number(s.restartCount || 0);
-        const alert = restarts >= 3 || status === "escalated" ? " alert" : "";
-        return '<tr>' +
-          '<td>' + escapeHtml(s.streamId) + '</td>' +
-          '<td><span class="dot ' + escapeHtml(status) + '"></span>' + escapeHtml(status) + '</td>' +
-          '<td class="restarts' + alert + '">' + restarts + '</td>' +
-          '<td class="url">' + escapeHtml(s.obsInputUrl || "") + '</td>' +
-          '</tr>';
-      }).join("");
-      rowsEl.innerHTML = rows;
+    function renderUnreachable(detail) {
+      overallEl.dataset.state = "unreachable";
+      overallEl.textContent = "unreachable";
+      rowsEl.innerHTML = '<tr><td colspan="5" class="empty">Supervisor not responding' +
+        (detail ? ' — ' + escapeHtml(detail) : "") + '. Retrying.</td></tr>';
     }
 
-    async function poll() {
+    async function control(streamId, action) {
+      if ((action === "stop" || action === "restart") &&
+          !confirm(`${action[0].toUpperCase() + action.slice(1)} "${streamId}"?`)) return;
       try {
-        const res = await fetch("/health", { cache: "no-store" });
-        if (!res.ok) {
-          renderUnreachable("HTTP " + res.status);
-          return;
-        }
+        const res = await fetch("/streams/" + encodeURIComponent(streamId) + "/" + action, { method: "POST" });
+        if (!res.ok) alert(action + " failed: HTTP " + res.status);
+      } catch (e) {
+        alert(action + " failed: " + (e && e.message ? e.message : e));
+      }
+      pollStreams();
+    }
+    window.__control = control; // referenced by inline onclick handlers
+
+    function renderStreams(streams) {
+      if (!streams.length) {
+        rowsEl.innerHTML = '<tr><td colspan="5" class="empty">No streams configured.</td></tr>';
+        return;
+      }
+      const anyCrashed = streams.some(s => s.status === "escalated");
+      overallEl.dataset.state = anyCrashed ? "degraded" : "ok";
+      overallEl.textContent = anyCrashed ? "degraded" : "ok";
+
+      rowsEl.innerHTML = streams.map(s => {
+        const status = String(s.status || "stopped");
+        const glyph = GLYPH[status] || "■";
+        const label = LABEL[status] || status;
+        const restarts = Number(s.restartCount || 0);
+        const alert = restarts >= 3 || status === "escalated" ? " alert" : "";
+        const id = escapeHtml(s.streamId);
+        const live = status === "running" || status === "escalated";
+        const exit = s.lastExitCode != null
+          ? ` (exit ${escapeHtml(s.lastExitCode)}${s.lastExitSource ? " / " + escapeHtml(s.lastExitSource) : ""})`
+          : "";
+        return '<tr>' +
+          '<td>' + id + '</td>' +
+          '<td class="status-cell"><span class="glyph">' + glyph + '</span>' + label + escapeHtml(exit) + '</td>' +
+          '<td class="restarts' + alert + '">' + restarts + '</td>' +
+          '<td class="url">' + escapeHtml(s.port ? ("udp://127.0.0.1:" + s.port) : "") + '</td>' +
+          '<td class="actions">' +
+            '<button class="btn" ' + (live ? "disabled" : "") + ' onclick="__control(\'' + id + '\',\'start\')">Start</button>' +
+            '<button class="btn" ' + (live ? "" : "disabled") + ' onclick="__control(\'' + id + '\',\'stop\')">Stop</button>' +
+            '<button class="btn" ' + (live ? "" : "disabled") + ' onclick="__control(\'' + id + '\',\'restart\')">Restart</button>' +
+          '</td>' +
+        '</tr>';
+      }).join("");
+    }
+
+    async function pollStreams() {
+      try {
+        const res = await fetch("/streams", { cache: "no-store" });
+        if (!res.ok) { renderUnreachable("HTTP " + res.status); return; }
         const body = await res.json();
-        lastPayload = body;
         lastUpdateEl.textContent = fmtTime(new Date());
-        renderPayload(body);
+        renderStreams(Array.isArray(body.streams) ? body.streams : []);
       } catch (err) {
         renderUnreachable(err && err.message ? err.message : String(err));
       }
     }
 
-    poll();
-    setInterval(poll, 1000);
+    pollStreams();
+    // Heavier DB-backed list polls less often than the old 1s /health pill to
+    // avoid a per-second full-table read on the always-on supervisor.
+    setInterval(pollStreams, 3000);
   })();
   </script>
 </body>
