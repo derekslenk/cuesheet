@@ -8,8 +8,9 @@
  *
  * It reuses lib/procState (the same primitive `cuesheet start/stop` use): we kill
  * a RECORDED pid (never one scraped from the port at kill time), and only after
- * `isSafeToKill` confirms the live pid still matches our process image — so a
- * reused/foreign pid is refused, never killed. This sidesteps the port→PID
+ * `isSafeToKill` confirms the live pid's OS creation time matches the recorded
+ * startTime (falling back to an image-name match where creation time can't be
+ * read) — so a reused/foreign pid is refused, never killed. This sidesteps the port→PID
  * TOCTOU/anti-pattern flagged in the design review. Windows-native: procState's
  * win32 path is `taskkill /PID <pid> /T /F` (reaps the streamlink/ffmpeg tree).
  *
@@ -123,7 +124,8 @@ export async function ensureSoleSupervisor(
         action = 'tookover';
         tookPid = existing.pid;
       } else {
-        // Live but not provably ours (reused pid / different runtime / foreign).
+        // Live but not provably ours (reused pid / foreign process — creation
+        // time mismatch, or image mismatch on the no-creation-time fallback).
         // Never kill a stranger — fail-fast with an actionable message.
         throw new SupervisorTakeoverRefusedError(existing.pid, healthPort);
       }
