@@ -98,7 +98,7 @@ describe('handleHealthRequest', () => {
   });
 
   it('returns 404 for any other path', () => {
-    const req = makeReq('GET', '/streams');
+    const req = makeReq('GET', '/nope');
     const res = makeRes();
     handleHealthRequest(req, res as any, { provider });
     expect(res.statusCode).toBe(404);
@@ -188,6 +188,134 @@ describe('handleHealthRequest', () => {
       await flush();
       expect(res.statusCode).toBe(500);
       expect(JSON.parse(res.body)).toEqual({ error: 'db down' });
+    });
+  });
+
+  describe('/streams/{id}/restart', () => {
+    const emptyProvider = { list: () => [] };
+
+    it('POST restart invokes onRestart with the streamId and returns 200 on success', () => {
+      const onRestart = jest.fn().mockReturnValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/team_alpha/restart'), res as any, {
+        provider: emptyProvider,
+        onRestart,
+      });
+      expect(onRestart).toHaveBeenCalledWith('team_alpha');
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: 'ok', streamId: 'team_alpha' });
+    });
+
+    it('POST restart returns 404 when the stream is not supervised', () => {
+      const onRestart = jest.fn().mockReturnValue(false);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/ghost/restart'), res as any, {
+        provider: emptyProvider,
+        onRestart,
+      });
+      expect(res.statusCode).toBe(404);
+      expect(JSON.parse(res.body)).toEqual({ error: 'stream not found', streamId: 'ghost' });
+    });
+
+    it('decodes a URI-encoded streamId', () => {
+      const onRestart = jest.fn().mockReturnValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/team%20alpha/restart'), res as any, {
+        provider: emptyProvider,
+        onRestart,
+      });
+      expect(onRestart).toHaveBeenCalledWith('team alpha');
+    });
+
+    it('GET restart returns 405 (restart is POST-only)', () => {
+      const onRestart = jest.fn();
+      const res = makeRes();
+      handleHealthRequest(makeReq('GET', '/streams/team_alpha/restart'), res as any, {
+        provider: emptyProvider,
+        onRestart,
+      });
+      expect(res.statusCode).toBe(405);
+      expect(onRestart).not.toHaveBeenCalled();
+    });
+
+    it('POST restart returns 501 when onRestart is not configured', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/team_alpha/restart'), res as any, {
+        provider: emptyProvider,
+      });
+      expect(res.statusCode).toBe(501);
+    });
+  });
+
+  describe('/streams/{id}/start and /stop', () => {
+    const emptyProvider = { list: () => [] };
+    const flush = () => new Promise(r => setTimeout(r, 0));
+
+    it('POST start invokes onStart and returns 200 on success', async () => {
+      const onStart = jest.fn().mockResolvedValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/team_alpha/start'), res as any, { provider: emptyProvider, onStart });
+      await flush();
+      expect(onStart).toHaveBeenCalledWith('team_alpha');
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: 'ok', streamId: 'team_alpha' });
+    });
+
+    it('POST stop returns 404 when onStop reports the stream is unknown', async () => {
+      const onStop = jest.fn().mockResolvedValue(false);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/ghost/stop'), res as any, { provider: emptyProvider, onStop });
+      await flush();
+      expect(res.statusCode).toBe(404);
+      expect(JSON.parse(res.body)).toEqual({ error: 'stream not found', streamId: 'ghost' });
+    });
+
+    it('POST stop returns 500 when onStop rejects', async () => {
+      const onStop = jest.fn().mockRejectedValue(new Error('db locked'));
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/team_alpha/stop'), res as any, { provider: emptyProvider, onStop });
+      await flush();
+      expect(res.statusCode).toBe(500);
+      expect(JSON.parse(res.body)).toEqual({ error: 'db locked' });
+    });
+
+    it('GET start returns 405', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('GET', '/streams/team_alpha/start'), res as any, { provider: emptyProvider, onStart: jest.fn() });
+      expect(res.statusCode).toBe(405);
+    });
+
+    it('POST start returns 501 when onStart is not configured', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/team_alpha/start'), res as any, { provider: emptyProvider });
+      expect(res.statusCode).toBe(501);
+    });
+  });
+
+  describe('GET /streams (DB-backed list)', () => {
+    const flush = () => new Promise(r => setTimeout(r, 0));
+
+    it('returns the merged list from listAll', async () => {
+      const listAll = jest.fn().mockResolvedValue([
+        { streamId: 'a', url: 'https://twitch.tv/a', disabled: 0, status: 'running', port: 9001, restartCount: 0, lastExitCode: null, lastExitSource: null },
+      ]);
+      const res = makeRes();
+      handleHealthRequest(makeReq('GET', '/streams'), res as any, { provider: { list: () => [] }, listAll });
+      await flush();
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).streams).toHaveLength(1);
+    });
+
+    it('returns 501 when listAll is not configured', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('GET', '/streams'), res as any, { provider: { list: () => [] } });
+      expect(res.statusCode).toBe(501);
+    });
+
+    it('returns 405 for non-GET', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams'), res as any, { provider: { list: () => [] }, listAll: jest.fn() });
+      expect(res.statusCode).toBe(405);
     });
   });
 });
