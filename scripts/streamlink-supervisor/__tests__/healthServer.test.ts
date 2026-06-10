@@ -346,7 +346,7 @@ describe('handleHealthRequest', () => {
       expect(onRestart).not.toHaveBeenCalled();
     });
 
-    it('POST /streams/%ZZ/start returns 400 and does not call onStart', async () => {
+    it('POST /streams/%ZZ/start returns 400 and does not call onStart', () => {
       const onStart = jest.fn().mockResolvedValue(true);
       const res = makeRes();
       handleHealthRequest(makeReq('POST', '/streams/%ZZ/start'), res as any, {
@@ -358,7 +358,7 @@ describe('handleHealthRequest', () => {
       expect(onStart).not.toHaveBeenCalled();
     });
 
-    it('POST /streams/%ZZ/stop returns 400 and does not call onStop', async () => {
+    it('POST /streams/%ZZ/stop returns 400 and does not call onStop', () => {
       const onStop = jest.fn().mockResolvedValue(true);
       const res = makeRes();
       handleHealthRequest(makeReq('POST', '/streams/%ZZ/stop'), res as any, {
