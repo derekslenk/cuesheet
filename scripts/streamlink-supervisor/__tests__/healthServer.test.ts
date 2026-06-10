@@ -1,6 +1,18 @@
-import { IncomingMessage, ServerResponse } from 'http';
+import http, { IncomingMessage, ServerResponse } from 'http';
 import { Socket } from 'net';
-import { handleHealthRequest } from '../healthServer';
+import { handleHealthRequest, startHealthServer } from '../healthServer';
+
+function httpGet(url: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    http.get(url, res => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () =>
+        resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString() })
+      );
+    }).on('error', reject);
+  });
+}
 
 interface SnapshotProvider {
   list: () => Array<{ streamId: string; status: string; restartCount: number; obsInputUrl: string }>;
@@ -316,6 +328,80 @@ describe('handleHealthRequest', () => {
       const res = makeRes();
       handleHealthRequest(makeReq('POST', '/streams'), res as any, { provider: { list: () => [] }, listAll: jest.fn() });
       expect(res.statusCode).toBe(405);
+    });
+  });
+
+  describe('malformed percent-escape handling (safeDecode → 400)', () => {
+    const emptyProvider = { list: () => [] };
+
+    it('POST /streams/%ZZ/restart returns 400 and does not call onRestart', () => {
+      const onRestart = jest.fn().mockReturnValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/%ZZ/restart'), res as any, {
+        provider: emptyProvider,
+        onRestart,
+      });
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.body)).toEqual({ error: 'bad request' });
+      expect(onRestart).not.toHaveBeenCalled();
+    });
+
+    it('POST /streams/%ZZ/start returns 400 and does not call onStart', async () => {
+      const onStart = jest.fn().mockResolvedValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/%ZZ/start'), res as any, {
+        provider: emptyProvider,
+        onStart,
+      });
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.body)).toEqual({ error: 'bad request' });
+      expect(onStart).not.toHaveBeenCalled();
+    });
+
+    it('POST /streams/%ZZ/stop returns 400 and does not call onStop', async () => {
+      const onStop = jest.fn().mockResolvedValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/%ZZ/stop'), res as any, {
+        provider: emptyProvider,
+        onStop,
+      });
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.body)).toEqual({ error: 'bad request' });
+      expect(onStop).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('dispatch guard — synchronous handler throw returns 500 and keeps server alive', () => {
+    it('throws inside provider.list → 500 JSON, server survives for subsequent requests', async () => {
+      let callCount = 0;
+      const server = startHealthServer({
+        provider: {
+          list: () => {
+            callCount += 1;
+            if (callCount === 1) throw new Error('boom');
+            return [];
+          },
+        },
+        port: 0,
+      });
+
+      await new Promise<void>(resolve => server.once('listening', resolve));
+      const addr = server.address() as { port: number };
+      const base = `http://127.0.0.1:${addr.port}`;
+
+      // First request — provider throws synchronously → 500
+      const r1 = await httpGet(`${base}/health`);
+      expect(r1.status).toBe(500);
+      expect(JSON.parse(r1.body)).toEqual({ error: 'internal error' });
+
+      // Second request — server is still alive, provider now returns []
+      const r2 = await httpGet(`${base}/health`);
+      expect(r2.status).toBe(200);
+      expect(JSON.parse(r2.body).status).toBe('ok');
+
+      await new Promise<void>((resolve, reject) =>
+        server.close(err => (err ? reject(err) : resolve()))
+      );
     });
   });
 });
