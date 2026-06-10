@@ -8,7 +8,7 @@ is called (Phase 1.1).
 ## Pipeline (per stream)
 
 ```
-streamlink <upstream-url> best --stdout --twitch-disable-ads --hls-live-restart
+streamlink <upstream-url> best --stdout --hls-live-restart
   |
   v  (pipe)
 ffmpeg -re -i pipe:0 -c copy -f mpegts udp://127.0.0.1:<port>?pkt_size=1316
@@ -22,9 +22,11 @@ OBS ffmpeg_source.input = udp://127.0.0.1:<port>
 - **Escalation:** after 3 restarts within 30s for a single stream, the
   supervisor stops respawning that stream and flips its status to
   `escalated`. `/health` reports `degraded` whenever any stream is not
-  `running`. Operator action is required to recover an escalated stream
-  (manual reset by sending `SIGHUP` to the process is a post-event item;
-  for the June 13 event, restart the supervisor service).
+  `running`. Operator action is required to recover an escalated stream:
+  `POST /streams/{id}/restart` (or the dashboard Restart button) recovers
+  the stream in place without affecting other streams. Full service restart
+  (`nssm restart StreamlinkSupervisor`) is last resort — it relaunches
+  every stream at once.
 
 ## Running locally (dev, macOS)
 
@@ -55,9 +57,19 @@ Env vars:
 | `PREVIEW_RELAY` | *(unset — preview OFF)* | Set to `on`, `1`, `true`, or `yes` to opt in to the preview tee (fans the relay to a second UDP port for in-browser preview via the webui). Off by default — the dual-output tee was observed to periodically stall the OBS feed. |
 | `SUPERVISOR_PORT_GUARD` | *(unset — guard ON)* | Set to `off` to disable the single-instance startup guard. Break-glass only — normally the guard reclaims a stale supervisor on the health port and self-registers so `cuesheet stop` reaps the process. |
 
-Config is **process env only** — there is no `.env` loading. The compiled
-single binary (see below) reads these exactly like the `tsx` entry point; no DB
-path is baked into the `.exe`.
+Config loading depends on the entry point:
+
+- **`npm run supervisor`** (tsx entry `index.ts`): loads `.env` and `.env.local`
+  from the repo root via `@next/env` (Next.js precedence: process env >
+  `.env.local` > `.env`). This is the dev and NSSM-tsx path.
+- **`cuesheet sup`** (unified CLI): loads `.env.local` explicitly via
+  `lib/supervisorEnv.ts` before module evaluation.
+- **Compiled standalone binary** (`dist/supervisor` / `dist/supervisor.exe`):
+  **process env only** — no `.env` files are loaded. Supply all vars via
+  `AppEnvironmentExtra` (NSSM) or the process environment.
+
+No DB path is baked into any binary; all paths are resolved from env vars at
+runtime.
 
 ### Where the database comes from
 
@@ -267,21 +279,23 @@ nssm remove StreamlinkSupervisor confirm
 
 ## Operating notes
 
-- **Adding a stream:** the supervisor loads its stream list at startup
-  from the `STREAMS_TABLE`. After the webui adds a stream, restart the
-  supervisor service (`nssm restart StreamlinkSupervisor`) to pick it
-  up. Dynamic reload (SIGHUP or a `/reload` endpoint) is post-event
-  scope.
+- **Adding a stream:** after the webui adds a stream, send `POST /reload`
+  (or use the dashboard) to pick it up without restarting the supervisor.
+  The webui pings `/reload` automatically after `addStream`. If the
+  supervisor is down at that moment, restart it to resync; it reads the
+  current DB on startup.
 
-- **Removing/replacing a stream:** same — restart picks up the new list.
-  The supervisor holds onto the existing pipelines for streams still
-  present and drops ones no longer in the table (verify the latter
-  empirically before the event).
+- **Removing/replacing a stream:** same — `POST /reload` converges the
+  running set on the updated DB. The supervisor keeps existing pipelines
+  for streams still present and stops ones no longer in the table.
 
 - **Escalated stream:** if a stream goes `escalated`, the upstream Twitch
   source is most likely broken (offline, geofenced, throttled). Check
   `SUPERVISOR_LOG_DIR/<streamId>.log` for the streamlink/ffmpeg stderr
-  tail. Restart the supervisor to clear escalation state.
+  tail. Recover in place: `POST /streams/{id}/restart` or the dashboard
+  Restart button (clears the restart tracker and relaunches the pipeline
+  without touching other streams). Full service restart
+  (`nssm restart StreamlinkSupervisor`) is last resort — avoid mid-event.
 
 - **Disk:** each stream uses up to
   `(SUPERVISOR_LOG_MAX_BYTES) × (SUPERVISOR_LOG_RETAIN + 1)` bytes. At
