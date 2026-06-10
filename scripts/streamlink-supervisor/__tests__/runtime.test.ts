@@ -23,6 +23,7 @@ describe('startRuntime', () => {
       ports: { basePort: 9001, max: 8 },
       healthPort: 0, // ephemeral
       logDir: '/tmp/sup-test-runtime',
+      manageSingleton: false, // don't touch the real run-state.json in tests
     };
   }
 
