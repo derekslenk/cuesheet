@@ -15,7 +15,8 @@ jest.mock('../../../../../../lib/supervisorClient', () => ({
   requestSupervisorStart: jest.fn(),
 }));
 
-const fakeReq = {} as any;
+// The route handlers read only `params`, not the request — a typed stub suffices.
+const fakeReq = {} as never;
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 describe('POST /api/supervisor/streams/[id]/stop', () => {
