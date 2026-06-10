@@ -8,6 +8,7 @@ import { loadStreamSpecs, loadStreamSpec, loadStreamRows, isValidRow, assertSafe
 import { relayPort } from '../../lib/relayPort';
 import { SpawnFn } from './streamPipeline';
 import { redactSecrets } from './redact';
+import { ensureSoleSupervisor, releaseSupervisorRecord } from './supervisorGuard';
 
 export interface StartRuntimeOptions {
   db: MinimalDb;
@@ -22,6 +23,11 @@ export interface StartRuntimeOptions {
   streamlinkPath?: string;
   ffmpegPath?: string;
   dashboardHtml?: string;
+  // Single-instance guard: before binding, reclaim a stale supervisor on the
+  // health port (identity-verified via run-state) and self-register so
+  // `cuesheet stop` reaps us. Tests pass false so they never touch the real
+  // run-state.json. Default: on.
+  manageSingleton?: boolean;
 }
 
 export interface SupervisorRuntime {
@@ -35,6 +41,20 @@ export interface SupervisorRuntime {
 }
 
 export async function startRuntime(opts: StartRuntimeOptions): Promise<SupervisorRuntime> {
+  // Reclaim a stale supervisor + self-register BEFORE binding the port or
+  // spawning pipelines (the takeover frees the old supervisor's port and kills
+  // its streamlink/ffmpeg children). Throws to fail-fast rather than ever
+  // killing a process it can't verify as a cuesheet supervisor.
+  if (opts.manageSingleton !== false) {
+    await ensureSoleSupervisor({
+      env: process.env,
+      cwd: process.cwd(),
+      healthPort: opts.healthPort,
+      ports: [opts.healthPort, opts.ports.basePort],
+      host: opts.healthHost,
+    });
+  }
+
   const loggers = new Map<string, FileLogger>();
   const loggerFor = (streamId: string): FileLogger => {
     let logger = loggers.get(streamId);
@@ -148,6 +168,11 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
   const shutdown = async (): Promise<void> => {
     if (shutdownDone) return;
     shutdownDone = true;
+    // Drop our run-state record on a clean exit (only if it's still us), so the
+    // next startup doesn't see a stale 'sup' record to reclaim.
+    if (opts.manageSingleton !== false) {
+      try { releaseSupervisorRecord(process.env); } catch { /* best-effort */ }
+    }
     supervisor.stopAll();
     loggers.forEach(l => l.close());
     loggers.clear();

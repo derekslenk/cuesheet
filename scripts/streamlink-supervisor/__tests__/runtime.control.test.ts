@@ -36,7 +36,7 @@ describe('startRuntime control closures', () => {
     const { db, run } = makeDb(rows);
     const rt = await startRuntime({
       db, tableName, spawn: fakeSpawn as never,
-      ports: { basePort: 9001, max: 8 }, healthPort: 0, logDir: './logs/test',
+      ports: { basePort: 9001, max: 8 }, healthPort: 0, logDir: './logs/test', manageSingleton: false,
     });
 
     const ok = await (rt as any).onStop('team_a');
@@ -57,7 +57,7 @@ describe('startRuntime control closures', () => {
     const { db, run } = makeDb(rows);
     const rt = await startRuntime({
       db, tableName, spawn: fakeSpawn as never,
-      ports: { basePort: 9001, max: 8 }, healthPort: 0, logDir: './logs/test',
+      ports: { basePort: 9001, max: 8 }, healthPort: 0, logDir: './logs/test', manageSingleton: false,
     });
     // disabled=1 → not supervised at boot
     expect(rt.supervisor.list().map(s => s.streamId)).not.toContain('team_b');
@@ -80,7 +80,7 @@ describe('startRuntime control closures', () => {
     const { db } = makeDb(rows);
     const rt = await startRuntime({
       db, tableName, spawn: fakeSpawn as never,
-      ports: { basePort: 9001, max: 8 }, healthPort: 0, logDir: './logs/test',
+      ports: { basePort: 9001, max: 8 }, healthPort: 0, logDir: './logs/test', manageSingleton: false,
     });
     const list = await (rt as any).listAll();
     const off = list.find((s: any) => s.streamId === 'team_off');
