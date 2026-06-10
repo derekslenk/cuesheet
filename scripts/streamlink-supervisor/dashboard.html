@@ -213,7 +213,7 @@
           : "";
         return '<tr>' +
           '<td>' + id + '</td>' +
-          '<td class="status-cell"><span class="glyph">' + glyph + '</span>' + label + escapeHtml(exit) + '</td>' +
+          '<td class="status-cell"><span class="glyph">' + glyph + '</span>' + label + exit + '</td>' +
           '<td class="restarts' + alert + '">' + restarts + '</td>' +
           '<td class="url">' + escapeHtml(s.port ? ("udp://127.0.0.1:" + s.port) : "") + '</td>' +
           '<td class="actions">' +
