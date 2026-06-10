@@ -2,9 +2,10 @@ import { Server } from 'http';
 import { Supervisor, StreamSpec } from './supervisor';
 import { PortAllocator } from './portAllocator';
 import { RestartTracker } from './restartTracker';
-import { startHealthServer } from './healthServer';
+import { startHealthServer, DashboardStream } from './healthServer';
 import { FileLogger } from './fileLogger';
-import { loadStreamSpecs, MinimalDb } from './streamSpecsLoader';
+import { loadStreamSpecs, loadStreamSpec, loadStreamRows, isValidRow, assertSafeTableName, MinimalDb } from './streamSpecsLoader';
+import { relayPort } from '../../lib/relayPort';
 import { SpawnFn } from './streamPipeline';
 import { redactSecrets } from './redact';
 
@@ -27,6 +28,9 @@ export interface SupervisorRuntime {
   supervisor: Supervisor;
   server: Server;
   reload: () => Promise<{ added: string[]; removed: string[]; total: number }>;
+  onStart: (streamId: string) => Promise<boolean>;
+  onStop: (streamId: string) => Promise<boolean>;
+  listAll: () => Promise<DashboardStream[]>;
   shutdown: () => Promise<void>;
 }
 
@@ -79,12 +83,65 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     return { added, removed, total: desiredById.size };
   };
 
+  // Durable Start: enable the row, then start the (single) stream in place.
+  // start() guards double-start, so re-clicking is safe. Returns false for an
+  // unknown streamId (=> 404). DB write first; the flag is authoritative.
+  const onStart = async (streamId: string): Promise<boolean> => {
+    assertSafeTableName(opts.tableName);
+    const spec = await loadStreamSpec({ db: opts.db, tableName: opts.tableName }, streamId);
+    if (!spec) return false;
+    await opts.db.run(
+      `UPDATE ${opts.tableName} SET disabled = 0 WHERE obs_source_name = ?`,
+      streamId
+    );
+    supervisor.start(spec);
+    return true;
+  };
+
+  // Durable Stop: disable the row, then stop the pipeline (no-op if not running).
+  const onStop = async (streamId: string): Promise<boolean> => {
+    assertSafeTableName(opts.tableName);
+    const spec = await loadStreamSpec({ db: opts.db, tableName: opts.tableName }, streamId);
+    if (!spec) return false;
+    await opts.db.run(
+      `UPDATE ${opts.tableName} SET disabled = 1 WHERE obs_source_name = ?`,
+      streamId
+    );
+    supervisor.stop(streamId);
+    return true;
+  };
+
+  // DB-backed list of ALL streams merged with live supervised state. A stopped
+  // row isn't in supervisor.list(), so its eventual port is derived via
+  // relayPort(id) and its status is 'stopped'.
+  const listAll = async (): Promise<DashboardStream[]> => {
+    const rows = await loadStreamRows({ db: opts.db, tableName: opts.tableName });
+    const live = new Map(supervisor.list().map(s => [s.streamId, s]));
+    return rows.filter(isValidRow).map(row => {
+      const s = live.get(row.obs_source_name!);
+      return {
+        streamId: row.obs_source_name!,
+        url: row.url!,
+        disabled: row.disabled ? 1 : 0,
+        status: s ? s.status : 'stopped',
+        port: s ? s.port : relayPort(row.id!),
+        restartCount: s ? s.restartCount : 0,
+        lastExitCode: s ? s.lastExitCode : null,
+        lastExitSource: s ? s.lastExitSource : null,
+      };
+    });
+  };
+
   const server = startHealthServer({
     provider: supervisor,
     port: opts.healthPort,
     hostname: opts.healthHost,
     dashboardHtml: opts.dashboardHtml,
     onReload: reload,
+    onRestart: (streamId: string) => supervisor.restart(streamId),
+    onStart,
+    onStop,
+    listAll,
   });
 
   let shutdownDone = false;
@@ -97,5 +154,5 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     await new Promise<void>(resolve => server.close(() => resolve()));
   };
 
-  return { supervisor, server, reload, shutdown };
+  return { supervisor, server, reload, shutdown, onStart, onStop, listAll };
 }
