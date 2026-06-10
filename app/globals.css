@@ -310,6 +310,21 @@ body::after {
   box-shadow: var(--glow-red);
 }
 
+/* Warning — caution action (e.g. Stop a live feed): amber, distinct from the
+   red Danger used for destructive Delete. */
+.btn-warning {
+  color: var(--crt-amber);
+  border-color: var(--crt-amber-dim);
+  text-shadow: var(--glow-amber);
+}
+
+.btn-warning:hover {
+  background: var(--crt-amber);
+  color: var(--crt-bg);
+  border-color: var(--crt-amber);
+  box-shadow: var(--glow-amber);
+}
+
 /* Small Button */
 .btn-sm {
   padding: 7px 14px;

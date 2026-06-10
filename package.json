@@ -17,6 +17,7 @@
     "test:ci": "jest --coverage --watchAll=false",
     "create-sat-summer-2025-tables": "tsx scripts/createSatSummer2025Tables.ts",
     "add-group-uuid-column": "tsx scripts/addGroupUuidColumn.ts",
+    "add-disabled-to-streams": "tsx scripts/addDisabledToStreams.ts",
     "audit:sqlite-opens": "tsx scripts/auditSqliteOpens.ts",
     "remap:mac-obs-switcher-paths": "tsx scripts/remapMacObsSwitcherPaths.ts",
     "verify:switcher-coverage": "tsx scripts/verifySwitcherCoverage.ts",
