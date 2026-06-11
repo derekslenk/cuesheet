@@ -82,7 +82,6 @@ function parseArgs(argv: string[]): CliArgs {
       case '--help':
         process.stdout.write(usage());
         process.exit(0);
-         
         break;
       default:
         process.stderr.write(`Unknown argument: ${a}\n\n${usage()}`);

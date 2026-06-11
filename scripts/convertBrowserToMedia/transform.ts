@@ -1,6 +1,5 @@
 // Imported as JS from streamInputConfig.js — single source of truth for the
 // ffmpeg_source settings shape across V2 createStreamGroup and this script.
- 
 const { buildFfmpegSourceSettings } = require('../../lib/streamInputConfig');
 
 export interface ConversionMapping {
