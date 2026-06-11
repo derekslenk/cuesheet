@@ -17,7 +17,7 @@ Project documentation, operational runbooks, and measurement evidence for CueShe
 | `schema.md` | SQLite schema notes — `streams_{year}_{season}_{suffix}` and `teams_{...}` columns/constraints, sourced from `lib/database.ts`. |
 | `RUNBOOK_EVENT.md` | Primary event-day operations playbook (roles, T-60 setup, timeline, S1–S8 scenario quick-reference, rollback recipe, teardown, two-operator sign-off). |
 | `RUNBOOK_FALLBACK.md` | Emergency/fallback procedures: file-write fallback, plugin-free operator mode (S8), BRB scene, RAM saturation (S1), corrupted-scene restore (S3), OBS host inaccessible (S7), rollback to last known-good. |
-| `new_home.png` | Screenshot of the home page UI (referenced from docs/README). |
+| `images/` | README screenshots: webui pages, supervisor dashboard, and live OBS layout output (referenced from the root README). |
 | `atomic-write-soak-mac.{write,rename}.json` | Mac atomic-write soak results (write-in-place vs temp+rename strategies). |
 | `atomic-write-soak-win.{write,rename}.json` | Windows atomic-write soak results (Phase 2.2 F1). |
 | `phase42-latency-baseline-win.json` | Phase 4.2 switcher latency baseline captured on the Windows prod OBS host. |
