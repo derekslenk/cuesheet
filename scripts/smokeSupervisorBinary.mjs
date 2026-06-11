@@ -138,7 +138,10 @@ for (let i = 0; i < RETRIES && !childExited; i++) {
       if (body?.version === pkgVersion) {
         log(`✓ /health version matches package.json (${pkgVersion})`);
       } else {
+        // /health DID come up, so skip the "never returned 200" path below —
+        // but dump the supervisor's output here for debugging the mismatch.
         fail(`/health version "${body?.version}" !== package.json "${pkgVersion}"`);
+        if (childOutput) console.error(`--- supervisor output ---\n${childOutput}`);
       }
       healthOk = true;
       break;
