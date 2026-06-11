@@ -1,0 +1,61 @@
+{
+  // Renovate config — activated by installing the Mend Renovate GitHub App
+  // (https://github.com/apps/renovate) and selecting this repo.
+  // Until the app is installed, this file does nothing.
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':timezone(America/New_York)',
+  ],
+
+  // One batch per week, early Monday — keeps dependency PRs out of event weekends.
+  schedule: ['before 6am on monday'],
+  prConcurrentLimit: 5,
+  labels: ['dependencies'],
+
+  // Bump package.json ranges (not just the lockfile) so the manifest reflects reality.
+  rangeStrategy: 'bump',
+
+  // Monthly lockfile-only refresh of transitive deps — this is what keeps the
+  // dependabot-alert pile (tar/minimatch/lodash-style transitives) from re-accumulating.
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ['before 6am on the first day of the month'],
+  },
+
+  packageRules: [
+    {
+      // devDependencies minor/patch: one grouped PR, automerged when ci-ok passes.
+      // Automerge waits for the repo's required status checks (the ci-ok gate).
+      matchDepTypes: ['devDependencies'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'dev dependencies (non-major)',
+      automerge: true,
+    },
+    {
+      // Runtime minor/patch: one grouped PR, manual merge.
+      matchDepTypes: ['dependencies'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'runtime dependencies (non-major)',
+    },
+    {
+      // Majors (Next 16, TypeScript 6, sqlite3 6, ...) never open PRs on their own:
+      // they wait in the Dependency Dashboard issue until checked off there.
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      // GitHub Actions workflow deps, grouped.
+      matchManagers: ['github-actions'],
+      groupName: 'github-actions',
+    },
+  ],
+
+  // CVE-driven PRs bypass the weekly schedule.
+  vulnerabilityAlerts: {
+    labels: ['dependencies', 'security'],
+  },
+
+  // Opens a pinned "Dependency Dashboard" issue listing all pending/approval-gated updates.
+  dependencyDashboard: true,
+}
