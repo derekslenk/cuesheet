@@ -12,6 +12,39 @@ type DropdownProps = {
   onToggle?: (isOpen: boolean) => void;
 };
 
+// Menu geometry: anchored below the button by default; flips above it when
+// the space below is cramped (bottom-row dropdowns) and clamps maxHeight to
+// the available space so the list scrolls instead of running off-screen.
+type MenuPosition = {
+  top?: number;
+  bottom?: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+};
+
+/** Gap between the button edge and the menu. */
+const MENU_GAP = 4;
+/** Breathing room kept from the viewport edge. */
+const VIEWPORT_MARGIN = 8;
+/** Below-space threshold that triggers opening upward (≈4 items). */
+const FLIP_THRESHOLD = 240;
+/** Hard cap mirroring .dropdown-menu's CSS max-height. */
+const MENU_MAX_HEIGHT = 400;
+/** Floor so the menu never collapses unusably small. */
+const MENU_MIN_HEIGHT = 120;
+
+function computeMenuPosition(rect: DOMRect, viewportHeight: number): MenuPosition {
+  const spaceBelow = viewportHeight - rect.bottom - MENU_GAP - VIEWPORT_MARGIN;
+  const spaceAbove = rect.top - MENU_GAP - VIEWPORT_MARGIN;
+  const openUp = spaceBelow < FLIP_THRESHOLD && spaceAbove > spaceBelow;
+  const available = openUp ? spaceAbove : spaceBelow;
+  const maxHeight = Math.max(Math.min(available, MENU_MAX_HEIGHT), MENU_MIN_HEIGHT);
+  return openUp
+    ? { bottom: viewportHeight - rect.top + MENU_GAP, left: rect.left, width: rect.width, maxHeight }
+    : { top: rect.bottom + MENU_GAP, left: rect.left, width: rect.width, maxHeight };
+}
+
 export default function Dropdown({
   options,
   activeId,
@@ -23,7 +56,12 @@ export default function Dropdown({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(controlledIsOpen ?? false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState<MenuPosition>({
+    top: 0,
+    left: 0,
+    width: 0,
+    maxHeight: MENU_MAX_HEIGHT,
+  });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -52,11 +90,7 @@ export default function Dropdown({
     const updatePosition = () => {
       if ((controlledIsOpen ?? isOpen) && buttonRef.current && mounted) {
         const rect = buttonRef.current.getBoundingClientRect();
-        setDropdownPosition({
-          top: rect.bottom + 4,
-          left: rect.left,
-          width: rect.width
-        });
+        setDropdownPosition(computeMenuPosition(rect, window.innerHeight));
       }
     };
 
@@ -93,8 +127,11 @@ export default function Dropdown({
       style={{
         position: 'fixed',
         top: dropdownPosition.top,
+        bottom: dropdownPosition.bottom,
         left: dropdownPosition.left,
         width: dropdownPosition.width,
+        maxHeight: dropdownPosition.maxHeight,
+        marginTop: 0,
         zIndex: 999999
       }}
     >
