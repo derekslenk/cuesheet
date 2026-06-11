@@ -252,6 +252,11 @@ OBS_WEBSOCKET_PASSWORD=your_password_here
 # Security (IMPORTANT: Set in production)
 API_KEY=your_secure_api_key_here
 
+# Team-label plate anchoring: "left" (default — keeps the plate off
+# center-of-screen game UI like boss frames/nameplates) or "center".
+# Applies to streams created AFTER a change; delete + re-add to restyle.
+LABEL_PLATE_ANCHOR=left
+
 # --- Streamlink Media-Source pipeline (webui side) ---
 # Set to "false" to roll back to legacy browser sources pointed at the Twitch URL
 STREAM_USE_FFMPEG=true
