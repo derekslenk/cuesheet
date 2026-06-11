@@ -11,19 +11,25 @@ Code review/assistant automations.
 ## Key Files
 | File | Description |
 | --- | --- |
-| `build.yml` | "Lint, Test and Build" — runs on push/PR to `main` across Node 20 & 22 (`npm run lint`, `test`, `build`). |
-| `cuesheet-binary.yml` | Builds the unified `cuesheet` binary per OS and runs the read-only smoke checks (`--help`, `status --json`, `doctor`) — AC15. |
+| `build.yml` | "ci" — the ONLY workflow with a required check (`ci-ok`, an aggregate gate job). Jobs: `web` (lint/test/build, Node 20 & 22), `supervisor-binary` (bun type-check + supervisor smoke, blocking), `cli-binary` (per-OS `cuesheet` build+smoke, path-conditional via `changes`/dorny paths-filter — skips report success to the gate). Absorbed the old `cuesheet-binary.yml`. |
 | `release.yml` | Release pipeline (tag/version → artifacts). |
 | `claude.yml` | Claude Code assistant workflow (issue/PR automation). |
 | `claude-code-review.yml` | Automated Claude Code review on PRs. |
 
 ## For AI Agents
 ### Working In This Directory
-- Keep `build.yml` and `cuesheet-binary.yml` in sync with the npm scripts they
-  invoke (`lint`/`test`/`build`, `binary:build:*`, `binary:smoke`) — a renamed
+- Keep `build.yml` in sync with the npm scripts it invokes (`lint`/`test`/
+  `build`, `type-check:bun`, `supervisor:smoke`, `binary:build:*`) — a renamed
   script must be updated here too.
-- Binary smoke checks must stay **read-only** (`--help`, `status --json`,
-  `doctor`); never have CI spawn the supervisor or kill processes.
+- **Branch protection requires ONLY `ci-ok`.** When adding/renaming jobs,
+  update its `needs:` list — never add a job name to the GitHub ruleset, and
+  never put a required check behind a workflow-level `paths:` filter (that
+  deadlocks out-of-scope PRs — see PR #22).
+- CLI binary smoke checks stay **read-only** (`--help`, `status --json`,
+  `doctor`). The supervisor smoke (`scripts/smokeSupervisorBinary.mjs`) does
+  boot the compiled supervisor, but only against a throwaway temp DB on an
+  ephemeral port with `SUPERVISOR_PORT_GUARD=off` — it must never touch a real
+  supervisor, run-state.json, or kill processes.
 - The self-hosted Forgejo mirror is `.forgejo/workflows/build.yml`; keep the two
   CI definitions conceptually aligned.
 
