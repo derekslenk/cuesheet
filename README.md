@@ -1,39 +1,125 @@
+<div align="center">
+
 # CueSheet
 
-CueSheet is a professional [Next.js](https://nextjs.org) web application for managing live streams and controlling multiple OBS [Source Switchers](https://github.com/exeldro/obs-source-switcher) with real-time WebSocket integration and modern glass morphism UI.
+**Mission control for multi-stream broadcasts** — run dozens of live Twitch streams through OBS, switch layouts on the fly, and keep every pipeline alive, all from one terminal-styled console.
 
+[![ci](https://github.com/derekslenk/cuesheet/actions/workflows/build.yml/badge.svg)](https://github.com/derekslenk/cuesheet/actions/workflows/build.yml)
+![Next.js 15](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Bun](https://img.shields.io/badge/CLI-Bun-f9f1e1?logo=bun&logoColor=black)
 
-![CueSheet Interface](docs/new_home.png)
+</div>
 
-## Features
+<p align="center">
+  <img src="docs/images/obs-4screen-output.jpg" alt="Live 4-stream OBS layout produced by CueSheet" width="900">
+</p>
+<p align="center"><em>The real output: a 4-Screen OBS layout assembled and switched live by CueSheet — one Media Source per stream, auto-generated team labels, no browser sources.</em></p>
 
-- **Studio Mode Support**: Full preview/program scene management with transition controls for professional broadcasting
-- **OBS Scene Control**: Switch between OBS layouts (1-Screen, 2-Screen, 4-Screen) with dynamic button states
-- **Multi-Screen Source Control**: Manage 7 different screen positions (large, left, right, and 4 corners)
-- **Real-time OBS Integration**: WebSocket connection with live status monitoring
-- **Enhanced Stream Management**: Create, edit, and delete streams with comprehensive OBS cleanup
-- **Team Organization**: Organize streams by teams with full CRUD operations and scene synchronization
-- **Collapsible Stream Groups**: Organized stream display with expandable team groups for better UI management
-- **Comprehensive Deletion**: Remove streams/teams with complete OBS component cleanup (scenes, sources, text files)
-- **Streamlink Media Sources**: Streams are added as OBS Media Sources (`ffmpeg_source`) fed by an external Streamlink + ffmpeg pipeline by default, with a browser-source fallback
-- **Low-Memory Pipeline**: External Streamlink decode (~44 MB/stream) avoids spawning a full CEF/Chromium instance per browser source, so OBS scales to dozens of simultaneous streams without running out of memory
-- **Live-Reload Supervisor**: A standalone Streamlink supervisor reads the stream list from the DB, runs one streamlink→ffmpeg→UDP pipeline per stream, auto-respawns failed pipelines, and reloads on demand when streams are added/removed (no restart required)
-- **Modern UI**: Glass morphism design with responsive layout and accessibility features
-- **Professional Broadcasting**: Audio routing, scene management, and live status indicators
-- **Dual Integration**: WebSocket API + text file monitoring for maximum compatibility
-- **UUID-based Tracking**: Robust OBS group synchronization with rename-safe tracking
-- **Enhanced Footer**: Real-time team/stream counts, OBS connection status, and studio mode indicators
-- **API Security**: Optional API key authentication for production deployments
-- **Optimized Performance**: Consolidated CSS architecture and standardized API responses
+CueSheet is a [Next.js](https://nextjs.org) control surface for marathon-style multi-stream events (think charity stream-a-thons): a single operator assigns live Twitch streams to screen positions, flips OBS between 1/2/4-screen layouts with studio-mode preview, and lets an external Streamlink supervisor keep dozens of low-memory video pipelines running — with live status for all of it.
 
-## Quick Start
+## Highlights
+
+**Broadcast control**
+- Full studio mode support: preview/program scene management with transition control ("GO LIVE")
+- One-click OBS layout switching (1-Screen, 2-Screen, 4-Screen) with dynamic button states
+- 7 assignable screen positions: large, left, right, and all four corners
+- Real-time OBS WebSocket integration with connection, scene, and studio-mode status in the footer
+
+**Stream & team management**
+- Create, edit, and delete streams and teams with full OBS cleanup (scenes, sources, text files)
+- Streams organized into collapsible team groups, synced to OBS group scenes
+- Auto-generated team/streamer labels rendered as OBS text sources — unified plate style with per-team colors, auto-centered
+- UUID-based group tracking survives renames; duplicate stream submissions are rejected (HTTP 409)
+
+**Low-memory media pipeline**
+- Streams are OBS **Media Sources** (`ffmpeg_source`) fed by an external Streamlink → ffmpeg → UDP relay, ~44 MB per stream
+- No per-stream CEF/Chromium instance (browser sources exhaust OBS memory around ~40 streams) — OBS only decodes MPEG-TS
+- Standalone supervisor auto-respawns failed pipelines (escalating after repeated crashes) and hot-reloads when streams are added or removed — no restarts
+- Deterministic per-stream relay ports computed independently by both sides; browser-source fallback one env var away
+
+**Built for event ops**
+- `EVENT_KEY` switches the whole app to a new event's tables — no source edits, no rebuild
+- Single cross-platform `cuesheet` binary: web UI, supervisor, TUI monitors, and ops tools in one executable
+- Optional API key authentication for production deployments
+- Dual OBS integration: WebSocket API + Source Switcher text-file monitoring for maximum compatibility
+
+## The control room
+
+<p align="center">
+  <img src="docs/images/webui-home.png" alt="CueSheet control center" width="820">
+</p>
+<p align="center"><em>The control center: assign any stream to any screen position, set the preview layout, and go live — with OBS and supervisor status always in view.</em></p>
+
+<p align="center">
+  <img src="docs/images/webui-streams.png" alt="Stream management page" width="820">
+</p>
+<p align="center"><em>Stream management: add by Twitch username or URL, grouped by team, with per-stream pipeline start/stop/preview and live status badges.</em></p>
+
+<p align="center">
+  <img src="docs/images/supervisor-dashboard.png" alt="Streamlink supervisor dashboard" width="900">
+</p>
+<p align="center"><em>The supervisor dashboard (<code>:8080</code>): every pipeline's state, restart count, and UDP relay target — crashed pipelines are respawned automatically and escalate if they keep failing.</em></p>
+
+<details>
+<summary><strong>More screenshots</strong> — teams, settings, performance</summary>
+<br>
+<p align="center">
+  <img src="docs/images/webui-teams.png" alt="Team management page" width="780">
+  <br><em>Team management with OBS group verification and one-click sync.</em>
+</p>
+<p align="center">
+  <img src="docs/images/webui-settings.png" alt="Settings page" width="780">
+  <br><em>API key auth and OBS playback policy re-application.</em>
+</p>
+<p align="center">
+  <img src="docs/images/webui-performance.png" alt="Performance metrics page" width="780">
+  <br><em>Built-in API latency metrics.</em>
+</p>
+</details>
+
+## How it works
+
+```mermaid
+flowchart LR
+    TW(["Twitch"])
+
+    subgraph WEB["CueSheet webui  (:3000)"]
+        UI["Next.js UI + API routes"]
+        DB[("SQLite<br/>streams_* / teams_*")]
+    end
+
+    subgraph SUP["Streamlink supervisor  (:8080)"]
+        SL["streamlink"] -- "MPEG-TS" --> FF["ffmpeg -c copy"]
+    end
+
+    subgraph OBS["OBS Studio"]
+        MS["Media Source per stream<br/>(ffmpeg_source)"]
+        SSW["Source Switcher plugin"]
+    end
+
+    TW --> SL
+    UI --- DB
+    DB -. "stream list" .-> SUP
+    UI -- "POST /reload" --> SUP
+    FF -- "udp://127.0.0.1:&lt;port&gt;" --> MS
+    UI <-- "WebSocket  (:4455)" --> OBS
+    UI -- "writes &lt;screen&gt;.txt" --> SSW
+```
+
+- The **webui** owns the database and OBS: it creates scenes/sources over the OBS WebSocket and writes `<screen>.txt` files that the [Source Switcher](https://github.com/exeldro/obs-source-switcher) plugin polls every second.
+- The **supervisor** reads the same stream list and runs one `streamlink → ffmpeg → UDP` pipeline per stream. Both sides independently compute the same relay port from the stream's database `id` (`lib/relayPort.ts`) — no coordination needed.
+- Adding or removing a stream pings the supervisor's `POST /reload` (best-effort), so pipelines start and stop **without restarting anything**.
+
+## Quick start
 
 ```bash
 npm install
-npm run dev
+npm run dev          # web UI on http://localhost:3000
+npm run supervisor   # Streamlink supervisor (run on the OBS host)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to access the control interface.
+`streamlink` and `ffmpeg` must be on PATH (or set `STREAMLINK_PATH` / `FFMPEG_PATH`). Run `cuesheet doctor` to verify your setup.
 
 ### Production build
 
@@ -237,6 +323,13 @@ Without an API key, anyone on your network can control your OBS streams.
 4. Set read interval to 1000ms
 5. Sources will switch automatically when files change
 
+See [`docs/OBS_SETUP.md`](docs/OBS_SETUP.md) for the full OBS walkthrough.
+
+> **System scenes.** Infrastructure scenes that contain the source switchers
+> (1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies, Resources,
+> Donor, BRB) are excluded from orphaned-group detection. Additional scenes can
+> be added to the `SYSTEM_SCENES` array in `app/api/verifyGroups/route.ts`.
+
 ### Streamlink Media-Source pipeline
 
 By default (`STREAM_USE_FFMPEG` unset or `true`), adding a stream creates an OBS
@@ -328,40 +421,23 @@ npm run load:setactive               # Load-test the setActive endpoint
 
 ## Architecture
 
-- **Frontend**: Next.js 15 with React 19 and TypeScript
+- **Frontend**: Next.js 15 with React 19 and TypeScript, CRT phosphor-terminal theme
 - **Backend**: Next.js API routes with SQLite database
 - **OBS Integration**: WebSocket connection + Source Switcher text-file monitoring
 - **Media pipeline**: Streamlink supervisor → per-stream ffmpeg → local UDP relay → OBS `ffmpeg_source` Media Source (deterministic port via `lib/relayPort.ts`; live reload via `lib/supervisorClient.ts`)
-- **Styling**: Custom CSS with glass morphism and Tailwind utilities
-- **CI/CD**: GitHub Actions (`.github/workflows/`)
+- **CLI**: single `cuesheet` binary built with Bun (`src/cli/`)
+- **CI/CD**: GitHub Actions (`.github/workflows/`), gated by a single required `ci-ok` check
 
-## API Documentation
+## Documentation
 
-The application provides a comprehensive REST API for managing streams, teams, and OBS integration. 
+| Doc | What's in it |
+| --- | --- |
+| [`docs/API.md`](docs/API.md) | Complete REST API reference (streams, teams, source control, scenes, status) |
+| [`docs/OBS_SETUP.md`](docs/OBS_SETUP.md) | OBS + Source Switcher setup walkthrough |
+| [`docs/RUNBOOK_EVENT.md`](docs/RUNBOOK_EVENT.md) | Event-day runbook |
+| [`docs/RUNBOOK_FALLBACK.md`](docs/RUNBOOK_FALLBACK.md) | Fallback / rollback procedures |
+| [`docs/plugin-contract.md`](docs/plugin-contract.md) | Source Switcher plugin contract |
+| [`docs/schema.md`](docs/schema.md) | Database schema |
+| [`AGENTS.md`](AGENTS.md) | Detailed architecture documentation |
 
-**📚 [Complete API Documentation](docs/API.md)**
-
-Key endpoints include:
-- Stream management (CRUD operations)
-- Source control for 7 screen positions  
-- Team and OBS group management
-- Scene switching and studio mode controls
-- Real-time status monitoring
-
-All endpoints support API key authentication for production deployments.
-
-See [`CLAUDE.md`](CLAUDE.md) for detailed architecture documentation and [`docs/API.md`](docs/API.md) for complete endpoint specifications.
-
-## Known Issues
-
-### Text Centering
-- **Issue**: Team name text overlays position left edge at center instead of centering the text itself
-- **Workaround**: Manually change "Positional Alignment" to "Center" in OBS UI
-- **Status**: Under investigation - requires further research into OBS API behavior
-
-### System Scene Exclusion
-Infrastructure scenes containing source switchers are excluded from orphaned group detection:
-- 1-Screen, 2-Screen, 4-Screen, Starting, Ending, Audio, Movies, Resources, Donor, BRB
-- Additional scenes can be added to the `SYSTEM_SCENES` array in `/app/api/verifyGroups/route.ts`
-
-
+All API endpoints support API key authentication for production deployments.
