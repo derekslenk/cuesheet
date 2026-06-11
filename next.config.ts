@@ -6,11 +6,6 @@ const nextConfig: NextConfig = {
   // one copyable folder started with `node server.js` — no `next start`, no
   // full node_modules install on the OBS host. See README "Deploying".
   output: "standalone",
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
-  },
 };
 
 export default nextConfig;
