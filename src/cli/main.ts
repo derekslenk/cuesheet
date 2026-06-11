@@ -13,6 +13,7 @@
  * command modules are reached via literal dynamic imports (loaded on demand).
  */
 import { Command } from 'commander';
+import { CUESHEET_VERSION } from '../../lib/version.js';
 import { EXIT, CliError } from './lib/exit.js';
 import { consoleLogger } from './lib/log.js';
 import type { CommandContext } from './lib/types.js';
@@ -48,7 +49,7 @@ const program = new Command();
 program
   .name('cuesheet')
   .description('CueSheet control binary — launchers, supervisor, and ops tools in one place.')
-  .version('0.1.0');
+  .version(CUESHEET_VERSION);
 
 // ── Launchers ──────────────────────────────────────────────────────────────
 program

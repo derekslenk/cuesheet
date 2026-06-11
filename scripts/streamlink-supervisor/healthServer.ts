@@ -1,4 +1,5 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
+import { CUESHEET_VERSION } from '../../lib/version';
 
 export interface HealthStreamSnapshot {
   streamId: string;
@@ -216,7 +217,7 @@ export function handleHealthRequest(
   const status = allRunning ? 'ok' : 'degraded';
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ status, streams }));
+  res.end(JSON.stringify({ status, version: CUESHEET_VERSION, streams }));
 }
 
 export interface StartHealthServerOptions {

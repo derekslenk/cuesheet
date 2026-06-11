@@ -22,9 +22,12 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+
+const { version: pkgVersion } = createRequire(import.meta.url)('../package.json');
 
 const isWin = process.platform === 'win32';
 const RETRIES = 40;
@@ -130,6 +133,13 @@ for (let i = 0; i < RETRIES && !childExited; i++) {
     if (res.status === 200) {
       const body = await res.json();
       log(`✓ GET /health → 200 (status: ${body?.status ?? 'unknown'})`);
+      // The compiled binary embeds package.json at build time (lib/version.ts);
+      // this proves the stamping survives `bun build --compile`.
+      if (body?.version === pkgVersion) {
+        log(`✓ /health version matches package.json (${pkgVersion})`);
+      } else {
+        fail(`/health version "${body?.version}" !== package.json "${pkgVersion}"`);
+      }
       healthOk = true;
       break;
     }
