@@ -21,6 +21,9 @@ export interface SupervisorStreamSnapshot {
 
 export interface SupervisorHealth {
   status: string;
+  // Stamped from package.json at build time; absent from supervisors built
+  // before version stamping shipped.
+  version?: string;
   streams: SupervisorStreamSnapshot[];
 }
 

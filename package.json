@@ -28,6 +28,7 @@
     "supervisor": "tsx scripts/streamlink-supervisor/index.ts",
     "supervisor:build": "bun build --compile scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor",
     "supervisor:build:win": "bun build --compile --target=bun-windows-x64 scripts/streamlink-supervisor/index.bun.ts --outfile dist/supervisor.exe",
+    "supervisor:build:release": "node scripts/buildSupervisorRelease.mjs",
     "cli:dev": "bun run src/cli/main.ts",
     "binary:build": "bun build --compile src/cli/main.ts --outfile dist/cuesheet",
     "binary:build:win": "bun build --compile --target=bun-windows-x64 src/cli/main.ts --outfile dist/cuesheet.exe",

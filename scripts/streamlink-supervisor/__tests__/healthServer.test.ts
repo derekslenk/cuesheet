@@ -1,6 +1,7 @@
 import http, { IncomingMessage } from 'http';
 import { Socket } from 'net';
 import { handleHealthRequest, startHealthServer } from '../healthServer';
+import pkg from '../../../package.json';
 
 function httpGet(url: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
@@ -79,8 +80,16 @@ describe('handleHealthRequest', () => {
     const body = JSON.parse(res.body);
     expect(body).toEqual({
       status: 'degraded',
+      version: pkg.version,
       streams: provider.list(),
     });
+  });
+
+  it('reports the package.json version (never a hardcoded one)', () => {
+    const req = makeReq('GET', '/health');
+    const res = makeRes();
+    handleHealthRequest(req, res as any, { provider });
+    expect(JSON.parse(res.body).version).toBe(pkg.version);
   });
 
   it('returns status=ok when all streams are running', () => {
@@ -106,7 +115,7 @@ describe('handleHealthRequest', () => {
     handleHealthRequest(req, res as any, { provider: empty });
 
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ status: 'ok', streams: [] });
+    expect(body).toEqual({ status: 'ok', version: pkg.version, streams: [] });
   });
 
   it('returns 404 for any other path', () => {
