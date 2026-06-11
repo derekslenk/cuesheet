@@ -32,14 +32,20 @@ const config = {
   // Coverage settings
   collectCoverageFrom: [
     'app/**/*.{ts,tsx}',
-    'components/**/*.{ts,tsx}', 
+    'components/**/*.{ts,tsx}',
     'lib/**/*.{ts,tsx}',
+    'scripts/**/*.ts',
+    'src/**/*.ts',
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/.next/**',
     '!**/coverage/**',
+    // Bun-only entry points: import bun:sqlite and `with { type: 'text' }`
+    // attributes that jest cannot load. Gated by supervisor:smoke + the
+    // tsconfig.bun.json type-check instead.
+    '!**/*.bun.ts',
   ],
-  
+
   // Coverage thresholds
   coverageThreshold: {
     global: {
@@ -47,6 +53,17 @@ const config = {
       functions: 70,
       lines: 70,
       statements: 70,
+    },
+    // Supervisor daemon gets its own ratchet (measured ~88% on 2026-06-10;
+    // floor set below that so it gates regressions without flaking). Per jest
+    // semantics this path group is excluded from the `global` bucket. Note:
+    // *.bun.ts files under this dir never enter the group's denominator —
+    // they're excluded from collection entirely (see collectCoverageFrom).
+    'scripts/streamlink-supervisor/': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
 };
