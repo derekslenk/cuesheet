@@ -33,6 +33,12 @@ jobs:
       - name: Run type check
         run: npm run type-check
 
+      - name: Type-check bun entry points
+        # index.bun.ts / supervisor.bun.ts are excluded from the base tsconfig
+        # and `bun build --compile` strips types without checking them — this
+        # is the only type gate the compiled supervisor binary has.
+        run: npm run type-check:bun
+
       - name: Run linter
         run: npm run lint
 
@@ -45,6 +51,17 @@ jobs:
 
       - name: Audit sqlite.open call sites
         run: npm run audit:sqlite-opens
+
+      - name: Set up Bun (supervisor binary smoke)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Supervisor binary smoke
+        # Advisory rollout per the remediation plan (PR-2a): flip to a required
+        # step (drop continue-on-error) after two consecutive green runs.
+        run: npm run supervisor:smoke
+        continue-on-error: true
 
       - name: Build project
         run: npm run build
