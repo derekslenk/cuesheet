@@ -94,7 +94,7 @@ function parseArgs(argv: string[]): CliArgs {
       case '--help':
         process.stdout.write(usage());
         process.exit(0);
-      // eslint-disable-next-line no-fallthrough
+       
       default:
         if (a.startsWith('--strategy=')) {
           const v = a.slice('--strategy='.length);

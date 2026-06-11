@@ -1,4 +1,4 @@
-import http, { IncomingMessage, ServerResponse } from 'http';
+import http, { IncomingMessage } from 'http';
 import { Socket } from 'net';
 import { handleHealthRequest, startHealthServer } from '../healthServer';
 
