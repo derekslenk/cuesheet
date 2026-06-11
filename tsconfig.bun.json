@@ -1,0 +1,16 @@
+{
+  // Type-checks the two bun-only entry points that the base tsconfig excludes
+  // (they import bun:sqlite and use `with { type: 'text' }` import attributes).
+  // The minimal surface they need is declared in src/cli/types/bun-shims.d.ts,
+  // so this stays plain tsc — no bun-types dependency, no @types/node clash.
+  // CI gate: `npm run type-check:bun` (added by PR-2a; nothing type-checked
+  // these files before — `bun build --compile` strips types without checking).
+  "extends": "./tsconfig.json",
+  "include": [
+    "scripts/streamlink-supervisor/index.bun.ts",
+    "src/cli/commands/supervisor.bun.ts",
+    "src/cli/types/bun-shims.d.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}
