@@ -86,11 +86,28 @@ export async function POST(request: NextRequest) {
     // Generate OBS source name with team scene name prefix
     obs_source_name = generateOBSSourceName(groupName, name);
 
+    const db = await getDatabase();
+
+    // Reject duplicates up-front. The OBS source name is the collision key:
+    // re-adding the same name to the same team would stack a second scene item
+    // onto the existing nested scene and spawn a second Streamlink session for
+    // the same channel (observed live as DB rows 335/336 both pointing at one
+    // OBS scene).
+    const duplicate = await db.get(
+      `SELECT id, name FROM ${TABLE_NAMES.STREAMS} WHERE obs_source_name = ?`,
+      [obs_source_name]
+    );
+    if (duplicate) {
+      return NextResponse.json({
+        error: 'Stream already exists',
+        details: [`"${duplicate.name}" is already added to this team (stream id ${duplicate.id}). Delete it first to re-add.`],
+      }, { status: 409 });
+    }
+
     // Insert the stream row up-front so we have a stable id for the deterministic
     // relay port. The DB keeps the upstream (Twitch) url — the Streamlink
     // supervisor needs it; OBS instead gets a local UDP relay url derived from
     // this id (lib/relayPort). Rolled back in the catch if OBS wiring fails.
-    const db = await getDatabase();
     const insertResult = await db.run(
       `INSERT INTO ${TABLE_NAMES.STREAMS} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`,
       [name, obs_source_name, url, team_id]
