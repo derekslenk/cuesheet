@@ -1,13 +1,51 @@
-name: Lint, Test and Build
+name: ci
+
+# Single CI workflow with ONE required branch-protection context: `ci-ok`.
+#
+# Why an aggregate gate: required checks that live in path-filtered workflows
+# deadlock PRs that don't touch those paths (the check never reports — see
+# PR #22), and requiring matrix-leg names ("build (20)") goes stale the moment
+# the matrix changes. `ci-ok` always reports: path-conditional jobs SKIP
+# (accepted) instead of going missing, and job/matrix renames only need a
+# `needs:` update here, never a ruleset edit.
+#
+# Absorbs the old cuesheet-binary.yml: its `gate` job (type-check + CLI jest)
+# was redundant — `web` runs the full jest suite and type-check on every PR —
+# so only the per-OS build+smoke matrix survives, gated by the paths filter.
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      cli: ${{ steps.filter.outputs.cli }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            cli:
+              - 'src/cli/**'
+              - 'scripts/streamlink-supervisor/**'
+              - 'scripts/smokeBinary.mjs'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/build.yml'
+
+  web:
     runs-on: ubuntu-latest
 
     strategy:
@@ -19,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -32,12 +70,6 @@ jobs:
 
       - name: Run type check
         run: npm run type-check
-
-      - name: Type-check bun entry points
-        # index.bun.ts / supervisor.bun.ts are excluded from the base tsconfig
-        # and `bun build --compile` strips types without checking them — this
-        # is the only type gate the compiled supervisor binary has.
-        run: npm run type-check:bun
 
       - name: Run linter
         run: npm run lint
@@ -52,17 +84,6 @@ jobs:
       - name: Audit sqlite.open call sites
         run: npm run audit:sqlite-opens
 
-      - name: Set up Bun (supervisor binary smoke)
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Supervisor binary smoke
-        # Advisory rollout per the remediation plan (PR-2a): flip to a required
-        # step (drop continue-on-error) after two consecutive green runs.
-        run: npm run supervisor:smoke
-        continue-on-error: true
-
       - name: Build project
         run: npm run build
 
@@ -72,3 +93,98 @@ jobs:
           name: obs-ss-${{ matrix.node-version }}
           include-hidden-files: 'true'
           path: ./.next/*
+
+  supervisor-binary:
+    # The compiled supervisor is the event-critical artifact. BLOCKING since
+    # 2026-06-10 (two consecutive green advisory runs on main satisfied the
+    # remediation plan's promotion criterion).
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check bun entry points
+        # index.bun.ts / supervisor.bun.ts are excluded from the base tsconfig
+        # and `bun build --compile` strips types without checking them — this
+        # is the only type gate the compiled supervisor binary has.
+        run: npm run type-check:bun
+
+      - name: Supervisor binary smoke
+        run: npm run supervisor:smoke
+
+  cli-binary:
+    # Per-OS build + smoke of the unified `cuesheet` binary. Runs only when
+    # CLI-relevant paths change; `ci-ok` treats the skip as success.
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            artifact: cuesheet.exe
+          - os: macos-latest
+            target: mac
+            artifact: cuesheet-macos
+          - os: ubuntu-latest
+            target: linux
+            artifact: cuesheet-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build binary (${{ matrix.target }})
+        run: npm run binary:build:${{ matrix.target }}
+
+      - name: Smoke
+        run: node scripts/smokeBinary.mjs
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  ci-ok:
+    # THE one required status check. `if: always()` so it reports even when an
+    # upstream job fails or is skipped — a missing required check blocks merges
+    # with no explanation, which is exactly the failure mode this design kills.
+    if: always()
+    needs: [ changes, web, supervisor-binary, cli-binary ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS"
+          echo "$NEEDS" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'

@@ -16,9 +16,9 @@
  *   3. Spawn the binary on an ephemeral health port and poll GET /health
  *      until HTTP 200 (bounded retries), then terminate the child.
  *
- * Advisory/non-blocking pre-event: run locally before merging supervisor
- * changes (see RUNBOOK T-60). Promoted into CI as-is by PR-2a of the
- * remediation plan (continue-on-error first, required after two green runs).
+ * Runs in CI as a BLOCKING check (the `supervisor-binary` job feeds the
+ * required `ci-ok` gate; promoted from advisory 2026-06-10 after two green
+ * runs). Also run locally before merging supervisor changes (RUNBOOK T-60).
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
