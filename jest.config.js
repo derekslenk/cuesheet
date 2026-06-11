@@ -56,7 +56,9 @@ const config = {
     },
     // Supervisor daemon gets its own ratchet (measured ~88% on 2026-06-10;
     // floor set below that so it gates regressions without flaking). Per jest
-    // semantics this path group is excluded from the `global` bucket.
+    // semantics this path group is excluded from the `global` bucket. Note:
+    // *.bun.ts files under this dir never enter the group's denominator —
+    // they're excluded from collection entirely (see collectCoverageFrom).
     'scripts/streamlink-supervisor/': {
       branches: 80,
       functions: 80,
