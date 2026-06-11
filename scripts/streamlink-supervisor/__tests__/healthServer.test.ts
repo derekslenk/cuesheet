@@ -371,6 +371,18 @@ describe('handleHealthRequest', () => {
     });
   });
 
+  describe('default bind address', () => {
+    it('binds 127.0.0.1 when no hostname is given (never 0.0.0.0)', async () => {
+      const server = startHealthServer({ provider: { list: () => [] }, port: 0 });
+      await new Promise<void>(resolve => server.once('listening', resolve));
+      const addr = server.address() as { address: string; port: number };
+      expect(addr.address).toBe('127.0.0.1');
+      await new Promise<void>((resolve, reject) =>
+        server.close(err => (err ? reject(err) : resolve()))
+      );
+    });
+  });
+
   describe('dispatch guard — synchronous handler throw returns 500 and keeps server alive', () => {
     it('throws inside provider.list → 500 JSON, server survives for subsequent requests', async () => {
       let callCount = 0;
