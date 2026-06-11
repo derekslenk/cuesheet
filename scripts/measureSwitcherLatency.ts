@@ -245,7 +245,7 @@ async function measureMacOBS(args: CliArgs): Promise<{
     console.log(`Sources in ${inputName}: ${sources.length} entries`);
 
     // Resolve test value — use CLI arg or first source in the live sources array
-    let testValue = args.value ?? sources[0].value;
+    const testValue = args.value ?? sources[0].value;
     const testIndex = sources.findIndex(s => s.value === testValue);
     if (testIndex === -1) {
       throw new Error(`Test value "${testValue}" not found in live ${inputName} sources`);

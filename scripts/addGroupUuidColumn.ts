@@ -18,7 +18,7 @@ async function addGroupUuidColumn() {
 
     // Check if column already exists
     const columns = await db.all(`PRAGMA table_info(${teamsTableName})`);
-    const hasGroupUuid = columns.some((col: any) => col.name === 'group_uuid');
+    const hasGroupUuid = columns.some((col: { name: string }) => col.name === 'group_uuid');
     
     if (hasGroupUuid) {
       console.log('group_uuid column already exists');
