@@ -61,7 +61,9 @@ export async function GET(
   // Zero-copy view over the Buffer (avoids a second full-segment heap copy).
   // The playlist changes every second → never cache; .ts segments are immutable
   // once written → allow brief caching so a re-fetch never re-reads disk.
-  return new Response(new Uint8Array(data.buffer, data.byteOffset, data.byteLength), {
+  // `as ArrayBuffer`: readFile Buffers are never SharedArrayBuffer-backed, but
+  // Buffer types its store as ArrayBufferLike, which BodyInit rejects (TS 6).
+  return new Response(new Uint8Array(data.buffer as ArrayBuffer, data.byteOffset, data.byteLength), {
     headers: {
       'Content-Type': isPlaylist ? 'application/vnd.apple.mpegurl' : 'video/mp2t',
       'Cache-Control': isPlaylist ? 'no-store' : 'public, max-age=5, immutable',

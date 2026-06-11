@@ -6,6 +6,13 @@
   // CI gate: `npm run type-check:bun` (added by PR-2a; nothing type-checked
   // these files before — `bun build --compile` strips types without checking).
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // TS 6 stopped auto-including @types/* packages the program never
+    // references; the supervisor/CLI libs use Node APIs (Bun provides them
+    // at runtime), so load @types/node explicitly. bun-shims.d.ts still
+    // covers the bun-only surface (bun:sqlite, import.meta.main, *.html).
+    "types": ["node"]
+  },
   "include": [
     "scripts/streamlink-supervisor/index.bun.ts",
     "src/cli/commands/supervisor.bun.ts",

@@ -2,6 +2,9 @@
   "name": "cuesheet",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "bin": {
     "cuesheet": "dist/cuesheet"
   },
@@ -44,14 +47,14 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
-    "commander": "^12.1.0",
+    "commander": "^15.0.0",
     "hls.js": "^1.6.16",
-    "next": "^15.5.19",
+    "next": "^16.2.9",
     "obs-websocket-js": "^5.0.6",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "ws": "^8.18.0"
   },
   "optionalDependencies": {
@@ -64,19 +67,19 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.13.1",
+    "@types/node": "^22.19.21",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.20.0",
-    "eslint-config-next": "^15.4.1",
+    "eslint-config-next": "^16.2.9",
     "eslint-config-prettier": "^10.0.1",
     "jest": "^30.0.4",
     "jest-environment-jsdom": "^30.0.4",
     "postcss": "^8.5.1",
     "tailwindcss": "^4.0.0",
-    "ts-jest": "^29.4.0",
+    "ts-jest": "^29.4.11",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "^6.0.3"
   }
 }
