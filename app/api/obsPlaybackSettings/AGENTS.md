@@ -8,8 +8,9 @@
 **existing** `ffmpeg_source` already in OBS, so a Studio-Mode / restart config
 change takes effect without deleting and re-adding streams. The policy is driven
 by `OBS_RESTART_ON_ACTIVATE` plus `close_when_inactive:false` /
-`clear_on_media_end:false`. Delegates entirely to
-`lib/obsClient.applyPlaybackSettingsToInputs()`.
+`clear_on_media_end:false`, and each updated live source is also muted
+(`SetInputMute`) so no stream audio reaches the broadcast tracks. Delegates
+entirely to `lib/obsClient.applyPlaybackSettingsToInputs()`.
 
 ## Key Files
 | File | Description |
