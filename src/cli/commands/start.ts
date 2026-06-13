@@ -21,6 +21,7 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import fs from 'node:fs';
+import path from 'node:path';
 import { parseArgs } from 'node:util';
 import * as procState from '../lib/procState.js';
 import { openProcessLog, writeLogLine } from '../lib/log.js';
@@ -35,6 +36,12 @@ interface LaunchSpec {
   subcommand: 'dev' | 'sup';
   /** Ports the service is expected to bind; pre-checked before launch. */
   ports: number[];
+  /**
+   * When set, spawn this explicit command instead of re-execing ourselves.
+   * Used by the deck, which runs as a Node/tsx process (native HID cannot load
+   * inside the bun-compiled binary).
+   */
+  spawnOverride?: { exec: string; args: string[] };
 }
 
 export async function run(argv: string[], ctx: CommandContext): Promise<void> {
@@ -83,17 +90,41 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
     }
   }
 
+  // Preflight for spawn-override services (the deck): the compiled `cuesheet`
+  // binary can be run OUTSIDE a repo checkout, where `node`, tsx, and the
+  // streamdeck sources don't exist — spawning then dies with a cryptic ENOENT.
+  // Fail fast with an actionable message instead. (Checks path-like args only;
+  // a bare `node` not on PATH is caught by the spawn 'error' handler below.)
+  if (spec.spawnOverride) {
+    const missing = spec.spawnOverride.args.filter(
+      (a) => /[\\/]/.test(a) && !fs.existsSync(a),
+    );
+    if (missing.length > 0) {
+      throw new CliError(
+        `cannot start ${spec.role}: missing ${missing.join(', ')}. The stream-deck runs via ` +
+          `Node + tsx and needs a repo checkout with dependencies installed (npm install); ` +
+          `it is not bundled into the standalone cuesheet binary.`,
+        EXIT.GENERIC,
+      );
+    }
+  }
+
   const { logPath, fd } = openProcessLog(spec.role, ctx.env);
 
-  // Re-exec ourselves to launch the detached child.
-  const reexecArgs = computeReexecArgs(process.execPath, process.argv[1], spec.subcommand);
+  // Launch the detached child. Web/sup re-exec THIS binary's own subcommand; the
+  // deck overrides this to spawn `node + tsx` (it can't run inside the bun binary).
+  const exec = spec.spawnOverride?.exec ?? process.execPath;
+  const spawnArgs = spec.spawnOverride
+    ? spec.spawnOverride.args
+    : computeReexecArgs(process.execPath, process.argv[1], spec.subcommand);
 
   // Forward resolved config to the child so a detached supervisor/dev sees the
-  // same STREAMLINK_PATH/FFMPEG_PATH/ports the parent resolved.
+  // same STREAMLINK_PATH/FFMPEG_PATH/ports the parent resolved. CUESHEET_URL and
+  // DECK_* flow through automatically (childEnv inherits process.env).
   const resolved = resolveAll({}, ctx.env, ctx.cwd);
   const childEnv = buildChildEnvFor(resolved, ctx.env);
 
-  const child = spawn(process.execPath, reexecArgs, {
+  const child = spawn(exec, spawnArgs, {
     cwd: ctx.cwd,
     env: childEnv,
     // POSIX: detached starts the child in its own process group so stop.ts can
@@ -104,10 +135,20 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
     windowsHide: true,
   });
 
+  // A detached child can fail to launch ASYNCHRONOUSLY (e.g. ENOENT when the
+  // deck's `node` runtime isn't on PATH). WITHOUT an 'error' listener Node
+  // re-throws that as an uncaughtException and takes down the CLI/TUI — so we
+  // always attach one and fold the failure into the DOA check below.
+  let spawnError: NodeJS.ErrnoException | undefined;
+  child.once('error', (err: NodeJS.ErrnoException) => { spawnError = err; });
+
   const pid = child.pid;
   if (pid === undefined) {
     try { fs.closeSync(fd); } catch { /* already closed */ }
-    throw new CliError(`failed to spawn ${spec.role}`, EXIT.GENERIC);
+    const hint = spec.spawnOverride
+      ? ` (could not launch '${exec}'; is it on PATH? the stream-deck needs Node)`
+      : '';
+    throw new CliError(`failed to spawn ${spec.role}${hint}`, EXIT.GENERIC);
   }
 
   const startTime = new Date().toISOString();
@@ -120,7 +161,7 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
     role: spec.role,
     pid,
     startTime,
-    cmdFingerprint: procState.makeFingerprint([process.execPath, ...reexecArgs], ctx.cwd),
+    cmdFingerprint: procState.makeFingerprint([exec, ...spawnArgs], ctx.cwd),
     ports: spec.ports,
     logPath,
   };
@@ -135,11 +176,12 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
   // supervisor can't open its DB, or `next` can't find the app dir), drop the
   // record so status/gui never show a phantom pid, and point at the log.
   await delay(300);
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (spawnError || child.exitCode !== null || child.signalCode !== null) {
     procState.remove(spec.role, ctx.env);
-    ctx.logger.warn(
-      `${spec.role} exited immediately (code ${child.exitCode ?? child.signalCode}); see ${logPath}`,
-    );
+    const reason = spawnError
+      ? `failed to launch (${spawnError.message})`
+      : `exited immediately (code ${child.exitCode ?? child.signalCode})`;
+    ctx.logger.warn(`${spec.role} ${reason}; see ${logPath}`);
   }
 }
 
@@ -181,8 +223,8 @@ function delay(ms: number): Promise<void> {
 /** Validate/normalize the --which flag. */
 function normalizeWhich(raw: string | undefined): Which {
   const v = (raw ?? 'both').toLowerCase();
-  if (v === 'both' || v === 'sup' || v === 'web') return v;
-  throw new CliError(`invalid --which '${raw}' (expected both|sup|web)`, EXIT.USAGE);
+  if (v === 'both' || v === 'sup' || v === 'web' || v === 'deck') return v;
+  throw new CliError(`invalid --which '${raw}' (expected both|sup|web|deck)`, EXIT.USAGE);
 }
 
 /** Resolve which services to launch and the ports each owns. */
@@ -194,9 +236,23 @@ function launchSpecs(which: Which, ctx: CommandContext): LaunchSpec[] {
 
   const sup: LaunchSpec = { role: 'sup', subcommand: 'sup', ports: [healthPort, basePort] };
   const web: LaunchSpec = { role: 'web', subcommand: 'dev', ports: [webPort] };
+  // The deck runs as a Node/tsx process; spawn it the same way `npm run deck` does.
+  const deck: LaunchSpec = {
+    role: 'deck',
+    subcommand: 'dev', // unused — spawnOverride takes precedence
+    ports: [], // owns a USB device, not a TCP port
+    spawnOverride: {
+      exec: 'node',
+      args: [
+        path.join(ctx.cwd, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+        path.join(ctx.cwd, 'scripts', 'streamdeck', 'index.ts'),
+      ],
+    },
+  };
 
   if (which === 'sup') return [sup];
   if (which === 'web') return [web];
+  if (which === 'deck') return [deck]; // opt-in only; never part of 'both'
   return [sup, web];
 }
 

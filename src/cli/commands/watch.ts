@@ -10,7 +10,7 @@
  */
 
 import { parseArgs } from 'node:util';
-import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
+import { checkHealth, deckDisplay, serviceState, STATE_GLYPH } from '../lib/health.js';
 import { formatStreamLines } from '../lib/streamsView.js';
 import * as procState from '../lib/procState.js';
 import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/types.js';
@@ -18,7 +18,7 @@ import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/t
 /** Refresh interval in milliseconds (matches watch.ps1 cadence). */
 const INTERVAL_MS = 2000;
 
-const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui' };
+const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui', deck: 'stream-deck' };
 
 // ANSI helpers — simple sequences; no external deps.
 const CLEAR_SCREEN  = '\x1b[2J\x1b[H';
@@ -114,6 +114,19 @@ function printFrame(
     const detail = state === 'starting' ? 'starting… (warming up)' : h.detail;
 
     write(`  ${sym} ${svc} ${status} ${pid} ${lat}   ${detail}`);
+  }
+
+  // Opt-in stream-deck sidecar — synthesized from its tracked record (no HTTP
+  // probe; it owns a USB device, not a port).
+  {
+    const rec = byRole.get('deck') ?? null;
+    const deck = deckDisplay(rec, rec !== null && procState.isLive(rec));
+    const glyph = STATE_GLYPH[deck.state];
+    const svc = SVC_LABELS.deck.padEnd(12);
+    const status = ` ${glyph.label} `.padEnd(8);
+    const pid = deck.pid !== null ? String(deck.pid).padEnd(8) : '—'.padEnd(8);
+    const lat = '      —';
+    write(`  ${glyph.symbol} ${svc} ${status} ${pid} ${lat}   ${deck.detail}`);
   }
 
   const supStreams = health.find((h) => h.service === 'sup')?.streams;

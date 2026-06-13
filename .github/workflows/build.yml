@@ -71,6 +71,13 @@ jobs:
       - name: Run type check
         run: npm run type-check
 
+      - name: Type-check the Stream Deck sidecar
+        # scripts/streamdeck/** is excluded from the base tsconfig (it runs under
+        # Node/tsx, not the bun binary), so this is its only type gate. Wired
+        # into `web` because `web` is already part of the required `ci-ok` gate —
+        # no ruleset edit needed.
+        run: npm run type-check:deck
+
       - name: Run linter
         run: npm run lint
 
