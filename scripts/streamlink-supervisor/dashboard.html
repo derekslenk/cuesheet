@@ -34,6 +34,7 @@
       margin: 0 auto 16px;
     }
     h1 { font-size: 20px; margin: 0; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -114,6 +115,9 @@
     }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn:hover:not(:disabled) { border-color: var(--link); }
+    .btn-recover { font-weight: 600; }
+    .btn-recover:not(:disabled) { background: var(--amber); border-color: var(--amber); color: #1a1205; }
+    .btn-recover:hover:not(:disabled) { border-color: var(--fg); }
     .restarts { font-variant-numeric: tabular-nums; }
     .restarts.alert { color: var(--red); font-weight: 600; }
     .url { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
@@ -128,7 +132,10 @@
 <body>
   <header>
     <h1>OBS Streamlink Supervisor</h1>
-    <div id="overall" class="pill" data-state="unknown">starting</div>
+    <div class="header-right">
+      <button id="restart-crashed" class="btn btn-recover" disabled>Restart crashed</button>
+      <div id="overall" class="pill" data-state="unknown">starting</div>
+    </div>
   </header>
   <div id="meta">
     <span>Last update: <span id="last-update">never</span></span>
@@ -156,6 +163,16 @@
     const overallEl = document.getElementById("overall");
     const lastUpdateEl = document.getElementById("last-update");
     const rowsEl = document.getElementById("rows");
+    const restartCrashedEl = document.getElementById("restart-crashed");
+
+    // Latest count of escalated/crashed streams, refreshed every poll. Drives the
+    // bulk "Restart crashed" button's enabled state + label and the confirm copy.
+    let crashedCount = 0;
+    function updateRecoverButton(n) {
+      crashedCount = n;
+      restartCrashedEl.disabled = n === 0;
+      restartCrashedEl.textContent = n > 0 ? "Restart crashed (" + n + ")" : "Restart crashed";
+    }
 
     // Non-color status cue (glyph + word) so state is readable without relying
     // on hue. ● running / ▲ crashed / ■ stopped.
@@ -174,6 +191,7 @@
     function renderUnreachable(detail) {
       overallEl.dataset.state = "unreachable";
       overallEl.textContent = "unreachable";
+      updateRecoverButton(0);
       rowsEl.innerHTML = '<tr><td colspan="5" class="empty">Supervisor not responding' +
         (detail ? ' — ' + escapeHtml(detail) : "") + '. Retrying.</td></tr>';
     }
@@ -201,14 +219,33 @@
       control(btn.dataset.streamId, btn.dataset.action);
     });
 
+    // Bulk recovery: restart every crashed (escalated) stream in one click. The
+    // server picks the targets from live status, so this stays correct even if
+    // the count changed since the last poll.
+    restartCrashedEl.addEventListener("click", async () => {
+      if (restartCrashedEl.disabled) return;
+      const n = crashedCount;
+      if (!confirm("Restart " + n + " crashed stream" + (n === 1 ? "" : "s") + "?")) return;
+      restartCrashedEl.disabled = true;
+      try {
+        const res = await fetch("/streams/restart-crashed", { method: "POST" });
+        if (!res.ok) alert("Restart crashed failed: HTTP " + res.status);
+      } catch (e) {
+        alert("Restart crashed failed: " + (e && e.message ? e.message : e));
+      }
+      pollStreams();
+    });
+
     function renderStreams(streams) {
       if (!streams.length) {
+        updateRecoverButton(0);
         rowsEl.innerHTML = '<tr><td colspan="5" class="empty">No streams configured.</td></tr>';
         return;
       }
-      const anyCrashed = streams.some(s => s.status === "escalated");
-      overallEl.dataset.state = anyCrashed ? "degraded" : "ok";
-      overallEl.textContent = anyCrashed ? "degraded" : "ok";
+      const crashed = streams.filter(s => s.status === "escalated").length;
+      updateRecoverButton(crashed);
+      overallEl.dataset.state = crashed ? "degraded" : "ok";
+      overallEl.textContent = crashed ? "degraded" : "ok";
 
       rowsEl.innerHTML = streams.map(s => {
         const status = String(s.status || "stopped");

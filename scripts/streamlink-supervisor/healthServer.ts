@@ -38,6 +38,10 @@ export interface HealthRequestContext {
   // Restarts a single supervised stream in place. Returns false if the stream
   // isn't supervised (unknown / operator-stopped). Wired by runtime.
   onRestart?: (streamId: string) => boolean;
+  // Bulk-restarts every stream the crash-loop guard has escalated (status
+  // 'escalated'), in place. Returns the ids it restarted. Operator-stopped
+  // streams are untouched. Wired by runtime.
+  onRestartCrashed?: () => { restarted: string[] };
   // Durably start/stop a single stream (flip `disabled`, then start/stop the
   // pipeline). Async because they write the DB. false => unknown streamId (404).
   onStart?: (streamId: string) => Promise<boolean>;
@@ -105,6 +109,27 @@ export function handleHealthRequest(
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
       });
+    return;
+  }
+
+  // POST /streams/restart-crashed — bulk restart every escalated stream in place.
+  // Checked before the per-stream /streams/{id}/restart regex below; the literal
+  // path has no trailing /restart segment so the two never collide, but the
+  // exact-match guard keeps the intent obvious.
+  if (url === '/streams/restart-crashed') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'POST' });
+      res.end(JSON.stringify({ error: 'method not allowed' }));
+      return;
+    }
+    if (!ctx.onRestartCrashed) {
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'restart-crashed not configured' }));
+      return;
+    }
+    const result = ctx.onRestartCrashed();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', ...result }));
     return;
   }
 
@@ -227,6 +252,7 @@ export interface StartHealthServerOptions {
   dashboardHtml?: string;
   onReload?: () => Promise<ReloadResult>;
   onRestart?: (streamId: string) => boolean;
+  onRestartCrashed?: () => { restarted: string[] };
   onStart?: (streamId: string) => Promise<boolean>;
   onStop?: (streamId: string) => Promise<boolean>;
   listAll?: () => Promise<DashboardStream[]>;
@@ -238,6 +264,7 @@ export function startHealthServer(opts: StartHealthServerOptions): Server {
     dashboardHtml: opts.dashboardHtml,
     onReload: opts.onReload,
     onRestart: opts.onRestart,
+    onRestartCrashed: opts.onRestartCrashed,
     onStart: opts.onStart,
     onStop: opts.onStop,
     listAll: opts.listAll,
