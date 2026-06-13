@@ -268,6 +268,54 @@ describe('handleHealthRequest', () => {
     });
   });
 
+  describe('/streams/restart-crashed (bulk)', () => {
+    const emptyProvider = { list: () => [] };
+
+    it('POST invokes onRestartCrashed and returns 200 with the restarted ids', () => {
+      const onRestartCrashed = jest.fn().mockReturnValue({ restarted: ['team_b', 'team_c'] });
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/restart-crashed'), res as any, {
+        provider: emptyProvider,
+        onRestartCrashed,
+      });
+      expect(onRestartCrashed).toHaveBeenCalledTimes(1);
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: 'ok', restarted: ['team_b', 'team_c'] });
+    });
+
+    it('GET restart-crashed returns 405 (POST-only)', () => {
+      const onRestartCrashed = jest.fn();
+      const res = makeRes();
+      handleHealthRequest(makeReq('GET', '/streams/restart-crashed'), res as any, {
+        provider: emptyProvider,
+        onRestartCrashed,
+      });
+      expect(res.statusCode).toBe(405);
+      expect(onRestartCrashed).not.toHaveBeenCalled();
+    });
+
+    it('POST returns 501 when onRestartCrashed is not configured', () => {
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/restart-crashed'), res as any, {
+        provider: emptyProvider,
+      });
+      expect(res.statusCode).toBe(501);
+    });
+
+    it('does not shadow the per-stream restart of a stream named "restart-crashed"', () => {
+      // /streams/restart-crashed/restart still routes to the single-stream handler
+      // with id "restart-crashed" — the bulk path is the exact /streams/restart-crashed.
+      const onRestart = jest.fn().mockReturnValue(true);
+      const res = makeRes();
+      handleHealthRequest(makeReq('POST', '/streams/restart-crashed/restart'), res as any, {
+        provider: emptyProvider,
+        onRestart,
+      });
+      expect(onRestart).toHaveBeenCalledWith('restart-crashed');
+      expect(res.statusCode).toBe(200);
+    });
+  });
+
   describe('/streams/{id}/start and /stop', () => {
     const emptyProvider = { list: () => [] };
     const flush = () => new Promise(r => setTimeout(r, 0));

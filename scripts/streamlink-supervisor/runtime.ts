@@ -42,6 +42,7 @@ export interface SupervisorRuntime {
   reload: () => Promise<{ added: string[]; removed: string[]; total: number }>;
   onStart: (streamId: string) => Promise<boolean>;
   onStop: (streamId: string) => Promise<boolean>;
+  onRestartCrashed: () => { restarted: string[] };
   listAll: () => Promise<DashboardStream[]>;
   shutdown: () => Promise<void>;
 }
@@ -142,6 +143,16 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     return true;
   };
 
+  // Bulk recovery: restart every stream the crash-loop guard has escalated, in
+  // place (same spec + port, full escalation budget restored). Operator-stopped
+  // streams aren't in supervisor.list(), so they're never touched. Synchronous —
+  // supervisor.restart/list are in-memory. Returns the ids it restarted.
+  const onRestartCrashed = (): { restarted: string[] } => {
+    const crashed = supervisor.list().filter(s => s.status === 'escalated');
+    const restarted = crashed.filter(s => supervisor.restart(s.streamId)).map(s => s.streamId);
+    return { restarted };
+  };
+
   // DB-backed list of ALL streams merged with live supervised state. A stopped
   // row isn't in supervisor.list(), so its eventual port is derived via
   // relayPort(id) and its status is 'stopped'.
@@ -170,6 +181,7 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     dashboardHtml: opts.dashboardHtml,
     onReload: reload,
     onRestart: (streamId: string) => supervisor.restart(streamId),
+    onRestartCrashed,
     onStart,
     onStop,
     listAll,
@@ -190,5 +202,5 @@ export async function startRuntime(opts: StartRuntimeOptions): Promise<Superviso
     await new Promise<void>(resolve => server.close(() => resolve()));
   };
 
-  return { supervisor, server, reload, shutdown, onStart, onStop, listAll };
+  return { supervisor, server, reload, shutdown, onStart, onStop, onRestartCrashed, listAll };
 }
