@@ -88,14 +88,15 @@ export async function run(argv: string[], ctx: CommandContext): Promise<void> {
 
 function normalizeWhich(raw: string | undefined): Which {
   const v = (raw ?? 'both').toLowerCase();
-  if (v === 'both' || v === 'sup' || v === 'web') return v;
-  throw new CliError(`invalid --which '${raw}' (expected both|sup|web)`, EXIT.USAGE);
+  if (v === 'both' || v === 'sup' || v === 'web' || v === 'deck') return v;
+  throw new CliError(`invalid --which '${raw}' (expected both|sup|web|deck)`, EXIT.USAGE);
 }
 
 function rolesFor(which: Which): Set<Role> {
   if (which === 'sup') return new Set<Role>(['sup']);
   if (which === 'web') return new Set<Role>(['web']);
-  return new Set<Role>(['sup', 'web']);
+  if (which === 'deck') return new Set<Role>(['deck']);
+  return new Set<Role>(['sup', 'web']); // 'both' stays web+sup; deck is opt-in
 }
 
 function describe(which: Which): string {

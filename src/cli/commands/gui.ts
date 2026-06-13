@@ -47,7 +47,7 @@ import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/t
 const POLL_MS = 2000;
 
 /** Service display labels. */
-const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui' };
+const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui', deck: 'stream-deck' };
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -141,6 +141,24 @@ export async function run(_argv: string[], ctx: CommandContext): Promise<void> {
         .then(() => { statusMsg = 'restart: done'; })
         .catch((e: unknown) => { statusMsg = `restart failed: ${errMsg(e)}`; })
         .finally(() => { busy = false; });
+    } else if (str === 'd' || str === 'D') {
+      // Toggle the stream-deck sidecar (opt-in; deliberately not part of [s]/[x]/[r]).
+      const deckRec = records.find((r) => r.role === 'deck') ?? null;
+      const deckLive = deckRec !== null && procState.isLive(deckRec);
+      busy = true;
+      if (deckLive) {
+        statusMsg = 'stopping stream-deck…';
+        stopRun(['--which', 'deck'], silentCtx)
+          .then(() => { statusMsg = 'stream-deck: stopped'; })
+          .catch((e: unknown) => { statusMsg = `deck stop failed: ${errMsg(e)}`; })
+          .finally(() => { busy = false; });
+      } else {
+        statusMsg = 'starting stream-deck…';
+        startRun(['--which', 'deck'], silentCtx)
+          .then(() => { statusMsg = 'stream-deck: started'; })
+          .catch((e: unknown) => { statusMsg = `deck start failed: ${errMsg(e)}`; })
+          .finally(() => { busy = false; });
+      }
     }
   });
 
@@ -213,6 +231,14 @@ function buildFrame(
     lines.push(boxLine(svcRow(glyph.symbol, SVC_LABELS[h.service], glyph.label, pid, lat, detail), inner));
   }
 
+  // Deck row — synthesized from the tracked record (no HTTP health probe).
+  {
+    const rec = byRole.get('deck') ?? null;
+    const live = rec !== null && procState.isLive(rec);
+    const glyph = STATE_GLYPH[serviceState(live, live)];
+    lines.push(boxLine(svcRow(glyph.symbol, SVC_LABELS.deck, glyph.label, rec ? String(rec.pid) : '—', '—', live ? 'running' : 'stopped'), inner));
+  }
+
   // Timestamp separator.
   const ts = new Date().toLocaleTimeString();
   lines.push('╟' + pad(` last updated: ${ts} ─ refreshing every ${POLL_MS / 1000}s `, inner, '─') + '╢');
@@ -222,7 +248,7 @@ function buildFrame(
   if (fb) lines.push(boxLine(fb, inner));
 
   // Keybindings.
-  lines.push(boxLine('[s] start   [x] stop   [r] restart   [q] quit', inner));
+  lines.push(boxLine('[s] start   [x] stop   [r] restart   [d] deck   [q] quit', inner));
 
   // Bottom border.
   lines.push('╚' + '═'.repeat(inner) + '╝');
@@ -276,6 +302,12 @@ async function nonTtyFallback(ctx: CommandContext): Promise<void> {
     const pid = rec ? `pid=${rec.pid}` : 'not tracked';
     const detail = state === 'starting' ? 'starting… (warming up)' : h.detail;
     lines.push(`  ${glyph.symbol} ${SVC_LABELS[h.service]}  ${glyph.label}  ${pid}  ${detail}`);
+  }
+  {
+    const rec = byRole.get('deck') ?? null;
+    const live = rec !== null && procState.isLive(rec);
+    const glyph = STATE_GLYPH[serviceState(live, live)];
+    lines.push(`  ${glyph.symbol} ${SVC_LABELS.deck}  ${glyph.label}  ${rec ? `pid=${rec.pid}` : 'not tracked'}  ${live ? 'running' : 'stopped'}`);
   }
   const supStreams = health.find((h) => h.service === 'sup')?.streams;
   if (supStreams) {

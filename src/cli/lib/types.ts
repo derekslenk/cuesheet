@@ -7,10 +7,10 @@
  */
 
 /** Logical service/process the CLI manages. */
-export type Role = 'web' | 'sup';
+export type Role = 'web' | 'sup' | 'deck';
 
 /** Which services a start/stop/restart action targets. */
-export type Which = 'both' | 'sup' | 'web';
+export type Which = 'both' | 'sup' | 'web' | 'deck';
 
 /**
  * Execution context threaded into every command's `run()`. Lets commands be

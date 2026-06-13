@@ -18,7 +18,7 @@ import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/t
 /** Refresh interval in milliseconds (matches watch.ps1 cadence). */
 const INTERVAL_MS = 2000;
 
-const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui' };
+const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui', deck: 'stream-deck' };
 
 // ANSI helpers — simple sequences; no external deps.
 const CLEAR_SCREEN  = '\x1b[2J\x1b[H';

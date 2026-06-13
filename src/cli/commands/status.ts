@@ -93,7 +93,7 @@ function buildRows(health: HealthResult[], records: ProcessRecord[]): StatusRow[
 // Human-readable table output
 // ---------------------------------------------------------------------------
 
-const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui' };
+const SVC_LABELS: Record<Role, string> = { sup: 'supervisor', web: 'web-ui', deck: 'stream-deck' };
 
 function printTable(
   health: HealthResult[],
