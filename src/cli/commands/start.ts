@@ -90,6 +90,25 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
     }
   }
 
+  // Preflight for spawn-override services (the deck): the compiled `cuesheet`
+  // binary can be run OUTSIDE a repo checkout, where `node`, tsx, and the
+  // streamdeck sources don't exist — spawning then dies with a cryptic ENOENT.
+  // Fail fast with an actionable message instead. (Checks path-like args only;
+  // a bare `node` not on PATH is caught by the spawn 'error' handler below.)
+  if (spec.spawnOverride) {
+    const missing = spec.spawnOverride.args.filter(
+      (a) => /[\\/]/.test(a) && !fs.existsSync(a),
+    );
+    if (missing.length > 0) {
+      throw new CliError(
+        `cannot start ${spec.role}: missing ${missing.join(', ')}. The stream-deck runs via ` +
+          `Node + tsx and needs a repo checkout with dependencies installed (npm install); ` +
+          `it is not bundled into the standalone cuesheet binary.`,
+        EXIT.GENERIC,
+      );
+    }
+  }
+
   const { logPath, fd } = openProcessLog(spec.role, ctx.env);
 
   // Launch the detached child. Web/sup re-exec THIS binary's own subcommand; the
@@ -116,10 +135,20 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
     windowsHide: true,
   });
 
+  // A detached child can fail to launch ASYNCHRONOUSLY (e.g. ENOENT when the
+  // deck's `node` runtime isn't on PATH). WITHOUT an 'error' listener Node
+  // re-throws that as an uncaughtException and takes down the CLI/TUI — so we
+  // always attach one and fold the failure into the DOA check below.
+  let spawnError: NodeJS.ErrnoException | undefined;
+  child.once('error', (err: NodeJS.ErrnoException) => { spawnError = err; });
+
   const pid = child.pid;
   if (pid === undefined) {
     try { fs.closeSync(fd); } catch { /* already closed */ }
-    throw new CliError(`failed to spawn ${spec.role}`, EXIT.GENERIC);
+    const hint = spec.spawnOverride
+      ? ` (could not launch '${exec}'; is it on PATH? the stream-deck needs Node)`
+      : '';
+    throw new CliError(`failed to spawn ${spec.role}${hint}`, EXIT.GENERIC);
   }
 
   const startTime = new Date().toISOString();
@@ -147,11 +176,12 @@ async function startOne(spec: LaunchSpec, ctx: CommandContext): Promise<void> {
   // supervisor can't open its DB, or `next` can't find the app dir), drop the
   // record so status/gui never show a phantom pid, and point at the log.
   await delay(300);
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (spawnError || child.exitCode !== null || child.signalCode !== null) {
     procState.remove(spec.role, ctx.env);
-    ctx.logger.warn(
-      `${spec.role} exited immediately (code ${child.exitCode ?? child.signalCode}); see ${logPath}`,
-    );
+    const reason = spawnError
+      ? `failed to launch (${spawnError.message})`
+      : `exited immediately (code ${child.exitCode ?? child.signalCode})`;
+    ctx.logger.warn(`${spec.role} ${reason}; see ${logPath}`);
   }
 }
 

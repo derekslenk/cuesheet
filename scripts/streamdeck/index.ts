@@ -42,14 +42,13 @@ async function main(): Promise<void> {
 
   const client = createClient({ baseUrl: config.baseUrl, timeoutMs: config.requestTimeoutMs, log })
   const controller = new DeckController({ device, client, config, log })
-  await controller.start()
-  log(`[deck] running against ${config.baseUrl} — press keys on the deck, Ctrl-C to stop.`)
 
-  let shuttingDown = false
-  const shutdown = async (signal: string): Promise<void> => {
-    if (shuttingDown) return
-    shuttingDown = true
-    log(`[deck] ${signal} — releasing device...`)
+  // Shared teardown: stop polling, blank + release the device, drop the lock.
+  // Used by BOTH the signal handlers and the startup-failure path, so a throw
+  // during start() can never leak cuesheet-deck.lock or leave the panel lit
+  // (previously a start() error went straight to main().catch() → exit(FATAL)
+  // without releasing either).
+  const teardown = async (): Promise<void> => {
     try {
       await controller.stop()
     } catch {
@@ -62,6 +61,22 @@ async function main(): Promise<void> {
       /* ignore */
     }
     release()
+  }
+
+  try {
+    await controller.start()
+  } catch (err) {
+    await teardown()
+    throw err
+  }
+  log(`[deck] running against ${config.baseUrl} — press keys on the deck, Ctrl-C to stop.`)
+
+  let shuttingDown = false
+  const shutdown = async (signal: string): Promise<void> => {
+    if (shuttingDown) return
+    shuttingDown = true
+    log(`[deck] ${signal} — releasing device...`)
+    await teardown()
     process.exit(0)
   }
   process.on('SIGINT', () => void shutdown('SIGINT'))

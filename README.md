@@ -165,9 +165,10 @@ On macOS/Linux, `chmod +x` the download first.
 
 > **Standalone vs. repo-only.** The released binary runs the supervisor and all
 > monitoring/ops commands anywhere: `sup`, `status`, `watch`, `gui`, `start`/`stop`,
-> `doctor`, `loadtest`, `soak`, `clean-obs`, `measure-latency`. The one exception is
-> **`cuesheet dev`** — it runs the Next.js dev server, so it needs the project source
-> + `node_modules` and only works from a repo checkout, not a standalone download.
+> `doctor`, `loadtest`, `soak`, `clean-obs`, `measure-latency`. Two things need a repo
+> checkout (project source + `node_modules`), not a standalone download: **`cuesheet dev`**
+> (it runs the Next.js dev server) and **`cuesheet start --which deck`** (the Stream Deck
+> sidecar runs via Node + tsx — see [`scripts/streamdeck/README.md`](scripts/streamdeck/README.md)).
 > For a production webui, deploy the `next build` standalone bundle (see "Production
 > build" above).
 
@@ -195,14 +196,14 @@ npm run cli:dev -- <command>        # e.g. npm run cli:dev -- status
 ### Commands
 
 ```
-cuesheet dev                              # Next.js web UI (:3000) — spawns `next dev`
-cuesheet sup                              # Streamlink supervisor (:8080) — runs in-process
-cuesheet start [--which both|sup|web]     # launch dev/supervisor detached (tracked)
-cuesheet stop  [--which both|sup|web]     # stop exactly what `start` launched
-cuesheet status [--json|--logs|--diagnose]  # one-shot status (exit 0 = all up)
-cuesheet watch                            # live status, refreshes every 2s
-cuesheet gui                              # full-screen TUI control center (start/stop/restart)
-cuesheet doctor                           # diagnose deps, ports, paths, resolved config
+cuesheet dev                                   # Next.js web UI (:3000) — spawns `next dev`
+cuesheet sup                                   # Streamlink supervisor (:8080) — runs in-process
+cuesheet start [--which both|sup|web|deck]     # launch detached (tracked). 'deck' is opt-in; never part of 'both'
+cuesheet stop  [--which both|sup|web|deck]     # stop exactly what `start` launched
+cuesheet status [--json|--logs|--diagnose]     # one-shot status (exit 0 = all up); includes a stream-deck row
+cuesheet watch                                 # live status, refreshes every 2s
+cuesheet gui                                   # full-screen TUI control center ([s] start [x] stop [r] restart [d] deck)
+cuesheet doctor                                # diagnose deps, ports, paths, resolved config
 cuesheet loadtest | loaddriver | soak | clean-obs | measure-latency | verify-switcher-coverage
 ```
 
@@ -212,6 +213,16 @@ blanket-kills unrelated `node` / `ffmpeg` / `streamlink` processes (e.g. a
 running load test). Config resolution follows precedence **flag -> env ->
 `.env.local` -> built-in default**; run `cuesheet doctor` to see every resolved
 value and where it came from.
+
+**Stream Deck control (opt-in).** An Elgato Stream Deck XL can drive cuesheet as a
+physical control surface — assign streamers to slots, switch OBS layouts, cut live.
+Run it in the foreground with `npm run deck`, or as a tracked process with
+`cuesheet start --which deck` (toggle it from `gui` with the **`d`** key, stop it
+with `cuesheet stop --which deck`). It is opt-in — never started by plain
+`start`/`stop` or the TUI `s`/`x`/`r` keys — and talks only to the existing
+localhost HTTP API, so it makes no backend changes. See
+[`scripts/streamdeck/README.md`](scripts/streamdeck/README.md) for setup, the config
+env vars, and the localhost-only security note.
 
 ### Migration from the old scripts
 
@@ -443,6 +454,7 @@ npm run load:setactive               # Load-test the setActive endpoint
 | [`docs/RUNBOOK_FALLBACK.md`](docs/RUNBOOK_FALLBACK.md) | Fallback / rollback procedures |
 | [`docs/plugin-contract.md`](docs/plugin-contract.md) | Source Switcher plugin contract |
 | [`docs/schema.md`](docs/schema.md) | Database schema |
+| [`scripts/streamdeck/README.md`](scripts/streamdeck/README.md) | Stream Deck XL control surface (`npm run deck`) |
 | [`AGENTS.md`](AGENTS.md) | Detailed architecture documentation |
 
 All API endpoints support API key authentication for production deployments.

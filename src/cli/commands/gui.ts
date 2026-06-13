@@ -34,13 +34,12 @@ import {
   installSignalHandlers,
   linesToString,
 } from '../lib/tui.js';
-import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
+import { checkHealth, deckDisplay, serviceState, STATE_GLYPH } from '../lib/health.js';
 import { formatStreamLines } from '../lib/streamsView.js';
 import * as procState from '../lib/procState.js';
 import { Writable } from 'node:stream';
 import { run as startRun } from './start.js';
 import { run as stopRun } from './stop.js';
-import { consoleLogger } from '../lib/log.js';
 import type { CommandContext, HealthResult, ProcessRecord, Role } from '../lib/types.js';
 
 /** Poll interval in milliseconds. */
@@ -231,12 +230,13 @@ function buildFrame(
     lines.push(boxLine(svcRow(glyph.symbol, SVC_LABELS[h.service], glyph.label, pid, lat, detail), inner));
   }
 
-  // Deck row — synthesized from the tracked record (no HTTP health probe).
+  // Deck row — synthesized from the tracked record (no HTTP health probe);
+  // shared deckDisplay() keeps status / watch / gui in agreement.
   {
     const rec = byRole.get('deck') ?? null;
-    const live = rec !== null && procState.isLive(rec);
-    const glyph = STATE_GLYPH[serviceState(live, live)];
-    lines.push(boxLine(svcRow(glyph.symbol, SVC_LABELS.deck, glyph.label, rec ? String(rec.pid) : '—', '—', live ? 'running' : 'stopped'), inner));
+    const deck = deckDisplay(rec, rec !== null && procState.isLive(rec));
+    const glyph = STATE_GLYPH[deck.state];
+    lines.push(boxLine(svcRow(glyph.symbol, SVC_LABELS.deck, glyph.label, deck.pid !== null ? String(deck.pid) : '—', '—', deck.detail), inner));
   }
 
   // Timestamp separator.
@@ -305,9 +305,9 @@ async function nonTtyFallback(ctx: CommandContext): Promise<void> {
   }
   {
     const rec = byRole.get('deck') ?? null;
-    const live = rec !== null && procState.isLive(rec);
-    const glyph = STATE_GLYPH[serviceState(live, live)];
-    lines.push(`  ${glyph.symbol} ${SVC_LABELS.deck}  ${glyph.label}  ${rec ? `pid=${rec.pid}` : 'not tracked'}  ${live ? 'running' : 'stopped'}`);
+    const deck = deckDisplay(rec, rec !== null && procState.isLive(rec));
+    const glyph = STATE_GLYPH[deck.state];
+    lines.push(`  ${glyph.symbol} ${SVC_LABELS.deck}  ${glyph.label}  ${deck.pid !== null ? `pid=${deck.pid}` : 'not tracked'}  ${deck.detail}`);
   }
   const supStreams = health.find((h) => h.service === 'sup')?.streams;
   if (supStreams) {

@@ -13,7 +13,7 @@
  */
 
 import { parseArgs } from 'node:util';
-import { checkHealth, serviceState, STATE_GLYPH } from '../lib/health.js';
+import { checkHealth, deckDisplay, serviceState, STATE_GLYPH } from '../lib/health.js';
 import { formatStreamLines } from '../lib/streamsView.js';
 import * as procState from '../lib/procState.js';
 import { tailLog } from '../lib/log.js';
@@ -122,6 +122,20 @@ function printTable(
     write(`  ${sym} ${svc} ${status} ${pid} ${lat}   ${detail}`);
   }
 
+  // Opt-in stream-deck sidecar: no HTTP probe (it owns a USB device, not a
+  // port), so its row is synthesized from the tracked record. Deliberately NOT
+  // part of the exit-code check above — a stopped opt-in deck is not a failure.
+  {
+    const rec = records.find((r) => r.role === 'deck') ?? null;
+    const deck = deckDisplay(rec, rec !== null && procState.isLive(rec));
+    const glyph = STATE_GLYPH[deck.state];
+    const svc = SVC_LABELS.deck.padEnd(12);
+    const status = ` ${glyph.label} `.padEnd(8);
+    const pid = deck.pid !== null ? String(deck.pid).padEnd(8) : '—'.padEnd(8);
+    const lat = '      —';
+    write(`  ${glyph.symbol} ${svc} ${status} ${pid} ${lat}   ${deck.detail}`);
+  }
+
   write('');
 
   // Supervised streams (only present when the supervisor answered /health).
@@ -225,6 +239,22 @@ function printJson(
       entry.streams = health.find((h) => h.service === 'sup')?.streams ?? [];
     }
     return entry;
+  });
+
+  // Append the synthesized deck row (no HTTP probe — see lib/health deckDisplay).
+  const deckRec = records.find((r) => r.role === 'deck') ?? null;
+  const deckLive = deckRec !== null && procState.isLive(deckRec);
+  const deck = deckDisplay(deckRec, deckLive);
+  output.push({
+    service:   'deck',
+    url:       null,
+    up:        deckLive,
+    state:     deck.state,
+    detail:    deck.detail,
+    latencyMs: null,
+    pid:       deck.pid,
+    live:      deckRec ? deckLive : null,
+    logPath:   deckRec ? deckRec.logPath : null,
   });
 
   ctx.stdout.write(JSON.stringify(output, null, 2) + '\n');

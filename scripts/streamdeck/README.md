@@ -49,24 +49,35 @@ The deck is **opt-in**: it is deliberately *not* part of `--which both`, so plai
 | `CUESHEET_URL` | `http://localhost:3000` | cuesheet web base URL |
 | `DECK_POLL_MS` | `2000` | `getActive` poll interval |
 | `DECK_ROSTER_REFRESH_MS` | `45000` | teams/streams refetch interval |
+| `DECK_REQUEST_TIMEOUT_MS` | `4000` | per-request HTTP timeout to the cuesheet API |
 | `DECK_BRIGHTNESS` | `80` | key brightness, 0–100 |
 | `DECK_LOCK_DIR` | OS temp dir | where the single-instance lock lives |
-| `DECK_SMOKE_MS` | (unset) | if set, auto-stop after N ms (verification mode) |
+| `DECK_SMOKE_MS` | (unset) | if set, auto-stop after N ms (verification only — never set on the event host) |
 
-## Notes / MVP limits
+## Notes & limits
 
-- **Foreground only:** run it in its own terminal; it is *not* tracked by
-  `cuesheet stop` / `status` / `gui` (a `cuesheet deck` spawn-wrapper is a future add).
-- **Single instance:** a `cuesheet-deck.lock` file guards against two decks fighting
-  the device; a stale lock from a crashed run is reclaimed automatically.
-- Runs under **Node (tsx)**, deliberately not the bun-compiled `cuesheet` binary
-  (keeps the native HID dependency out of `bun --compile`).
-- **Build/CI:** `scripts/streamdeck/**` is type-checked via `npm run type-check:deck`
-  (excluded from the base `type-check`). Deps: `@napi-rs/canvas` (rendering) and
-  `@elgato-stream-deck/node` (optional; the device adapter only).
+- **Two ways to run it:**
+  - `npm run deck` runs in the **foreground** in its own terminal (Ctrl-C to stop). It is *not* recorded in the process table, so it does **not** appear as a row in `cuesheet status` / `watch` / `gui`.
+  - `cuesheet start --which deck` launches the **tracked, detached** form: it writes a process record, shows up as the `stream-deck` row in `cuesheet status` / `watch` / `gui`, and is reaped by `cuesheet stop --which deck` (or the **`d`** key in `gui`).
+- **Opt-in:** the deck is deliberately *not* part of `--which both`, so plain `cuesheet start`/`stop` and the TUI `s`/`x`/`r` keys only ever touch web + supervisor.
+- **Repo checkout required:** `--which deck` (and `npm run deck`) spawn `node` + `tsx` against `scripts/streamdeck/`, so they need the project source with `node_modules` installed. The deck is **not** bundled into the standalone `cuesheet` binary; starting it from a binary run outside a repo fails fast with a clear message. The deployed binary must be rebuilt (`npm run binary:build:win`) for the compiled TUI's `d` key to include deck control — `npm run deck` needs no rebuild.
+- **Single instance:** a `cuesheet-deck.lock` file guards against two decks fighting the device; a stale lock from a crashed run is reclaimed automatically.
+- **Survives a web restart:** if the web server restarts while the deck is running, the deck keeps polling — keys may blank briefly while `:3000` is down, then re-populate automatically when it returns. A blank deck during a web restart is expected, not a fault.
+- Runs under **Node (tsx)**, deliberately not the bun-compiled `cuesheet` binary (keeps the native HID dependency out of `bun --compile`).
+- **Build/CI:** `scripts/streamdeck/**` is type-checked via `npm run type-check:deck` (excluded from the base `type-check`) and gated in CI through the `web` job. Deps: `@napi-rs/canvas` (rendering) and `@elgato-stream-deck/node` (optional; the device adapter only).
+
+## Security
+
+The deck talks to the cuesheet API over **plain HTTP with no authentication**, on the
+assumption that `CUESHEET_URL` points at **localhost**. Do **not** point it at a
+non-loopback address: the API has no auth for a localhost-style host, so a remote URL
+would either fail or expose unauthenticated OBS/scene control on the network. Keep the
+cuesheet host firewalled to loopback (or set `API_KEY` on the server) for the event.
 
 ## Tests
 
-`npm test` runs the deck suite (pure logic, HTTP client, rendering, and the
-controller via a fake device). Hardware input/output is verified by running
-`npm run deck` against the physical deck.
+`npm test` runs the deck suite — pure logic, layout/pagination, the HTTP client,
+rendering, and the controller driven through a **fake device** (no hardware needed).
+Physical key-press input and on-device rendering are wired and unit-tested against the
+fake, but **not yet confirmed on real hardware**: plug the deck in, run `npm run deck`,
+and tap a slot to confirm the end-to-end path before relying on it live.
