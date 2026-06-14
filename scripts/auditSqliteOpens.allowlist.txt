@@ -13,3 +13,11 @@ scripts/verifyTables.ts
 scripts/verifySwitcherCoverage.ts
 # One-off idempotent migration: adds the `disabled` column to pre-existing DBs.
 scripts/addDisabledToStreams.ts
+# Idempotent migration: adds the per-team branding columns (color_*/logo_path).
+scripts/addTeamBrandingColumns.ts
+# Standalone test-event/dev tooling: create/seed/clone events directly in the DB.
+# Run outside the app (often targeting an explicit event key), so they can't use
+# the active-event withDb() singleton.
+scripts/setupTestEvent.ts
+scripts/cloneEvent.ts
+scripts/seedLiveTestEvent.ts
