@@ -2,6 +2,9 @@ import {
   resolveOverlayColors,
   buildOverlayData,
   EVENT_DEFAULT_COLORS,
+  isHexColor,
+  isSafeLogoPath,
+  validateBrandingFields,
 } from '../overlayData';
 
 describe('overlayData', () => {
@@ -74,6 +77,65 @@ describe('overlayData', () => {
       const d = buildOverlayData({ id: 1, name: 'X', team_name: 'Y' });
       expect(d.score).toBeNull();
       expect(d.live.viewers).toBeNull();
+    });
+  });
+
+  describe('isHexColor', () => {
+    it('accepts 3- and 6-digit hex', () => {
+      expect(isHexColor('#fff')).toBe(true);
+      expect(isHexColor('#e0d9f1')).toBe(true);
+      expect(isHexColor('#2E9BE6')).toBe(true);
+    });
+    it('rejects non-hex / injection attempts', () => {
+      expect(isHexColor('red')).toBe(false);
+      expect(isHexColor('#12')).toBe(false);
+      expect(isHexColor('#1234')).toBe(false);
+      expect(isHexColor('#e0d9f1; background:url(http://evil)')).toBe(false);
+      expect(isHexColor('')).toBe(false);
+      expect(isHexColor('rgb(0,0,0)')).toBe(false);
+    });
+  });
+
+  describe('isSafeLogoPath', () => {
+    it('accepts site-relative asset paths', () => {
+      expect(isSafeLogoPath('/logos/team.png')).toBe(true);
+      expect(isSafeLogoPath('/logos/sub-dir/a_b.svg')).toBe(true);
+    });
+    it('rejects schemes, traversal, absolute URLs, and whitespace', () => {
+      expect(isSafeLogoPath('http://evil/x.png')).toBe(false);
+      expect(isSafeLogoPath('//evil/x.png')).toBe(false);
+      expect(isSafeLogoPath('file:///etc/passwd')).toBe(false);
+      expect(isSafeLogoPath('data:image/svg+xml,...')).toBe(false);
+      expect(isSafeLogoPath('/logos/../../secret')).toBe(false);
+      expect(isSafeLogoPath('logos/team.png')).toBe(false); // no leading slash
+      expect(isSafeLogoPath('/logos/ team.png')).toBe(false); // whitespace
+      expect(isSafeLogoPath('')).toBe(false);
+    });
+  });
+
+  describe('validateBrandingFields', () => {
+    it('passes valid colors + logo path', () => {
+      expect(
+        validateBrandingFields({
+          color_bg: '#472f5a',
+          color_accent: '#e0d9f1',
+          color_text: '#ffffff',
+          logo_path: '/logos/x.png',
+        })
+      ).toBeNull();
+    });
+    it('allows null (clear) and undefined (not updating) for every field', () => {
+      expect(validateBrandingFields({ color_bg: null, logo_path: null })).toBeNull();
+      expect(validateBrandingFields({})).toBeNull();
+    });
+    it('rejects a bad color', () => {
+      expect(validateBrandingFields({ color_bg: 'red' })).toMatch(/color_bg/);
+    });
+    it('rejects an unsafe logo path', () => {
+      expect(validateBrandingFields({ logo_path: 'http://evil/x.png' })).toMatch(/logo_path/);
+    });
+    it('rejects a non-string value', () => {
+      expect(validateBrandingFields({ color_accent: 123 })).toMatch(/color_accent/);
     });
   });
 });

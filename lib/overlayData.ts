@@ -79,6 +79,53 @@ export function resolveOverlayColors(
   };
 }
 
+/** A 3- or 6-digit CSS hex color (e.g. #e0d9f1). */
+export function isHexColor(value: string): boolean {
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);
+}
+
+/**
+ * A safe, site-relative logo path (e.g. /logos/team.png). Must start with a
+ * single slash and contain only a conservative path charset — no scheme
+ * (`:` is excluded so `http:`/`file:`/`data:` can't appear), no `..` traversal,
+ * no whitespace. This keeps an operator-set logo confined to the app's own
+ * assets and prevents the OBS browser source from being pointed at an
+ * untrusted/local resource via <img src>.
+ */
+export function isSafeLogoPath(value: string): boolean {
+  return /^\/[A-Za-z0-9][A-Za-z0-9._\-/]*$/.test(value) && !value.includes('..');
+}
+
+/**
+ * Validate the per-team branding subset of a PUT body. Each field is optional;
+ * `null` is allowed (it clears the value back to the event default). Returns an
+ * error message for the first invalid field, or null if all provided values are
+ * safe. Guards the unauthenticated-on-LAN write path so only sane values ever
+ * reach the overlay's inline CSS / <img src>.
+ */
+export function validateBrandingFields(fields: {
+  color_bg?: unknown;
+  color_accent?: unknown;
+  color_text?: unknown;
+  logo_path?: unknown;
+}): string | null {
+  const colorKeys = ['color_bg', 'color_accent', 'color_text'] as const;
+  for (const key of colorKeys) {
+    const v = fields[key];
+    if (v === undefined || v === null) continue;
+    if (typeof v !== 'string' || !isHexColor(v)) {
+      return `${key} must be a hex color like #2e9be6 (or null to clear)`;
+    }
+  }
+  const lp = fields.logo_path;
+  if (lp !== undefined && lp !== null) {
+    if (typeof lp !== 'string' || !isSafeLogoPath(lp)) {
+      return 'logo_path must be a site-relative path like /logos/team.png (or null to clear)';
+    }
+  }
+  return null;
+}
+
 /** Assemble the overlay contract from a joined stream+team row. */
 export function buildOverlayData(row: OverlayStreamRow): OverlayData {
   return {

@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/database';
 import { TABLE_NAMES } from '@/lib/constants';
 import { deleteTeamComponents, deleteStreamComponents, clearTextFilesForStream } from '@/lib/obsClient';
 import { requestSupervisorReload } from '@/lib/supervisorClient';
+import { validateBrandingFields } from '@/lib/overlayData';
 
 export async function PUT(
     request: Request,
@@ -25,6 +26,14 @@ export async function PUT(
         const anyBranding = Object.values(brandingFields).some((v) => v !== undefined);
         if (!team_name && group_name === undefined && group_uuid === undefined && !anyBranding) {
             return NextResponse.json({ error: 'At least one field (team_name, group_name, group_uuid, or a branding field) must be provided' }, { status: 400 });
+        }
+
+        // Validate branding before persisting: colors must be hex, logo_path must
+        // be a safe site-relative path. These values land in the overlay's inline
+        // CSS / <img src> inside OBS's browser source, so reject anything else.
+        const brandingError = validateBrandingFields(brandingFields);
+        if (brandingError) {
+            return NextResponse.json({ error: brandingError }, { status: 400 });
         }
 
         const db = await getDatabase();

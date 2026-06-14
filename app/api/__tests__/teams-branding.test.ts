@@ -71,4 +71,28 @@ describe('PUT /api/teams/[teamId] branding', () => {
     expect(sql).toContain('team_name = ?');
     expect(values).toEqual(['Renamed', 2]);
   });
+
+  it('400s (no DB write) on an invalid color', async () => {
+    const res = await put('3', { color_bg: 'red; background:url(http://evil)' });
+
+    expect(res.status).toBe(400);
+    expect(mockDb.run).not.toHaveBeenCalled();
+  });
+
+  it('400s (no DB write) on an unsafe logo path', async () => {
+    const res = await put('3', { logo_path: 'http://evil/x.png' });
+
+    expect(res.status).toBe(400);
+    expect(mockDb.run).not.toHaveBeenCalled();
+  });
+
+  it('allows null branding (reset) through validation', async () => {
+    const res = await put('3', { color_bg: null, logo_path: null });
+
+    expect(res.status).toBe(200);
+    const [sql, values] = mockDb.run.mock.calls[0];
+    expect(sql).toContain('color_bg = ?');
+    expect(sql).toContain('logo_path = ?');
+    expect(values).toEqual([null, null, 3]);
+  });
 });
