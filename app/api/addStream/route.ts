@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       // Create stream group with text overlay. V2 creates an ffmpeg_source
       // (Media Source) fed by the Streamlink supervisor over the local UDP
       // relay, or a browser_source when useFfmpeg is false (rollback).
-      await createStreamGroupV2(groupName, name, teamInfo.team_name, obsInputUrl, { useFfmpegSource: useFfmpeg, lockSources });
+      await createStreamGroupV2(groupName, name, teamInfo.team_name, obsInputUrl, { useFfmpegSource: useFfmpeg, lockSources, streamId });
       
       // Update team with group UUID if not set
       if (!teamInfo.group_uuid) {
