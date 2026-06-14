@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getDatabase } from '@/lib/database';
 import { TABLE_NAMES } from '@/lib/constants';
 import { buildOverlayData, type OverlayStreamRow } from '@/lib/overlayData';
+import { recordOverlayRequest, recordOverlayUnknownId } from '@/lib/overlayMetrics';
 
 // Always live: the label must reflect the current DB row, never a cached one.
 export const dynamic = 'force-dynamic';
@@ -47,9 +48,14 @@ export async function GET(
     )) as OverlayStreamRow | undefined;
 
     if (!row) {
+      // A stale/dead baked overlay URL (e.g. re-import churned the PK). Log +
+      // count it so the operator can see silent blank labels on the health panel.
+      console.warn(`[overlay] unknown stream id ${id} (stale overlay URL?)`);
+      recordOverlayUnknownId(id);
       return json({ ok: false, id }, 404);
     }
 
+    recordOverlayRequest();
     return json(buildOverlayData(row), 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
     console.error('Error building overlay data:', error);

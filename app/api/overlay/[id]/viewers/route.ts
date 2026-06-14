@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getDatabase } from '@/lib/database';
 import { TABLE_NAMES } from '@/lib/constants';
 import { getViewerCount, twitchLoginFromUrl } from '@/lib/twitch';
+import { recordViewerLookupFailure } from '@/lib/overlayMetrics';
 
 // Live data — never cached.
 export const dynamic = 'force-dynamic';
@@ -45,9 +46,10 @@ export async function GET(
     try {
       viewers = await getViewerCount(login);
     } catch (error) {
-      // Surface the misconfig/API error in logs, but degrade to null so the
-      // label keeps rendering without a count.
+      // Surface the misconfig/API error in logs + the health counter, but
+      // degrade to null so the label keeps rendering without a count.
       console.error(`Viewer count failed for "${login}":`, error);
+      recordViewerLookupFailure();
     }
     return json({ viewers }, 200, { 'Cache-Control': 'no-store' });
   } catch (error) {

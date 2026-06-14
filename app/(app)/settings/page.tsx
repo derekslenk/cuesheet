@@ -1,7 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApiKey } from '@/contexts/ApiKeyContext';
+
+type LabelHealth = {
+  renderer: string;
+  shutdownWhenHidden: boolean;
+  overlayBaseUrl: string;
+  twitchConfigured: boolean;
+  streamCount: number | null;
+  teamsWithBranding: number | null;
+  metrics: {
+    overlayRequests: number;
+    overlayUnknownId: number;
+    viewerLookupFailures: number;
+    lastUnknownId: string | null;
+    lastUnknownAt: number | null;
+  };
+};
 
 export default function SettingsPage() {
   const { apiKey, setApiKey, clearApiKey, isAuthenticated } = useApiKey();
@@ -17,6 +33,32 @@ export default function SettingsPage() {
   const [playbackBusy, setPlaybackBusy] = useState(false);
   const [playbackMsg, setPlaybackMsg] = useState('');
   const [playbackErr, setPlaybackErr] = useState('');
+
+  // Stream-label system health (renderer config, Twitch wiring, failure counts).
+  const [labelHealth, setLabelHealth] = useState<LabelHealth | null>(null);
+  const [labelHealthErr, setLabelHealthErr] = useState('');
+
+  const loadLabelHealth = useCallback(async () => {
+    try {
+      const res = await fetch('/api/overlay/health', { cache: 'no-store' });
+      const data = await res.json();
+      if (data?.ok) {
+        setLabelHealth(data);
+        setLabelHealthErr('');
+      } else {
+        setLabelHealthErr('Failed to load label health');
+      }
+    } catch {
+      setLabelHealthErr('Failed to reach the server');
+    }
+  }, []);
+
+  useEffect(() => {
+    // Async loader — setState runs in the fetch callback, not synchronously in
+    // the effect body, so this is the recommended pattern (false positive).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadLabelHealth();
+  }, [loadLabelHealth]);
 
   const handleApplyPlayback = async () => {
     setPlaybackBusy(true);
@@ -198,6 +240,62 @@ export default function SettingsPage() {
             >
               {playbackBusy ? 'Applying…' : 'Apply to existing OBS sources'}
             </button>
+          </div>
+
+          {/* Stream Label System health */}
+          <div className="glass-panel p-6 border border-base01" style={{ marginTop: '24px' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold text-white">Stream Label System</h2>
+              <button onClick={loadLabelHealth} className="btn-secondary text-sm">
+                Refresh
+              </button>
+            </div>
+            <p className="text-sm text-base1 mb-4">
+              Health of the HTML stream-label overlays. Watch the failure counters for
+              silent on-air problems (a stale baked overlay URL shows as 404s).
+            </p>
+
+            {labelHealthErr && (
+              <div className="glass-panel p-3 border border-red/30 mb-3">
+                <p className="text-red text-sm">{labelHealthErr}</p>
+              </div>
+            )}
+
+            {labelHealth && (
+              <ul className="text-sm text-base1 space-y-1" style={{ paddingLeft: '8px' }}>
+                <li>
+                  Renderer: <span className="text-white">{labelHealth.renderer}</span>
+                  {labelHealth.renderer !== 'html' && (
+                    <span className="text-yellow"> (legacy OBS-native)</span>
+                  )}
+                </li>
+                <li>
+                  Overlay base URL: <code>{labelHealth.overlayBaseUrl}</code>
+                </li>
+                <li>
+                  Twitch viewer counts:{' '}
+                  {labelHealth.twitchConfigured ? (
+                    <span className="text-green">configured</span>
+                  ) : (
+                    <span className="text-yellow">not configured — no count shown</span>
+                  )}
+                </li>
+                <li>
+                  Streams: <span className="text-white">{labelHealth.streamCount ?? '—'}</span>
+                  {' · '}Teams branded:{' '}
+                  <span className="text-white">{labelHealth.teamsWithBranding ?? '—'}</span>
+                </li>
+                <li className={labelHealth.metrics.overlayUnknownId > 0 ? 'text-red' : ''}>
+                  Stale label hits (404): {labelHealth.metrics.overlayUnknownId}
+                  {labelHealth.metrics.lastUnknownId
+                    ? ` (last id ${labelHealth.metrics.lastUnknownId})`
+                    : ''}
+                </li>
+                <li className={labelHealth.metrics.viewerLookupFailures > 0 ? 'text-yellow' : ''}>
+                  Viewer lookup failures: {labelHealth.metrics.viewerLookupFailures}
+                </li>
+              </ul>
+            )}
           </div>
 
           {/* Information Section */}
