@@ -6,7 +6,7 @@
  * captured as `up: false` — this function never throws.
  */
 
-import type { HealthResult, StreamStatus } from './types.js';
+import type { HealthResult, ProcessRecord, StreamStatus } from './types.js';
 
 /** Default endpoints; callers may override via params. */
 const DEFAULTS = {
@@ -41,6 +41,32 @@ export const STATE_GLYPH: Record<ServiceState, { symbol: string; label: string }
   starting: { symbol: '◐', label: 'start' },
   down: { symbol: '✗', label: 'DOWN' },
 };
+
+/** Synthesized display row for the opt-in stream-deck sidecar. */
+export interface DeckDisplay {
+  state: ServiceState;
+  /** PID from the tracked record, or null when the deck has never been started. */
+  pid: number | null;
+  /** Short human detail: 'running' | 'stopped'. */
+  detail: string;
+}
+
+/**
+ * Build the display row for the stream-deck sidecar from its tracked process
+ * record. The deck owns a USB device, not an HTTP port, so it has NO health
+ * endpoint — {@link checkHealth} deliberately does not probe it. Deriving the
+ * row here (rather than folding the deck into checkHealth) keeps a stopped,
+ * opt-in deck from ever counting toward `cuesheet status`'s "is a service
+ * down?" exit code. status / watch / gui all render the deck through this one
+ * helper, so the three views can never disagree about whether it exists.
+ */
+export function deckDisplay(rec: ProcessRecord | null, live: boolean): DeckDisplay {
+  return {
+    state: live ? 'up' : 'down',
+    pid: rec?.pid ?? null,
+    detail: live ? 'running' : 'stopped',
+  };
+}
 
 export interface HealthParams {
   /** Override supervisor host (default: 127.0.0.1). */

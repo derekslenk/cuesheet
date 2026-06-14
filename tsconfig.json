@@ -44,6 +44,7 @@
   "exclude": [
     "node_modules",
     "scripts/streamlink-supervisor/index.bun.ts",
-    "src/cli/commands/supervisor.bun.ts"
+    "src/cli/commands/supervisor.bun.ts",
+    "scripts/streamdeck/**"
   ]
 }

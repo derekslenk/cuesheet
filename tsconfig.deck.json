@@ -1,0 +1,11 @@
+{
+  // Type-checks the Node-only Stream Deck sidecar (scripts/streamdeck/**), which
+  // the base tsconfig.json excludes. Uses the same compiler options as the base
+  // config but scoped to the deck sources + tests. Run: npm run type-check:deck.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "jest"]
+  },
+  "include": ["scripts/streamdeck/**/*.ts"],
+  "exclude": ["node_modules"]
+}

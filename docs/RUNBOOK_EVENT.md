@@ -36,6 +36,15 @@ obs-metrics log, calling out anything concerning.
 
 Driver does not also observe. Observer does not also drive.
 
+> **(Optional) Stream Deck control surface.** If an Elgato Stream Deck XL is in
+> use, the Driver can assign streamers to slots and switch OBS layouts from it
+> instead of (or alongside) the webui. It is **opt-in and non-critical**: it
+> drives the same localhost API the webui does, makes no backend changes, and can
+> be stopped at any time with no effect on the broadcast (`cuesheet stop --which
+> deck`, or the **`d`** key in `cuesheet gui`). If the deck's keys blank out
+> briefly during a web restart, that is expected — they re-populate when the webui
+> returns. Setup: [`scripts/streamdeck/README.md`](../scripts/streamdeck/README.md).
+
 ---
 
 ## 2. Pre-event setup (T-60 min)

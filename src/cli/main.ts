@@ -79,13 +79,13 @@ program
 program
   .command('start')
   .description('Start dev and/or supervisor (detached, tracked).')
-  .option('--which <which>', 'both | sup | web', 'both')
+  .option('--which <which>', 'both | sup | web | deck', 'both')
   .action(guard(async (opts: Record<string, unknown>) => { const { run } = await import('./commands/start.js'); await run(optsToArgv(opts), makeCtx()); }));
 
 program
   .command('stop')
   .description('Stop tracked dev/supervisor processes (precise, group-aware).')
-  .option('--which <which>', 'both | sup | web', 'both')
+  .option('--which <which>', 'both | sup | web | deck', 'both')
   .action(guard(async (opts: Record<string, unknown>) => { const { run } = await import('./commands/stop.js'); await run(optsToArgv(opts), makeCtx()); }));
 
 program
