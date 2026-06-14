@@ -16,7 +16,12 @@
   src: url('/fonts/GeistVF.woff') format('woff');
   font-weight: 100 900;
   font-style: normal;
-  font-display: block;
+  /* swap, not block: a broadcast label must NEVER be blank while the webfont
+     loads. swap paints the fallback (Bahnschrift on the OBS host) immediately,
+     then swaps to Geist once loaded — critical because under shutdown:true the
+     page reloads on every cell switch, so any block period would blank the text
+     on-air each switch-in. */
+  font-display: swap;
 }
 
 :root {
