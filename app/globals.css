@@ -83,7 +83,17 @@ html {
   font-family: var(--font-mono);
 }
 
+/* Body is intentionally transparent so OBS overlay pages (the (overlay) route
+   group) composite over the underlying video. The CRT phosphor background,
+   scanlines, and typographic defaults live on .app-shell and are applied only
+   by app/(app)/layout.tsx — never globally — so overlays stay transparent. */
 body {
+  background: transparent;
+}
+
+/* CRT app shell — the phosphor "screen". Wraps every interactive page via
+   app/(app)/layout.tsx; absent on (overlay) pages so they render transparent. */
+.app-shell {
   background-color: var(--crt-bg);
   /* faint grid + corner vignette so the black screen has depth */
   background-image:
@@ -97,8 +107,8 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* CRT scanlines + gentle flicker, drawn over everything, never blocks input */
-body::after {
+/* CRT scanlines + gentle flicker, drawn over the app shell, never blocks input */
+.app-shell::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -122,7 +132,7 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body::after,
+  .app-shell::after,
   .status-dot.streaming,
   .title::after { animation: none; }
 }
