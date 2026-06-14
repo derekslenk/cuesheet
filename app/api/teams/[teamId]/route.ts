@@ -12,34 +12,49 @@ export async function PUT(
         const { teamId: teamIdParam } = await params;
         const teamId = parseInt(teamIdParam);
         const body = await request.json();
-        const { team_name, group_name, group_uuid } = body;
-        
+        const { team_name, group_name, group_uuid, color_bg, color_accent, color_text, logo_path } = body;
+
+        // Per-team branding columns (Phase 1 / US-003). Like the group fields,
+        // each is updated when present in the body; pass null to clear it back to
+        // the event-default palette. NOTE: writing branding requires the columns
+        // to exist (scripts/addTeamBrandingColumns.ts) — they are absent until
+        // that migration runs.
+        const brandingFields = { color_bg, color_accent, color_text, logo_path } as const;
+
         // Allow updating any combination of fields
-        if (!team_name && group_name === undefined && group_uuid === undefined) {
-            return NextResponse.json({ error: 'At least one field (team_name, group_name, or group_uuid) must be provided' }, { status: 400 });
+        const anyBranding = Object.values(brandingFields).some((v) => v !== undefined);
+        if (!team_name && group_name === undefined && group_uuid === undefined && !anyBranding) {
+            return NextResponse.json({ error: 'At least one field (team_name, group_name, group_uuid, or a branding field) must be provided' }, { status: 400 });
         }
 
         const db = await getDatabase();
-        
+
         // Build dynamic query based on what fields are being updated
         const updates: string[] = [];
         const values: (string | number | null)[] = [];
-        
+
         if (team_name) {
             updates.push('team_name = ?');
             values.push(team_name);
         }
-        
+
         if (group_name !== undefined) {
             updates.push('group_name = ?');
             values.push(group_name);
         }
-        
+
         if (group_uuid !== undefined) {
             updates.push('group_uuid = ?');
             values.push(group_uuid);
         }
-        
+
+        for (const [column, value] of Object.entries(brandingFields)) {
+            if (value !== undefined) {
+                updates.push(`${column} = ?`);
+                values.push(value);
+            }
+        }
+
         values.push(teamId);
         
         const result = await db.run(

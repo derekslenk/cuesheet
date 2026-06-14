@@ -34,8 +34,11 @@ export async function GET(
   const { id } = await params;
   try {
     const db = await getDatabase();
+    // s.id/s.name explicit, then t.* so the team branding columns
+    // (color_*/logo_path) flow through when present — and the query still works
+    // on a DB that predates the branding migration (columns simply absent).
     const row = (await db.get(
-      `SELECT s.id, s.name, t.team_name, t.group_name
+      `SELECT s.id, s.name, t.*
        FROM ${TABLE_NAMES.STREAMS} s
        LEFT JOIN ${TABLE_NAMES.TEAMS} t ON s.team_id = t.team_id
        WHERE s.id = ?`,

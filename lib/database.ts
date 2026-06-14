@@ -30,14 +30,21 @@ export const initializeDatabase = async (database: Database<sqlite3.Database, sq
   `);
 
   // Create teams table. group_name / group_uuid are also added (idempotently)
-  // by scripts/addGroupNameToTeams.ts and scripts/addGroupUuidColumn.ts for
-  // databases that predate this CREATE TABLE.
+  // by scripts/addGroupNameToTeams.ts and scripts/addGroupUuidColumn.ts, and
+  // the color_*/logo_path branding columns by scripts/addTeamBrandingColumns.ts,
+  // for databases that predate this CREATE TABLE. The branding columns drive the
+  // HTML stream-label overlay; they are nullable and fall back to the event
+  // defaults in lib/overlayData.ts.
   await database.exec(`
     CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.TEAMS} (
       team_id INTEGER PRIMARY KEY,
       team_name TEXT NOT NULL,
       group_name TEXT,
-      group_uuid TEXT
+      group_uuid TEXT,
+      color_bg TEXT,
+      color_accent TEXT,
+      color_text TEXT,
+      logo_path TEXT
     )
   `);
 

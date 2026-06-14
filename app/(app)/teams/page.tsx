@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Team } from '@/types';
 import { useToast } from '@/lib/useToast';
 import { ToastContainer } from '@/components/Toast';
+import { EVENT_DEFAULT_COLORS } from '@/lib/overlayData';
 
 interface GroupVerification {
   team_id: number;
@@ -30,6 +31,12 @@ export default function Teams() {
   const [updatingTeamId, setUpdatingTeamId] = useState<number | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const [brandingTeamId, setBrandingTeamId] = useState<number | null>(null);
+  const [brandingBg, setBrandingBg] = useState<string>('');
+  const [brandingAccent, setBrandingAccent] = useState<string>('');
+  const [brandingText, setBrandingText] = useState<string>('');
+  const [brandingLogoPath, setBrandingLogoPath] = useState<string>('');
+  const [savingBrandingId, setSavingBrandingId] = useState<number | null>(null);
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
   useEffect(() => {
@@ -299,6 +306,76 @@ export default function Teams() {
     }
   };
 
+  const openBranding = (team: Team) => {
+    setBrandingTeamId(team.team_id);
+    setBrandingBg(team.color_bg ?? EVENT_DEFAULT_COLORS.bg);
+    setBrandingAccent(team.color_accent ?? EVENT_DEFAULT_COLORS.accent);
+    setBrandingText(team.color_text ?? EVENT_DEFAULT_COLORS.text);
+    setBrandingLogoPath(team.logo_path ?? '');
+  };
+
+  const closeBranding = () => {
+    setBrandingTeamId(null);
+  };
+
+  const handleSaveBranding = async (teamId: number) => {
+    setSavingBrandingId(teamId);
+    try {
+      const res = await fetch(`/api/teams/${teamId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          color_bg: brandingBg,
+          color_accent: brandingAccent,
+          color_text: brandingText,
+          logo_path: brandingLogoPath.trim() !== '' ? brandingLogoPath.trim() : null,
+        }),
+      });
+      if (res.ok) {
+        setBrandingTeamId(null);
+        fetchTeams();
+        showSuccess('Branding Updated', 'Team branding saved successfully');
+      } else {
+        const error = await res.json();
+        showError('Failed to Save Branding', error.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error saving branding:', error);
+      showError('Failed to Save Branding', 'Network error or server unavailable');
+    } finally {
+      setSavingBrandingId(null);
+    }
+  };
+
+  const handleResetBranding = async (teamId: number) => {
+    setSavingBrandingId(teamId);
+    try {
+      const res = await fetch(`/api/teams/${teamId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          color_bg: null,
+          color_accent: null,
+          color_text: null,
+          logo_path: null,
+        }),
+      });
+      if (res.ok) {
+        setBrandingTeamId(null);
+        fetchTeams();
+        showSuccess('Branding Reset', 'Team branding reset to event defaults');
+      } else {
+        const error = await res.json();
+        showError('Failed to Reset Branding', error.error || 'Unknown error occurred');
+      }
+    } catch (error) {
+      console.error('Error resetting branding:', error);
+      showError('Failed to Reset Branding', 'Network error or server unavailable');
+    } finally {
+      setSavingBrandingId(null);
+    }
+  };
+
   const startEditing = (team: Team) => {
     setEditingTeam(team);
     setEditingName(team.team_name);
@@ -436,6 +513,7 @@ export default function Teams() {
                     </button>
                   </div>
                 ) : (
+                  <>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
@@ -508,6 +586,15 @@ export default function Teams() {
                         Edit
                       </button>
                       <button
+                        onClick={() => brandingTeamId === team.team_id ? closeBranding() : openBranding(team)}
+                        disabled={deletingTeamId === team.team_id || updatingTeamId === team.team_id}
+                        className="btn btn-secondary btn-sm"
+                        title="Edit team branding"
+                      >
+                        <span className="icon">🎨</span>
+                        Branding
+                      </button>
+                      <button
                         onClick={() => handleDeleteTeam(team.team_id)}
                         disabled={deletingTeamId === team.team_id || updatingTeamId === team.team_id}
                         className="btn-danger btn-sm"
@@ -518,6 +605,88 @@ export default function Teams() {
                       </button>
                     </div>
                   </div>
+                  {brandingTeamId === team.team_id && (
+                    <div className="glass p-4 mt-3">
+                      <div className="font-semibold text-white mb-3">Team Branding</div>
+                      <div className="flex flex-wrap gap-4 mb-4">
+                        <label className="flex flex-col gap-1 text-sm text-white/70">
+                          Background
+                          <input
+                            type="color"
+                            value={brandingBg}
+                            onChange={(e) => setBrandingBg(e.target.value)}
+                            className="w-10 h-8 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-sm text-white/70">
+                          Accent
+                          <input
+                            type="color"
+                            value={brandingAccent}
+                            onChange={(e) => setBrandingAccent(e.target.value)}
+                            className="w-10 h-8 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-sm text-white/70">
+                          Text
+                          <input
+                            type="color"
+                            value={brandingText}
+                            onChange={(e) => setBrandingText(e.target.value)}
+                            className="w-10 h-8 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                        </label>
+                        <div
+                          className="flex items-center rounded overflow-hidden border border-white/20"
+                          style={{ background: brandingBg, minWidth: '120px', height: '36px' }}
+                          title="Preview"
+                        >
+                          <div style={{ width: '8px', height: '100%', background: brandingAccent, flexShrink: 0 }} />
+                          <span className="px-2 text-sm font-semibold truncate" style={{ color: brandingText }}>
+                            {team.team_name}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="form-row mb-3">
+                        <input
+                          type="text"
+                          value={brandingLogoPath}
+                          onChange={(e) => setBrandingLogoPath(e.target.value)}
+                          placeholder="/logos/teamname.png"
+                          className="input"
+                          style={{ flex: 1 }}
+                        />
+                        <span className="text-sm text-white/60 self-center">Logo path</span>
+                      </div>
+                      <div className="button-group">
+                        <button
+                          onClick={() => handleSaveBranding(team.team_id)}
+                          disabled={savingBrandingId === team.team_id}
+                          className="btn btn-success btn-sm"
+                        >
+                          <span className="icon">✅</span>
+                          {savingBrandingId === team.team_id ? 'Saving...' : 'Save Branding'}
+                        </button>
+                        <button
+                          onClick={() => handleResetBranding(team.team_id)}
+                          disabled={savingBrandingId === team.team_id}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          <span className="icon">↩️</span>
+                          Reset to defaults
+                        </button>
+                        <button
+                          onClick={closeBranding}
+                          disabled={savingBrandingId === team.team_id}
+                          className="btn-secondary btn-sm"
+                        >
+                          <span className="icon">❌</span>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
               );
