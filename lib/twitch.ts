@@ -42,6 +42,15 @@ export function __resetTwitchTokenCache(): void {
   cachedToken = null;
 }
 
+/**
+ * Extract a Twitch login from a channel URL (https://www.twitch.tv/<login>).
+ * Returns the lowercased login, or null if the URL isn't a Twitch channel URL.
+ */
+export function twitchLoginFromUrl(url: string | null | undefined): string | null {
+  const m = /(?:^|[/.])twitch\.tv\/([A-Za-z0-9_]{1,30})/i.exec(url || '');
+  return m ? m[1].toLowerCase() : null;
+}
+
 async function getAppAccessToken(now: number = Date.now()): Promise<string> {
   const creds = readCreds();
   if (!creds) throw new TwitchCredentialsError();
@@ -114,4 +123,65 @@ export async function getTopLiveStreams(count: number): Promise<LiveStream[]> {
     if (!cursor || rows.length === 0) break;
   }
   return out.slice(0, count);
+}
+
+// Short-TTL viewer-count cache, keyed by login, so repeated polls of the same
+// label (and many labels of the same channel) don't hammer Helix. A login that
+// is offline is cached with count null so we don't re-query it every poll.
+const VIEWER_TTL_MS = 25_000;
+const viewerCache = new Map<string, { count: number | null; at: number }>();
+
+/** For tests: clear the in-memory viewer-count cache. */
+export function __resetTwitchViewerCache(): void {
+  viewerCache.clear();
+}
+
+/**
+ * Current viewer counts for the given logins, batched (<=100/request) and
+ * cached. Returns a map of login -> count for channels that are LIVE; offline
+ * channels are omitted. Best-effort: returns an empty map (no throw) when
+ * credentials are missing, so a viewer count is never required for the label to
+ * render. Real API errors (bad creds, 5xx) DO throw so the caller can log them.
+ */
+export async function getViewerCounts(
+  logins: string[],
+  now: number = Date.now()
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (!readCreds()) return result;
+
+  const wanted = Array.from(new Set(logins.map((l) => l.toLowerCase())));
+  const need: string[] = [];
+  for (const login of wanted) {
+    const cached = viewerCache.get(login);
+    if (cached && cached.at > now - VIEWER_TTL_MS) {
+      if (cached.count != null) result.set(login, cached.count);
+    } else {
+      need.push(login);
+    }
+  }
+
+  for (let i = 0; i < need.length; i += 100) {
+    const batch = need.slice(i, i + 100);
+    const q = '/streams?' + batch.map((l) => `user_login=${encodeURIComponent(l)}`).join('&');
+    const page = await helixGet(q);
+    const live = new Set<string>();
+    for (const s of (page.data ?? []) as HelixStream[]) {
+      const login = s.user_login.toLowerCase();
+      viewerCache.set(login, { count: s.viewer_count, at: now });
+      result.set(login, s.viewer_count);
+      live.add(login);
+    }
+    // Logins not returned are offline — cache null so they aren't re-queried.
+    for (const login of batch) {
+      if (!live.has(login)) viewerCache.set(login, { count: null, at: now });
+    }
+  }
+  return result;
+}
+
+/** Convenience: current viewer count for one login (null if offline / no creds). */
+export async function getViewerCount(login: string, now: number = Date.now()): Promise<number | null> {
+  const counts = await getViewerCounts([login], now);
+  return counts.get(login.toLowerCase()) ?? null;
 }

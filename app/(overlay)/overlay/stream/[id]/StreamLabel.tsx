@@ -14,12 +14,16 @@ type FetchState =
  * arrives). On an unknown id (404) it renders a VISIBLE "NO DATA" placeholder so
  * a stale/dead overlay URL is caught in QA, never a silent transparent gap.
  *
- * Static fields (name/team/colors/logo/role) come from this initial fetch; the
- * live viewer count + a no-reload update channel arrive in Phase 3 (US-006),
- * which is why the live slot is already wired but hidden while viewers is null.
+ * Static fields (name/team/colors/logo/role) come from the initial fetch; the
+ * live viewer count is polled separately from /api/overlay/[id]/viewers every
+ * ~30s once data is ready (Phase 3 / US-006). The count is best-effort — it is
+ * simply omitted when null (offline / no Twitch creds), never blocking render.
  */
+const VIEWERS_POLL_MS = 30_000;
+
 export default function StreamLabel({ id }: { id: string }) {
   const [state, setState] = useState<FetchState>({ status: 'loading' });
+  const [viewers, setViewers] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +43,29 @@ export default function StreamLabel({ id }: { id: string }) {
       cancelled = true;
     };
   }, [id]);
+
+  // Poll the live viewer count once the stream's data is ready. Independent of
+  // the main fetch so a slow/failed Twitch lookup never affects the label body.
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/overlay/${id}/viewers`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as { viewers?: number | null };
+        if (!cancelled) setViewers(typeof data.viewers === 'number' ? data.viewers : null);
+      } catch {
+        // keep the last known value on a transient failure
+      }
+    };
+    poll();
+    const timer = setInterval(poll, VIEWERS_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [id, state.status]);
 
   // Transparent until data resolves — never flash an empty plate.
   if (state.status === 'loading') return null;
@@ -69,13 +96,13 @@ export default function StreamLabel({ id }: { id: string }) {
         {d.teamName ? <div className="lbl-team">{d.teamName}</div> : null}
         <div className="lbl-name">{d.streamerName}</div>
       </div>
-      {d.role || d.live.viewers != null ? (
+      {d.role || viewers != null ? (
         <div className="lbl-meta">
           {d.role ? <span className="lbl-role">{d.role}</span> : null}
-          {d.live.viewers != null ? (
+          {viewers != null ? (
             <span className="lbl-viewers">
               <span className="lbl-live-dot" aria-hidden="true" />
-              {d.live.viewers.toLocaleString()}
+              {viewers.toLocaleString()}
             </span>
           ) : null}
         </div>
