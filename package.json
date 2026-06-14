@@ -28,6 +28,7 @@
     "setup:test-event": "tsx --env-file=.env.local scripts/setupTestEvent.ts",
     "clone:event": "tsx --env-file=.env.local scripts/cloneEvent.ts",
     "seed:live-test": "tsx --env-file=.env.local scripts/seedLiveTestEvent.ts",
+    "event:switch": "tsx --env-file=.env.local scripts/switchEvent.ts",
     "add-disabled-to-streams": "tsx scripts/addDisabledToStreams.ts",
     "audit:sqlite-opens": "tsx scripts/auditSqliteOpens.ts",
     "remap:mac-obs-switcher-paths": "tsx scripts/remapMacObsSwitcherPaths.ts",

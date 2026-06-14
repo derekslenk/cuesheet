@@ -21,3 +21,5 @@ scripts/addTeamBrandingColumns.ts
 scripts/setupTestEvent.ts
 scripts/cloneEvent.ts
 scripts/seedLiveTestEvent.ts
+# Reads the target event's row counts to warn before switching EVENT_KEY.
+scripts/switchEvent.ts

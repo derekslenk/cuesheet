@@ -72,6 +72,35 @@ To use a test event: set `EVENT_KEY=<key>` in `.env.local`, **restart** the app,
 open `/overlay/stream/<id>`. Switch `EVENT_KEY` back to the real event when done.
 Test events are DB-only — to get OBS scenes, add the streams through the UI.
 
+## Switching events (and starting OBS fresh)
+
+`npm run event:switch -- --to <key>` walks you through it: it reports whether the
+target event has data, prints the backup + OBS steps, and gives you the exact
+`EVENT_KEY` line (add `--write-env` to flip it in `.env.local` for you, backed up
+to `.env.local.bak`). It deliberately does **not** touch OBS.
+
+The full "start fresh" flow, which **preserves your Source Switcher arrangement**:
+
+1. **Back up** the scene collection (Scoop OBS:
+   `%USERPROFILE%\scoop\persist\obs-studio\config\obs-studio\basic\scenes\*.json`).
+2. In OBS, **Scene Collection → Duplicate** the current one, then switch to the
+   duplicate (the original stays intact).
+3. `npm run clean:obs-collection` (dry-run) then `-- --apply`. This removes the
+   per-stream/team scenes and empties each switcher's source list, but **keeps
+   the 1/2/4-Screen scenes and the positioned `ss_*` switcher elements** — so the
+   layout you arranged is not lost and you don't re-import anything. (Add
+   `--host <ip>` if OBS is on another machine.)
+4. `npm run event:switch -- --to <key> --write-env`, then **restart** the webui
+   (and supervisor). Seed the event first if it's empty (`setup:test-event` /
+   `seed:live-test` / `clone:event`).
+5. Add the event's streams via the UI to populate the switchers + labels.
+
+To return: switch OBS back to the original collection, `event:switch` back, restart.
+
+> Tip: to keep a reusable clean base for future events, do steps 2–3 once, then
+> OBS → Scene Collection → **Export** the cleaned collection — that's an
+> OBS-authored, guaranteed-valid scaffolding you can re-import any time.
+
 ## Health & observability
 
 **Settings → Stream Label System** shows: renderer, overlay base URL, Twitch
