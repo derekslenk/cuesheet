@@ -408,6 +408,7 @@ async function main() {
       name: s.name,
       url: `https://www.twitch.tv/${s.login}`,
       team_id: team.team_id,
+      role: s.role,
     });
     if (status === 201) {
       console.log(`[add   ] stream ${s.name} (twitch.tv/${s.login}) -> ${s.team}`);

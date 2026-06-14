@@ -15,6 +15,26 @@ const ensureDirectoryExists = (dirPath: string) => {
   }
 };
 
+// Idempotently add any missing columns to an existing table. SQLite has no
+// "ADD COLUMN IF NOT EXISTS", so we check PRAGMA table_info first. This lets the
+// app self-heal the schema of the active event's tables on startup — older event
+// DBs created before a column existed get it automatically, without relying on a
+// separate migration script having been run against the right DB.
+const ensureColumns = async (
+  database: Database<sqlite3.Database, sqlite3.Statement>,
+  table: string,
+  columns: { name: string; def: string }[]
+) => {
+  const info = await database.all(`PRAGMA table_info(${table})`);
+  const existing = new Set(info.map((c: { name: string }) => c.name));
+  for (const col of columns) {
+    if (!existing.has(col.name)) {
+      await database.exec(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.def}`);
+      console.log(`Added column ${col.name} to ${table}`);
+    }
+  }
+};
+
 export const initializeDatabase = async (database: Database<sqlite3.Database, sqlite3.Statement>) => {
   // Create streams table. `disabled` is also added (idempotently) by
   // scripts/addDisabledToStreams.ts for databases that predate this column.
@@ -25,7 +45,8 @@ export const initializeDatabase = async (database: Database<sqlite3.Database, sq
       obs_source_name TEXT NOT NULL,
       url TEXT NOT NULL,
       team_id INTEGER NOT NULL,
-      disabled INTEGER NOT NULL DEFAULT 0
+      disabled INTEGER NOT NULL DEFAULT 0,
+      role TEXT
     )
   `);
 
@@ -47,6 +68,21 @@ export const initializeDatabase = async (database: Database<sqlite3.Database, sq
       logo_path TEXT
     )
   `);
+
+  // Self-heal the active event's schema: add any columns that older event DBs
+  // predate. Idempotent and additive — safe on every startup.
+  await ensureColumns(database, TABLE_NAMES.STREAMS, [
+    { name: 'disabled', def: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'role', def: 'TEXT' },
+  ]);
+  await ensureColumns(database, TABLE_NAMES.TEAMS, [
+    { name: 'group_name', def: 'TEXT' },
+    { name: 'group_uuid', def: 'TEXT' },
+    { name: 'color_bg', def: 'TEXT' },
+    { name: 'color_accent', def: 'TEXT' },
+    { name: 'color_text', def: 'TEXT' },
+    { name: 'logo_path', def: 'TEXT' },
+  ]);
 
   console.log('Database tables initialized.');
 };

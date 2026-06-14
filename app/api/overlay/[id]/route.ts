@@ -34,11 +34,12 @@ export async function GET(
   const { id } = await params;
   try {
     const db = await getDatabase();
-    // s.id/s.name explicit, then t.* so the team branding columns
-    // (color_*/logo_path) flow through when present — and the query still works
-    // on a DB that predates the branding migration (columns simply absent).
+    // s.* (id/name/role + ...) then t.* (team_name + branding) so every label
+    // field flows through, and the query still works on a DB that predates the
+    // role/branding columns (they're simply absent from the row). team_id
+    // collides between the two and resolves to t.team_id — unused by the overlay.
     const row = (await db.get(
-      `SELECT s.id, s.name, t.*
+      `SELECT s.*, t.*
        FROM ${TABLE_NAMES.STREAMS} s
        LEFT JOIN ${TABLE_NAMES.TEAMS} t ON s.team_id = t.team_id
        WHERE s.id = ?`,

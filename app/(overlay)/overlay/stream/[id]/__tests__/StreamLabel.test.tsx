@@ -59,4 +59,19 @@ describe('StreamLabel', () => {
 
     expect(await screen.findByText(/NO DATA/)).toBeInTheDocument();
   });
+
+  it('renders the role chip when the stream has a role', async () => {
+    const fn = jest.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.endsWith('/viewers')) {
+        return { ok: true, json: async () => ({ viewers: null }) } as unknown as Response;
+      }
+      return { ok: true, json: async () => ({ ...DATA, role: 'Tank' }) } as unknown as Response;
+    });
+    global.fetch = fn as unknown as typeof fetch;
+
+    render(<StreamLabel id="1" />);
+
+    expect(await screen.findByText('Tank')).toBeInTheDocument();
+  });
 });

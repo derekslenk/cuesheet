@@ -26,6 +26,7 @@ const EVENT = 'testing_2026';
 
 interface SeedStream {
   name: string;
+  role: string;
 }
 interface SeedTeam {
   team_id: number;
@@ -45,7 +46,7 @@ const SEED_TEAMS: SeedTeam[] = [
     color_accent: '#fca311',
     color_text: '#ffffff',
     logo_path: '/logos/test-alpha.svg',
-    streams: [{ name: 'Nova' }, { name: 'Pixel' }],
+    streams: [{ name: 'Nova', role: 'Tank' }, { name: 'Pixel', role: 'Healer' }],
   },
   {
     team_id: 2,
@@ -54,7 +55,7 @@ const SEED_TEAMS: SeedTeam[] = [
     color_accent: '#d8f3dc',
     color_text: '#ffffff',
     logo_path: '/logos/test-bravo.svg',
-    streams: [{ name: 'Echo' }, { name: 'Drift' }],
+    streams: [{ name: 'Echo', role: 'DPS' }, { name: 'Drift', role: 'DPS' }],
   },
   {
     team_id: 3,
@@ -63,7 +64,7 @@ const SEED_TEAMS: SeedTeam[] = [
     color_accent: '#ffba08',
     color_text: '#ffffff',
     logo_path: '/logos/test-crimson.svg',
-    streams: [{ name: 'Blaze' }, { name: 'Vex' }],
+    streams: [{ name: 'Blaze', role: 'Key Courier' }, { name: 'Vex', role: 'Standby' }],
   },
 ];
 
@@ -87,7 +88,8 @@ async function setupTestEvent() {
         obs_source_name TEXT NOT NULL,
         url TEXT NOT NULL,
         team_id INTEGER NOT NULL,
-        disabled INTEGER NOT NULL DEFAULT 0
+        disabled INTEGER NOT NULL DEFAULT 0,
+        role TEXT
       )
     `);
     await db.exec(`
@@ -103,9 +105,16 @@ async function setupTestEvent() {
       )
     `);
 
-    // Reset for a predictable sandbox (testing_2026 only).
+    // Reset for a predictable sandbox (testing_2026 only). Also reset the
+    // AUTOINCREMENT sequence so re-runs always produce stable stream ids (1..N)
+    // — handy since you reference /overlay/stream/<id>.
     await db.run(`DELETE FROM ${streamsTable}`);
     await db.run(`DELETE FROM ${teamsTable}`);
+    try {
+      await db.run('DELETE FROM sqlite_sequence WHERE name = ?', [streamsTable]);
+    } catch {
+      // sqlite_sequence only exists once an AUTOINCREMENT row has been inserted
+    }
 
     for (const team of SEED_TEAMS) {
       await db.run(
@@ -117,8 +126,8 @@ async function setupTestEvent() {
       for (const stream of team.streams) {
         const obsSourceName = `${cleanObsName(team.team_name)}_${cleanObsName(stream.name)}`;
         await db.run(
-          `INSERT INTO ${streamsTable} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`,
-          [stream.name, obsSourceName, `https://www.twitch.tv/${obsSourceName}`, team.team_id]
+          `INSERT INTO ${streamsTable} (name, obs_source_name, url, team_id, role) VALUES (?, ?, ?, ?, ?)`,
+          [stream.name, obsSourceName, `https://www.twitch.tv/${obsSourceName}`, team.team_id, stream.role]
         );
       }
     }

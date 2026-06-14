@@ -51,6 +51,7 @@ function generateOBSSourceName(teamSceneName: string, streamName: string): strin
 export async function POST(request: NextRequest) {
   let name: string, url: string, team_id: number, obs_source_name: string, lockSources: boolean;
   let streamId: number | undefined; // set after the up-front insert; used for relay port + rollback
+  let role: string | null = null; // optional player role shown on the label
 
   // Parse and validate request body
   try {
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
 
     ({ name, url, team_id } = validation.data!);
     lockSources = body.lockSources !== false; // Default to true if not specified
+    role = typeof body.role === 'string' && body.role.trim() ? body.role.trim() : null;
 
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
@@ -109,8 +111,8 @@ export async function POST(request: NextRequest) {
     // supervisor needs it; OBS instead gets a local UDP relay url derived from
     // this id (lib/relayPort). Rolled back in the catch if OBS wiring fails.
     const insertResult = await db.run(
-      `INSERT INTO ${TABLE_NAMES.STREAMS} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`,
-      [name, obs_source_name, url, team_id]
+      `INSERT INTO ${TABLE_NAMES.STREAMS} (name, obs_source_name, url, team_id, role) VALUES (?, ?, ?, ?, ?)`,
+      [name, obs_source_name, url, team_id, role]
     );
     streamId = insertResult.lastID as number;
 

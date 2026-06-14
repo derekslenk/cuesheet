@@ -71,7 +71,7 @@ describe('GET /api/overlay/[id]', () => {
     const body = await (await call('1')).json();
     expect(body.colors).toEqual({ bg: '#aa0000', accent: '#ffcc00', text: '#000000' });
     expect(body.logoUrl).toBe('/logos/reds.png');
-    expect(body.role).toBe('Tank');
+    expect(body.role).toBe('Tank'); // role (from streams.role via s.*) flows to the contract
   });
 
   it('500s with { ok:false } when the DB query throws', async () => {

@@ -83,7 +83,8 @@ async function cloneEvent() {
         obs_source_name TEXT NOT NULL,
         url TEXT NOT NULL,
         team_id INTEGER NOT NULL,
-        disabled INTEGER NOT NULL DEFAULT 0
+        disabled INTEGER NOT NULL DEFAULT 0,
+        role TEXT
       )
     `);
     await db.exec(`
@@ -146,8 +147,8 @@ async function cloneEvent() {
         streams = await db.all(`SELECT * FROM ${fromStreams}`);
         for (const s of streams) {
           await db.run(
-            `INSERT INTO ${toStreams} (name, obs_source_name, url, team_id, disabled) VALUES (?, ?, ?, ?, ?)`,
-            [s.name, s.obs_source_name, s.url, s.team_id, s.disabled ?? 0]
+            `INSERT INTO ${toStreams} (name, obs_source_name, url, team_id, disabled, role) VALUES (?, ?, ?, ?, ?, ?)`,
+            [s.name, s.obs_source_name, s.url, s.team_id, s.disabled ?? 0, s.role ?? null]
           );
         }
       }

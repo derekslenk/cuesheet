@@ -69,7 +69,8 @@ async function seedLiveTestEvent() {
         obs_source_name TEXT NOT NULL,
         url TEXT NOT NULL,
         team_id INTEGER NOT NULL,
-        disabled INTEGER NOT NULL DEFAULT 0
+        disabled INTEGER NOT NULL DEFAULT 0,
+        role TEXT
       )
     `);
     await db.exec(`
