@@ -4,8 +4,6 @@ import path from 'path';
 import fs from 'fs';
 import { TABLE_NAMES } from './constants';
 
-let db: Database<sqlite3.Database, sqlite3.Statement> | null = null;
-
 const FILE_DIRECTORY = path.resolve(process.env.FILE_DIRECTORY || './files')
 
 const ensureDirectoryExists = (dirPath: string) => {
@@ -99,29 +97,44 @@ export const initializeDatabase = async (database: Database<sqlite3.Database, sq
   console.log('Database tables initialized.');
 };
 
-export const getDatabase = async () => {
-  if (!db) {
-    // Ensure the files directory exists
-    ensureDirectoryExists(FILE_DIRECTORY);
-    
-    const dbPath = path.join(FILE_DIRECTORY, 'sources.db');
-    
-    db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database,
-    });
-    // WAL lets the web app and the streamlink supervisor read/write sources.db
-    // concurrently (two processes). WAL is a persistent property of the DB file
-    // (set once, idempotent); busy_timeout is per-connection and must be set on
-    // every opener. WAL requires a LOCAL filesystem — keep FILE_DIRECTORY local.
-    await db.exec('PRAGMA journal_mode = WAL;');
-    await db.exec('PRAGMA busy_timeout = 5000;');
-    console.log('Database connection established.');
-    
-    // Initialize database tables
-    await initializeDatabase(db);
-  }
-  return db;
-}
+// Memoize the in-flight open PROMISE (not the resolved handle) so concurrent
+// first-hits share one connection. The previous approach cached the resolved
+// handle behind an `if (!db)` guard with awaits in between, so two callers
+// arriving before the first open() resolved both passed the guard and both
+// opened — racing two connections (leaking a WAL read-lock) and double-running
+// initializeDatabase. Caching the promise collapses concurrent first-hits onto
+// one open(); on failure we clear it so a transient first open can be retried.
+let dbPromise: Promise<Database<sqlite3.Database, sqlite3.Statement>> | null = null;
 
-// export default getDatabase
+const openAndInit = async (): Promise<Database<sqlite3.Database, sqlite3.Statement>> => {
+  // Ensure the files directory exists
+  ensureDirectoryExists(FILE_DIRECTORY);
+
+  const dbPath = path.join(FILE_DIRECTORY, 'sources.db');
+
+  const database = await open({
+    filename: dbPath,
+    driver: sqlite3.Database,
+  });
+  // WAL lets the web app and the streamlink supervisor read/write sources.db
+  // concurrently (two processes). WAL is a persistent property of the DB file
+  // (set once, idempotent); busy_timeout is per-connection and must be set on
+  // every opener. WAL requires a LOCAL filesystem — keep FILE_DIRECTORY local.
+  await database.exec('PRAGMA journal_mode = WAL;');
+  await database.exec('PRAGMA busy_timeout = 5000;');
+  console.log('Database connection established.');
+
+  // Initialize database tables
+  await initializeDatabase(database);
+  return database;
+};
+
+export const getDatabase = (): Promise<Database<sqlite3.Database, sqlite3.Statement>> => {
+  if (!dbPromise) {
+    dbPromise = openAndInit().catch((err) => {
+      dbPromise = null;
+      throw err;
+    });
+  }
+  return dbPromise;
+};
