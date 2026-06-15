@@ -106,6 +106,8 @@ jobs:
     # 2026-06-10 (two consecutive green advisory runs on main satisfied the
     # remediation plan's promotion criterion).
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
