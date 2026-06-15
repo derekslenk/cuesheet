@@ -15,6 +15,8 @@ type Stream = {
   team_id: number | null;
 };
 
+const ROLE_OPTIONS = ['Key Courier', 'Tank', 'Healer', 'DPS', 'Standby'];
+
 export default function EditStream() {
   const params = useParams();
   const router = useRouter();
@@ -25,11 +27,13 @@ export default function EditStream() {
     obs_source_name: string;
     url: string;
     team_id: number | null;
+    role: string;
   }>({
     name: '',
     obs_source_name: '',
     url: '',
     team_id: null,
+    role: '',
   });
   
   const [teams, setTeams] = useState([]);
@@ -63,6 +67,7 @@ export default function EditStream() {
           obs_source_name: streamData.obs_source_name,
           url: streamData.url,
           team_id: streamData.team_id,
+          role: streamData.role ?? '',
         });
         
         const teams = teamsData.data;
@@ -293,6 +298,29 @@ export default function EditStream() {
                 onSelect={handleTeamSelect}
                 label="Select a Team"
               />
+            </div>
+
+            {/* Role (shown on the stream label) */}
+            <div>
+              <label className="block text-white font-semibold mb-3">
+                Role <span className="text-white/50 font-normal">(optional — shown on the label)</span>
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value }))}
+                className="input"
+              >
+                <option value="">— None —</option>
+                {(formData.role && !ROLE_OPTIONS.includes(formData.role)
+                  ? [formData.role, ...ROLE_OPTIONS]
+                  : ROLE_OPTIONS
+                ).map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Action Buttons */}

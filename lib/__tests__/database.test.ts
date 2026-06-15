@@ -11,7 +11,7 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
-import { initializeDatabase } from '../database';
+import { initializeDatabase, ensureColumns } from '../database';
 import { TABLE_NAMES, DEFAULT_EVENT_KEY, EVENT_KEY } from '../constants';
 
 type SqliteDb = Database<sqlite3.Database, sqlite3.Statement>;
@@ -117,6 +117,26 @@ describe('initializeDatabase', () => {
 
   it('is idempotent — running twice on the same DB does not throw', async () => {
     await expect(initializeDatabase(db)).resolves.not.toThrow();
+  });
+
+  describe('ensureColumns identifier guard', () => {
+    it('adds a missing column with a safe identifier', async () => {
+      await ensureColumns(db, TABLE_NAMES.STREAMS, [{ name: 'note', def: 'TEXT' }]);
+      const cols = await columnNames(db, TABLE_NAMES.STREAMS);
+      expect(cols).toContain('note');
+    });
+
+    it('rejects an unsafe table identifier (no injection into DDL)', async () => {
+      await expect(
+        ensureColumns(db, 'streams; DROP TABLE teams', [{ name: 'x', def: 'TEXT' }])
+      ).rejects.toThrow(/unsafe table identifier/);
+    });
+
+    it('rejects an unsafe column identifier', async () => {
+      await expect(
+        ensureColumns(db, TABLE_NAMES.STREAMS, [{ name: 'x TEXT); DROP TABLE teams;--', def: 'TEXT' }])
+      ).rejects.toThrow(/unsafe column identifier/);
+    });
   });
 });
 

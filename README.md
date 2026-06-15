@@ -110,6 +110,7 @@ flowchart LR
 - The **webui** owns the database and OBS: it creates scenes/sources over the OBS WebSocket and writes `<screen>.txt` files that the [Source Switcher](https://github.com/exeldro/obs-source-switcher) plugin polls every second.
 - The **supervisor** reads the same stream list and runs one `streamlink → ffmpeg → UDP` pipeline per stream. Both sides independently compute the same relay port from the stream's database `id` (`lib/relayPort.ts`) — no coordination needed.
 - Adding or removing a stream pings the supervisor's `POST /reload` (best-effort), so pipelines start and stop **without restarting anything**.
+- Each stream's on-screen **label** is a transparent HTML browser source (`/overlay/stream/<id>`) in its nested scene — per-team colors + logo, role chip, live Twitch viewer count, entrance animation. See [`docs/stream-labels-runbook.md`](docs/stream-labels-runbook.md) (test tooling, health panel, env vars, `LABEL_RENDERER=obs` revert) and [`docs/overlay-label-design.md`](docs/overlay-label-design.md).
 
 ## Quick start
 
@@ -263,10 +264,25 @@ OBS_WEBSOCKET_PASSWORD=your_password_here
 # Security (IMPORTANT: Set in production)
 API_KEY=your_secure_api_key_here
 
-# Team-label plate anchoring: "left" (default — keeps the plate off
-# center-of-screen game UI like boss frames/nameplates) or "center".
-# Applies to streams created AFTER a change; delete + re-add to restyle.
+# Team-label plate anchoring (legacy OBS-native labels only): "left" (default)
+# or "center". Applies to streams created AFTER a change; delete + re-add.
 LABEL_PLATE_ANCHOR=left
+
+# --- HTML stream labels (browser-source overlay) — see docs/stream-labels-runbook.md ---
+# Renderer: "html" (default — one transparent browser source per stream at
+# /overlay/stream/<id>) or "obs" (legacy 5-input native text labels, the revert).
+LABEL_RENDERER=html
+# Destroy a label's browser source when its cell isn't shown (default true —
+# bounds CEF memory). The Phase-2 live spike decides the final posture.
+LABEL_SHUTDOWN_WHEN_HIDDEN=true
+# Base URL OBS's browser source uses to reach this app (default below). Set to
+# http://<host-ip>:3000 if OBS runs on another LAN machine.
+LABEL_OVERLAY_BASE_URL=http://localhost:3000
+# Twitch app credentials for live viewer counts + the live-stream test seeder.
+# Create an app at https://dev.twitch.tv/console/apps. Optional — the viewer
+# count is simply omitted when unset.
+TWITCH_CLIENT_ID=
+TWITCH_CLIENT_SECRET=
 
 # --- Streamlink Media-Source pipeline (webui side) ---
 # Set to "false" to roll back to legacy browser sources pointed at the Twitch URL

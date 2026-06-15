@@ -41,8 +41,9 @@ export async function PUT(
 ) {
   try {
     const resolvedParams = await params;
-    const { name, obs_source_name, url, team_id } = await request.json();
-    
+    const { name, obs_source_name, url, team_id, role } = await request.json();
+    const normalizedRole = typeof role === 'string' && role.trim() ? role.trim() : null;
+
     if (!name || !obs_source_name || !url) {
       return NextResponse.json(
         { error: 'Name, OBS source name, and URL are required' },
@@ -67,10 +68,10 @@ export async function PUT(
     
     // Update stream
     await db.run(
-      `UPDATE ${TABLE_NAMES.STREAMS} 
-       SET name = ?, obs_source_name = ?, url = ?, team_id = ?
+      `UPDATE ${TABLE_NAMES.STREAMS}
+       SET name = ?, obs_source_name = ?, url = ?, team_id = ?, role = ?
        WHERE id = ?`,
-      [name, obs_source_name, url, team_id, resolvedParams.id]
+      [name, obs_source_name, url, team_id, normalizedRole, resolvedParams.id]
     );
     
     return NextResponse.json({ 

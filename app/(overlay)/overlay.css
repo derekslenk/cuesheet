@@ -1,0 +1,253 @@
+/*
+ * Stream-label overlay styles (OBS browser source).
+ *
+ * Self-contained and transparent: no CRT app chrome. The label is positioned
+ * top-left to match where the OBS-native labels currently sit inside each nested
+ * *_stream scene, so it rides + scales with the switcher cell. Per-team palette
+ * arrives as CSS custom properties (--lbl-bg / --lbl-accent / --lbl-text) set
+ * inline by StreamLabel, so one stylesheet restyles every team.
+ */
+
+/* Bundled webfont — deterministic, not dependent on a host-installed font.
+   Geist variable (100–900); Bahnschrift kept as the fallback to echo the
+   current label look until a dedicated brand font is sourced. */
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/GeistVF.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  /* swap, not block: a broadcast label must NEVER be blank while the webfont
+     loads. swap paints the fallback (Bahnschrift on the OBS host) immediately,
+     then swaps to Geist once loaded — critical because under shutdown:true the
+     page reloads on every cell switch, so any block period would blank the text
+     on-air each switch-in. */
+  font-display: swap;
+}
+
+:root {
+  --ovl-font: 'Geist', 'Bahnschrift', 'Segoe UI', system-ui, sans-serif;
+  /* Anchor — matches the current top-left label zone. */
+  --lbl-top: 28px;
+  --lbl-left: 48px;
+}
+
+.ovl-root {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--ovl-font);
+}
+
+/* ---- The label plate ---------------------------------------------------- */
+.lbl {
+  position: fixed;
+  top: var(--lbl-top);
+  left: var(--lbl-left);
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 16px 30px 16px 30px;
+  /* Opaque brand fill + a subtle top sheen (independent of the team color so
+     it never muddies a dark brand). Sits over busy game footage, so depth
+     shadow + a lit top edge separate it from the video. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 42%),
+    var(--lbl-bg, #472f5a);
+  border-radius: 4px;
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  /* clear the absolutely-positioned accent bar on the left */
+  padding-left: 30px;
+  transform-origin: left center;
+  animation: lblIn 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Left accent bar — full plate height, brand accent, soft glow. Wipes in. */
+.lbl-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  border-radius: 4px 0 0 4px;
+  background: var(--lbl-accent, #e0d9f1);
+  box-shadow: 0 0 14px var(--lbl-accent, #e0d9f1);
+  transform-origin: top center;
+  animation: lblAccentWipe 0.45s 0.12s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.lbl-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+.lbl-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  /* Cap the text column so a long name ellipsizes inside the plate instead of
+     running off-canvas in a scaled-down 4-Screen quarter cell. Tuned against a
+     settled screenshot; raise if the plate has room. */
+  max-width: 1100px;
+}
+
+/* Team eyebrow — caps, tracked, brand accent color. */
+.lbl-team {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--lbl-accent, #e0d9f1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: lblRise 0.4s 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Streamer name — the primary identity. Heavy, white, drop-shadow for legibility. */
+.lbl-name {
+  font-size: 78px;
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  color: var(--lbl-text, #ffffff);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: lblRise 0.45s 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Role chip + live viewers (Phase 3 / US-006). Markup hidden until populated. */
+.lbl-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-left: 8px;
+  animation: lblRise 0.4s 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.lbl-role {
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--lbl-bg, #472f5a);
+  background: var(--lbl-accent, #e0d9f1);
+  padding: 4px 14px;
+  border-radius: 999px;
+}
+
+.lbl-viewers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--lbl-text, #ffffff);
+}
+
+.lbl-live-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  box-shadow: 0 0 10px #ff4d4f;
+  animation: lblPulse 1.4s ease-in-out infinite;
+}
+
+/* ---- Visible "no data" placeholder (stale/dead overlay URL, 404) --------- */
+.ovl-nodata {
+  position: fixed;
+  top: var(--lbl-top);
+  left: var(--lbl-left);
+  font-family: var(--ovl-font);
+  font-size: 40px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  background: #ff00aa;
+  border: 4px solid #ffffff;
+  padding: 16px 28px;
+}
+
+/* ---- Visible server-error placeholder (5xx) ------------------------------ */
+/* Amber, distinct from the magenta 404 box so QA can tell "the overlay server
+   is broken/down" from "this baked URL points at a deleted stream". */
+.ovl-error {
+  position: fixed;
+  top: var(--lbl-top);
+  left: var(--lbl-left);
+  font-family: var(--ovl-font);
+  font-size: 40px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1a1a1a;
+  background: #ffb300;
+  border: 4px solid #ffffff;
+  padding: 16px 28px;
+}
+
+/* ---- Animations --------------------------------------------------------- */
+@keyframes lblIn {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes lblAccentWipe {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes lblRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes lblPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lbl,
+  .lbl-accent,
+  .lbl-team,
+  .lbl-name,
+  .lbl-meta,
+  .lbl-live-dot {
+    animation: none;
+  }
+}

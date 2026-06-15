@@ -49,8 +49,11 @@ function validateTeamInput(data: unknown): {
 export const GET = withErrorHandling(async () => {
   try {
     const db = await getDatabase();
-    const teams: Team[] = await db.all(`SELECT team_id, team_name, group_name, group_uuid FROM ${TABLE_NAMES.TEAMS} ORDER BY team_name ASC`);
-    
+    // SELECT * so the per-team branding columns (color_*/logo_path) are included
+    // when present, but the query still works on a DB that predates the branding
+    // migration (the columns are simply absent from the row).
+    const teams: Team[] = await db.all(`SELECT * FROM ${TABLE_NAMES.TEAMS} ORDER BY team_name ASC`);
+
     return createSuccessResponse(teams);
   } catch (error) {
     return createDatabaseError('fetch teams', error);

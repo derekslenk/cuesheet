@@ -15,6 +15,38 @@ const ensureDirectoryExists = (dirPath: string) => {
   }
 };
 
+// Idempotently add any missing columns to an existing table. SQLite has no
+// "ADD COLUMN IF NOT EXISTS", so we check PRAGMA table_info first. This lets the
+// app self-heal the schema of the active event's tables on startup — older event
+// DBs created before a column existed get it automatically, without relying on a
+// separate migration script having been run against the right DB.
+// Table/column names are interpolated into DDL (PRAGMA/ALTER cannot bind
+// identifiers), so guard them with a strict whitelist. They are all
+// app-controlled today — this just ensures an unsafe identifier can never reach
+// the DDL if a caller is ever refactored to pass dynamic input. `def` is an
+// internal constant, never user input.
+const SAFE_IDENTIFIER = /^[A-Za-z0-9_]+$/;
+export const ensureColumns = async (
+  database: Database<sqlite3.Database, sqlite3.Statement>,
+  table: string,
+  columns: { name: string; def: string }[]
+) => {
+  if (!SAFE_IDENTIFIER.test(table)) {
+    throw new Error(`ensureColumns: unsafe table identifier "${table}"`);
+  }
+  const info = await database.all(`PRAGMA table_info("${table}")`);
+  const existing = new Set(info.map((c: { name: string }) => c.name));
+  for (const col of columns) {
+    if (!SAFE_IDENTIFIER.test(col.name)) {
+      throw new Error(`ensureColumns: unsafe column identifier "${col.name}"`);
+    }
+    if (!existing.has(col.name)) {
+      await database.exec(`ALTER TABLE "${table}" ADD COLUMN "${col.name}" ${col.def}`);
+      console.log(`Added column ${col.name} to ${table}`);
+    }
+  }
+};
+
 export const initializeDatabase = async (database: Database<sqlite3.Database, sqlite3.Statement>) => {
   // Create streams table. `disabled` is also added (idempotently) by
   // scripts/addDisabledToStreams.ts for databases that predate this column.
@@ -25,21 +57,44 @@ export const initializeDatabase = async (database: Database<sqlite3.Database, sq
       obs_source_name TEXT NOT NULL,
       url TEXT NOT NULL,
       team_id INTEGER NOT NULL,
-      disabled INTEGER NOT NULL DEFAULT 0
+      disabled INTEGER NOT NULL DEFAULT 0,
+      role TEXT
     )
   `);
 
   // Create teams table. group_name / group_uuid are also added (idempotently)
-  // by scripts/addGroupNameToTeams.ts and scripts/addGroupUuidColumn.ts for
-  // databases that predate this CREATE TABLE.
+  // by scripts/addGroupNameToTeams.ts and scripts/addGroupUuidColumn.ts, and
+  // the color_*/logo_path branding columns by scripts/addTeamBrandingColumns.ts,
+  // for databases that predate this CREATE TABLE. The branding columns drive the
+  // HTML stream-label overlay; they are nullable and fall back to the event
+  // defaults in lib/overlayData.ts.
   await database.exec(`
     CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.TEAMS} (
       team_id INTEGER PRIMARY KEY,
       team_name TEXT NOT NULL,
       group_name TEXT,
-      group_uuid TEXT
+      group_uuid TEXT,
+      color_bg TEXT,
+      color_accent TEXT,
+      color_text TEXT,
+      logo_path TEXT
     )
   `);
+
+  // Self-heal the active event's schema: add any columns that older event DBs
+  // predate. Idempotent and additive — safe on every startup.
+  await ensureColumns(database, TABLE_NAMES.STREAMS, [
+    { name: 'disabled', def: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'role', def: 'TEXT' },
+  ]);
+  await ensureColumns(database, TABLE_NAMES.TEAMS, [
+    { name: 'group_name', def: 'TEXT' },
+    { name: 'group_uuid', def: 'TEXT' },
+    { name: 'color_bg', def: 'TEXT' },
+    { name: 'color_accent', def: 'TEXT' },
+    { name: 'color_text', def: 'TEXT' },
+    { name: 'logo_path', def: 'TEXT' },
+  ]);
 
   console.log('Database tables initialized.');
 };
