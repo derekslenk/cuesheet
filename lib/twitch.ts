@@ -42,13 +42,24 @@ export function __resetTwitchTokenCache(): void {
   cachedToken = null;
 }
 
+// First-path segments on twitch.tv that are site features, not channels. A URL
+// like twitch.tv/directory or twitch.tv/videos/123 would otherwise yield a
+// bogus "login" and waste a Helix lookup (which just returns offline).
+const TWITCH_RESERVED_PATHS = new Set([
+  'directory', 'videos', 'p', 'downloads', 'jobs', 'turbo', 'settings',
+  'subscriptions', 'friends', 'wallet', 'drops', 'prime',
+]);
+
 /**
  * Extract a Twitch login from a channel URL (https://www.twitch.tv/<login>).
- * Returns the lowercased login, or null if the URL isn't a Twitch channel URL.
+ * Returns the lowercased login, or null if the URL isn't a Twitch channel URL
+ * (or points at a reserved site path like /directory or /videos).
  */
 export function twitchLoginFromUrl(url: string | null | undefined): string | null {
   const m = /(?:^|[/.])twitch\.tv\/([A-Za-z0-9_]{1,30})/i.exec(url || '');
-  return m ? m[1].toLowerCase() : null;
+  if (!m) return null;
+  const login = m[1].toLowerCase();
+  return TWITCH_RESERVED_PATHS.has(login) ? null : login;
 }
 
 async function getAppAccessToken(now: number = Date.now()): Promise<string> {

@@ -9,7 +9,6 @@ const DATA = {
   colors: { bg: '#14213d', accent: '#fca311', text: '#ffffff' },
   logoUrl: null,
   role: null,
-  live: { viewers: null },
   score: null,
 };
 

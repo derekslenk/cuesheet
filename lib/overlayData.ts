@@ -24,11 +24,6 @@ export interface OverlayColors {
   text: string;
 }
 
-export interface OverlayLive {
-  /** Live viewer count (Phase 3 / US-006). null until a source is wired. */
-  viewers: number | null;
-}
-
 export interface OverlayData {
   ok: true;
   streamId: number;
@@ -37,8 +32,11 @@ export interface OverlayData {
   colors: OverlayColors;
   logoUrl: string | null;
   role: string | null;
-  live: OverlayLive;
   /**
+   * The live viewer count is NOT part of this contract — it is polled
+   * separately from GET /api/overlay/[id]/viewers (slow-changing, best-effort)
+   * and held in the StreamLabel component's own state.
+   *
    * Event score. No data source exists yet (plan §4.7) — kept as a static
    * placeholder, never streamed, never fabricated. Remains null until a real
    * source is wired.
@@ -136,7 +134,6 @@ export function buildOverlayData(row: OverlayStreamRow): OverlayData {
     colors: resolveOverlayColors(row),
     logoUrl: row.logo_path || null,
     role: row.role || null,
-    live: { viewers: null },
     score: null,
   };
 }

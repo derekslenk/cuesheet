@@ -87,6 +87,12 @@ async function seedLiveTestEvent() {
     `);
     await db.run(`DELETE FROM ${streamsTable}`);
     await db.run(`DELETE FROM ${teamsTable}`);
+    // Reset AUTOINCREMENT so ids restart at 1 each run (matches setupTestEvent).
+    try {
+      await db.run('DELETE FROM sqlite_sequence WHERE name IN (?, ?)', [streamsTable, teamsTable]);
+    } catch {
+      // sqlite_sequence only exists once an AUTOINCREMENT row has been inserted
+    }
 
     let streamRows = 0;
     for (const team of plan) {

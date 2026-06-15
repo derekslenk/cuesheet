@@ -43,7 +43,6 @@ describe('GET /api/overlay/[id]', () => {
       colors: { bg: '#472f5a', accent: '#e0d9f1', text: '#ffffff' },
       logoUrl: null,
       role: null,
-      live: { viewers: null },
       score: null,
     });
   });

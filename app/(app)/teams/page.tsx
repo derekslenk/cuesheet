@@ -325,9 +325,13 @@ export default function Teams() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          color_bg: brandingBg,
-          color_accent: brandingAccent,
-          color_text: brandingText,
+          // A value left at the event default means "inherit" — persist it as
+          // null rather than baking a redundant override (keeps the health
+          // panel's "teams branded" count meaningful; the explicit reset button
+          // also sends nulls).
+          color_bg: brandingBg === EVENT_DEFAULT_COLORS.bg ? null : brandingBg,
+          color_accent: brandingAccent === EVENT_DEFAULT_COLORS.accent ? null : brandingAccent,
+          color_text: brandingText === EVENT_DEFAULT_COLORS.text ? null : brandingText,
           logo_path: brandingLogoPath.trim() !== '' ? brandingLogoPath.trim() : null,
         }),
       });

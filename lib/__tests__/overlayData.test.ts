@@ -48,7 +48,6 @@ describe('overlayData', () => {
         colors: EVENT_DEFAULT_COLORS,
         logoUrl: null,
         role: null,
-        live: { viewers: null },
         score: null,
       });
     });
@@ -73,10 +72,9 @@ describe('overlayData', () => {
       expect(d.role).toBe('Tank');
     });
 
-    it('never fabricates score or viewers', () => {
+    it('never fabricates score', () => {
       const d = buildOverlayData({ id: 1, name: 'X', team_name: 'Y' });
       expect(d.score).toBeNull();
-      expect(d.live.viewers).toBeNull();
     });
   });
 
