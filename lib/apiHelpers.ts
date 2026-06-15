@@ -9,29 +9,58 @@ export interface APIError {
   timestamp: string;
 }
 
-// Standard success response structure  
+// Standard success response structure
 export interface APISuccess<T = unknown> {
   success: true;
   data: T;
   timestamp: string;
 }
 
-// Create standardized error response
+/**
+ * Canonical API response envelope for cuesheet's control-plane routes:
+ *   success → { success: true, data, timestamp }          (createSuccessResponse)
+ *   error   → { error, message?, details?, timestamp }    (createErrorResponse)
+ *
+ * `details` is gated to development by default (see createErrorResponse) so
+ * internal error objects / stack traces never leak to clients in production.
+ *
+ * Deliberate, documented exceptions that do NOT use this envelope:
+ *   - app/api/overlay/*        → their own { ok } contract (dedicated OBS
+ *                                browser-source consumer)
+ *   - app/api/supervisor/*     → a break-glass { reachable | degraded } shape
+ *   - app/api/preview/[...slug] → a binary HLS body
+ */
+export type APIEnvelope<T = unknown> = APISuccess<T> | APIError;
+
+// Create standardized error response.
+//
+// `details` is gated to development by default so internal error objects, stack
+// traces, or raw error strings never leak to clients in production — callers can
+// pass raw details freely and trust this function not to expose them. Pass
+// { detailsAlways: true } for details that are part of the client contract and
+// safe in any environment (e.g. field-level validation errors). The full
+// (ungated) details are always logged server-side. See docs/full-review-2026-06
+// (S-F5).
 export function createErrorResponse(
   error: string,
   status: number = 500,
   message?: string,
-  details?: unknown
+  details?: unknown,
+  options?: { detailsAlways?: boolean }
 ): NextResponse {
+  const timestamp = new Date().toISOString();
+
+  // Log the full details server-side regardless of environment.
+  console.error(`API Error [${status}]:`, { error, message, details, timestamp });
+
+  const includeDetails = details !== undefined && (options?.detailsAlways === true || isDev());
   const errorResponse: APIError = {
     error,
     message,
-    details,
-    timestamp: new Date().toISOString(),
+    details: includeDetails ? details : undefined,
+    timestamp,
   };
 
-  console.error(`API Error [${status}]:`, errorResponse);
-  
   return NextResponse.json(errorResponse, { status });
 }
 
@@ -54,11 +83,14 @@ export function createValidationError(
   message: string,
   details?: Record<string, string>
 ): NextResponse {
+  // Validation details are field-level messages meant for the client, so they
+  // are part of the contract and returned in every environment.
   return createErrorResponse(
     'Validation Error',
     400,
     message,
-    details
+    details,
+    { detailsAlways: true }
   );
 }
 
@@ -68,11 +100,12 @@ export function createDatabaseError(
   originalError?: unknown
 ): NextResponse {
   const message = `Database operation failed: ${operation}`;
+  // createErrorResponse gates `details` to development; pass the raw error.
   return createErrorResponse(
     'Database Error',
     500,
     message,
-    isDev() ? originalError : undefined
+    originalError
   );
 }
 
@@ -82,11 +115,12 @@ export function createOBSError(
   originalError?: unknown
 ): NextResponse {
   const message = `OBS operation failed: ${operation}`;
+  // createErrorResponse gates `details` to development; pass the raw error.
   return createErrorResponse(
     'OBS Error',
     502,
     message,
-    isDev() ? originalError : undefined
+    originalError
   );
 }
 
@@ -105,7 +139,7 @@ export function withErrorHandling<T extends unknown[]>(
           'Internal Server Error',
           500,
           'An unexpected error occurred',
-          isDev() ? error.stack : undefined
+          error.stack
         );
       }
       
