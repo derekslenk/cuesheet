@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { TABLE_NAMES } from '../../../lib/constants';
 import { getOBSClient } from '../../../lib/obsClient';
+import type { ObsClient } from '@/types/obsClient';
 
 // System scenes that should not be considered orphaned
 // These are infrastructure scenes that contain source switchers or other system components
@@ -23,10 +24,6 @@ interface OBSScene {
   sceneUuid: string;
 }
 
-interface GetSceneListResponse {
-  scenes: OBSScene[];
-}
-
 export async function GET() {
   try {
     // Get teams and streams from database
@@ -39,10 +36,11 @@ export async function GET() {
     `);
     
     // Get scenes (groups) from OBS
-    const obs = await getOBSClient();
-    const response = await obs.call('GetSceneList');
-    const obsData = response as GetSceneListResponse;
-    const obsScenes = obsData.scenes;
+    const obs: ObsClient = await getOBSClient();
+    const { scenes } = await obs.call('GetSceneList');
+    // obs-websocket-js v5 types scene items as loose JsonObject; cast to the
+    // structured view this route relies on (sceneName / sceneUuid).
+    const obsScenes = scenes as unknown as OBSScene[];
     
     // Helper function to clean OBS names (matching obsClient.js logic)
     const cleanObsName = (name: string): string => {

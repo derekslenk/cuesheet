@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getOBSClient } from '../../../lib/obsClient';
+import type { ObsClient } from '@/types/obsClient';
 
 export async function POST() {
   try {
-    const obsClient = await getOBSClient();
+    const obsClient: ObsClient = await getOBSClient();
     
     // Check if studio mode is active
     const { studioModeEnabled } = await obsClient.call('GetStudioModeEnabled');

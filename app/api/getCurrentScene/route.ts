@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getOBSClient } from '../../../lib/obsClient';
+import type { ObsClient } from '@/types/obsClient';
 
 export async function GET() {
   try {
-    const obsClient = await getOBSClient();
+    const obsClient: ObsClient = await getOBSClient();
     
     // Get the current program scene
     const response = await obsClient.call('GetCurrentProgramScene');

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOBSClient } from '../../../lib/obsClient';
+import type { ObsClient } from '@/types/obsClient';
 
 // Valid scene names for this application
 const VALID_SCENES = ['1-Screen', '2-Screen', '4-Screen'] as const;
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const obsClient = await getOBSClient();
+      const obsClient: ObsClient = await getOBSClient();
       
       // Check if studio mode is active
       const { studioModeEnabled } = await obsClient.call('GetStudioModeEnabled');
