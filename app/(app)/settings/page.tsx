@@ -14,6 +14,7 @@ type LabelHealth = {
     overlayRequests: number;
     overlayUnknownId: number;
     viewerLookupFailures: number;
+    overlayRequestFailures: number;
     lastUnknownId: string | null;
     lastUnknownAt: number | null;
   };
@@ -293,6 +294,9 @@ export default function SettingsPage() {
                 </li>
                 <li className={labelHealth.metrics.viewerLookupFailures > 0 ? 'text-yellow' : ''}>
                   Viewer lookup failures: {labelHealth.metrics.viewerLookupFailures}
+                </li>
+                <li className={labelHealth.metrics.overlayRequestFailures > 0 ? 'text-red' : ''}>
+                  Overlay request failures (500): {labelHealth.metrics.overlayRequestFailures}
                 </li>
               </ul>
             )}

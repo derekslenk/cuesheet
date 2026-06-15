@@ -20,16 +20,28 @@ const ensureDirectoryExists = (dirPath: string) => {
 // app self-heal the schema of the active event's tables on startup — older event
 // DBs created before a column existed get it automatically, without relying on a
 // separate migration script having been run against the right DB.
-const ensureColumns = async (
+// Table/column names are interpolated into DDL (PRAGMA/ALTER cannot bind
+// identifiers), so guard them with a strict whitelist. They are all
+// app-controlled today — this just ensures an unsafe identifier can never reach
+// the DDL if a caller is ever refactored to pass dynamic input. `def` is an
+// internal constant, never user input.
+const SAFE_IDENTIFIER = /^[A-Za-z0-9_]+$/;
+export const ensureColumns = async (
   database: Database<sqlite3.Database, sqlite3.Statement>,
   table: string,
   columns: { name: string; def: string }[]
 ) => {
-  const info = await database.all(`PRAGMA table_info(${table})`);
+  if (!SAFE_IDENTIFIER.test(table)) {
+    throw new Error(`ensureColumns: unsafe table identifier "${table}"`);
+  }
+  const info = await database.all(`PRAGMA table_info("${table}")`);
   const existing = new Set(info.map((c: { name: string }) => c.name));
   for (const col of columns) {
+    if (!SAFE_IDENTIFIER.test(col.name)) {
+      throw new Error(`ensureColumns: unsafe column identifier "${col.name}"`);
+    }
     if (!existing.has(col.name)) {
-      await database.exec(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.def}`);
+      await database.exec(`ALTER TABLE "${table}" ADD COLUMN "${col.name}" ${col.def}`);
       console.log(`Added column ${col.name} to ${table}`);
     }
   }

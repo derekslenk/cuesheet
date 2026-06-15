@@ -86,12 +86,14 @@ describe('GET /api/overlay/[id]', () => {
     expect(overlayMetricsSnapshot().overlayUnknownId).toBe(0);
   });
 
-  it('500s with { ok:false } when the DB query throws', async () => {
+  it('500s with { ok:false } and bumps the failure counter when the DB query throws', async () => {
+    __resetOverlayMetrics();
     mockDb.get.mockRejectedValue(new Error('boom'));
 
     const res = await call('5');
 
     expect(res.status).toBe(500);
     expect((await res.json()).ok).toBe(false);
+    expect(overlayMetricsSnapshot().overlayRequestFailures).toBe(1);
   });
 });

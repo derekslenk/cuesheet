@@ -16,6 +16,9 @@ export interface OverlayMetrics {
   overlayUnknownId: number;
   /** Twitch viewer-count lookups that errored (creds/API problems). */
   viewerLookupFailures: number;
+  /** Overlay-data responses that 500'd (DB/build error) — distinct from a stale
+   *  404. Climbing = the overlay system itself is failing, not just stale URLs. */
+  overlayRequestFailures: number;
   lastUnknownId: string | null;
   lastUnknownAt: number | null;
 }
@@ -24,12 +27,17 @@ const metrics: OverlayMetrics = {
   overlayRequests: 0,
   overlayUnknownId: 0,
   viewerLookupFailures: 0,
+  overlayRequestFailures: 0,
   lastUnknownId: null,
   lastUnknownAt: null,
 };
 
 export function recordOverlayRequest(): void {
   metrics.overlayRequests++;
+}
+
+export function recordOverlayRequestFailure(): void {
+  metrics.overlayRequestFailures++;
 }
 
 export function recordOverlayUnknownId(id: string, now: number = Date.now()): void {
@@ -51,6 +59,7 @@ export function __resetOverlayMetrics(): void {
   metrics.overlayRequests = 0;
   metrics.overlayUnknownId = 0;
   metrics.viewerLookupFailures = 0;
+  metrics.overlayRequestFailures = 0;
   metrics.lastUnknownId = null;
   metrics.lastUnknownAt = null;
 }

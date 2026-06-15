@@ -165,7 +165,7 @@
   animation: lblPulse 1.4s ease-in-out infinite;
 }
 
-/* ---- Visible "no data" placeholder (stale/dead overlay URL) -------------- */
+/* ---- Visible "no data" placeholder (stale/dead overlay URL, 404) --------- */
 .ovl-nodata {
   position: fixed;
   top: var(--lbl-top);
@@ -177,6 +177,24 @@
   letter-spacing: 0.05em;
   color: #ffffff;
   background: #ff00aa;
+  border: 4px solid #ffffff;
+  padding: 16px 28px;
+}
+
+/* ---- Visible server-error placeholder (5xx) ------------------------------ */
+/* Amber, distinct from the magenta 404 box so QA can tell "the overlay server
+   is broken/down" from "this baked URL points at a deleted stream". */
+.ovl-error {
+  position: fixed;
+  top: var(--lbl-top);
+  left: var(--lbl-left);
+  font-family: var(--ovl-font);
+  font-size: 40px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1a1a1a;
+  background: #ffb300;
   border: 4px solid #ffffff;
   padding: 16px 28px;
 }

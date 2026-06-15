@@ -2,7 +2,11 @@ import { NextRequest } from 'next/server';
 import { getDatabase } from '@/lib/database';
 import { TABLE_NAMES } from '@/lib/constants';
 import { buildOverlayData, type OverlayStreamRow } from '@/lib/overlayData';
-import { recordOverlayRequest, recordOverlayUnknownId } from '@/lib/overlayMetrics';
+import {
+  recordOverlayRequest,
+  recordOverlayUnknownId,
+  recordOverlayRequestFailure,
+} from '@/lib/overlayMetrics';
 
 // Always live: the label must reflect the current DB row, never a cached one.
 export const dynamic = 'force-dynamic';
@@ -66,6 +70,7 @@ export async function GET(
     return json(buildOverlayData(row), 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
     console.error('Error building overlay data:', error);
+    recordOverlayRequestFailure();
     return json({ ok: false, id, error: 'overlay_data_failed' }, 500);
   }
 }

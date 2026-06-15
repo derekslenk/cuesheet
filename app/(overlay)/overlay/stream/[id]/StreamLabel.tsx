@@ -6,7 +6,8 @@ import type { OverlayData } from '@/lib/overlayData';
 type FetchState =
   | { status: 'loading' }
   | { status: 'ready'; data: OverlayData }
-  | { status: 'error' };
+  | { status: 'error' } // unknown id (404) — stale/dead baked overlay URL
+  | { status: 'servererror' }; // 5xx — the overlay system itself is failing
 
 /**
  * Client-rendered stream label. Fetches the OverlayData contract and renders the
@@ -30,7 +31,9 @@ export default function StreamLabel({ id }: { id: string }) {
     fetch(`/api/overlay/${id}`, { cache: 'no-store' })
       .then(async (res) => {
         if (!res.ok) {
-          if (!cancelled) setState({ status: 'error' });
+          // 5xx = server/DB failure (distinct on-screen so QA can tell it from a
+          // stale 404); anything else (404) = unknown/stale id.
+          if (!cancelled) setState({ status: res.status >= 500 ? 'servererror' : 'error' });
           return;
         }
         const data = (await res.json()) as OverlayData;
@@ -69,6 +72,10 @@ export default function StreamLabel({ id }: { id: string }) {
 
   // Transparent until data resolves — never flash an empty plate.
   if (state.status === 'loading') return null;
+
+  if (state.status === 'servererror') {
+    return <div className="ovl-error">SERVER ERROR · id={id}</div>;
+  }
 
   if (state.status === 'error') {
     return <div className="ovl-nodata">NO DATA · id={id}</div>;

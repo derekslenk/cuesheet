@@ -60,6 +60,21 @@ describe('StreamLabel', () => {
     expect(await screen.findByText(/NO DATA/)).toBeInTheDocument();
   });
 
+  it('renders a distinct SERVER ERROR placeholder on a 5xx response', async () => {
+    const fn = jest.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.endsWith('/viewers')) {
+        return { ok: true, json: async () => ({ viewers: null }) } as unknown as Response;
+      }
+      return { ok: false, status: 500, json: async () => ({}) } as unknown as Response;
+    });
+    global.fetch = fn as unknown as typeof fetch;
+
+    render(<StreamLabel id="5" />);
+
+    expect(await screen.findByText(/SERVER ERROR/)).toBeInTheDocument();
+  });
+
   it('renders the role chip when the stream has a role', async () => {
     const fn = jest.fn(async (url: string | URL) => {
       const u = String(url);

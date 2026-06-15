@@ -25,9 +25,12 @@ and the page polls `GET /api/overlay/<id>/viewers` (~30s) for the live count.
   path ever misbehaves on air). Existing scenes are unaffected until re-added.
 
 Other env knobs: `LABEL_SHUTDOWN_WHEN_HIDDEN` (default `true` — destroy a
-label's CEF when its cell isn't shown, bounding memory), `LABEL_OVERLAY_BASE_URL`
-(default `http://localhost:3000`; set to `http://<host-ip>:3000` if OBS is on
-another LAN machine), `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` (viewer counts).
+label's CEF when its cell isn't shown, bounding memory), `LABEL_FPS` (default
+`15`, clamped to `1–60` — render framerate for the mostly-static label browser
+source; lower trims CEF CPU, confirm against the US-005 spike before changing),
+`LABEL_OVERLAY_BASE_URL` (default `http://localhost:3000`; set to
+`http://<host-ip>:3000` if OBS is on another LAN machine), `TWITCH_CLIENT_ID` /
+`TWITCH_CLIENT_SECRET` (viewer counts).
 
 ## Per-team branding (colors + logo)
 
