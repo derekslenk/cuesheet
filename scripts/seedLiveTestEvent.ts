@@ -85,31 +85,41 @@ async function seedLiveTestEvent() {
         logo_path TEXT
       )
     `);
-    await db.run(`DELETE FROM ${streamsTable}`);
-    await db.run(`DELETE FROM ${teamsTable}`);
-    // Reset AUTOINCREMENT so ids restart at 1 each run (matches setupTestEvent).
-    try {
-      await db.run('DELETE FROM sqlite_sequence WHERE name IN (?, ?)', [streamsTable, teamsTable]);
-    } catch {
-      // sqlite_sequence only exists once an AUTOINCREMENT row has been inserted
-    }
-
+    // Wrap the wipe + reseed in a transaction so an interrupted or failing run
+    // can't leave the test event half-wiped/half-seeded (mirrors cloneEvent.ts).
     let streamRows = 0;
-    for (const team of plan) {
-      await db.run(
-        `INSERT INTO ${teamsTable}
-          (team_id, team_name, group_name, group_uuid, color_bg, color_accent, color_text, logo_path)
-         VALUES (?, ?, ?, NULL, ?, ?, ?, ?)`,
-        [team.team_id, team.team_name, team.team_name, team.color_bg, team.color_accent, team.color_text, team.logo_path]
-      );
-      for (const s of team.streams) {
-        const obsSourceName = `${cleanObsName(team.team_name)}_${cleanObsName(s.login)}`;
-        await db.run(
-          `INSERT INTO ${streamsTable} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`,
-          [s.name, obsSourceName, `https://www.twitch.tv/${s.login}`, team.team_id]
-        );
-        streamRows++;
+    await db.exec('BEGIN');
+    try {
+      await db.run(`DELETE FROM ${streamsTable}`);
+      await db.run(`DELETE FROM ${teamsTable}`);
+      // Reset AUTOINCREMENT so ids restart at 1 each run (matches setupTestEvent).
+      try {
+        await db.run('DELETE FROM sqlite_sequence WHERE name IN (?, ?)', [streamsTable, teamsTable]);
+      } catch {
+        // sqlite_sequence only exists once an AUTOINCREMENT row has been inserted
       }
+
+      for (const team of plan) {
+        await db.run(
+          `INSERT INTO ${teamsTable}
+            (team_id, team_name, group_name, group_uuid, color_bg, color_accent, color_text, logo_path)
+           VALUES (?, ?, ?, NULL, ?, ?, ?, ?)`,
+          [team.team_id, team.team_name, team.team_name, team.color_bg, team.color_accent, team.color_text, team.logo_path]
+        );
+        for (const s of team.streams) {
+          const obsSourceName = `${cleanObsName(team.team_name)}_${cleanObsName(s.login)}`;
+          await db.run(
+            `INSERT INTO ${streamsTable} (name, obs_source_name, url, team_id) VALUES (?, ?, ?, ?)`,
+            [s.name, obsSourceName, `https://www.twitch.tv/${s.login}`, team.team_id]
+          );
+          streamRows++;
+        }
+      }
+
+      await db.exec('COMMIT');
+    } catch (err) {
+      await db.exec('ROLLBACK');
+      throw err;
     }
 
     const rows = await db.all(
