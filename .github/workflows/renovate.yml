@@ -1,0 +1,72 @@
+name: renovate
+
+# Self-hosted Renovate runner. Reads renovate.json5 and opens grouped dependency
+# PRs per that config: weekly batch (early Monday ET), monthly lockfile
+# maintenance, Dependency-Dashboard-gated majors, dev-dependency automerge once
+# `ci-ok` passes, and off-schedule security (CVE) PRs.
+#
+# Cadence: this workflow RUNS daily, but renovate.json5's `schedule` controls
+# when most PRs actually appear (early Monday). Off-schedule daily runs just
+# refresh the Dependency Dashboard and raise vulnerabilityAlerts PRs (which
+# bypass the schedule). You can also trigger it any time via "Run workflow".
+#
+# ACTIVATION — set a repo secret RENOVATE_TOKEN to a token with, on this repo:
+#   Contents: RW, Pull requests: RW, Issues: RW (dashboard), Workflows: RW
+#   (the github-actions manager edits .github/workflows/*).
+# A fine-grained PAT or a GitHub App token both work. Until the secret is set the
+# job no-ops with a warning. Do NOT use the default GITHUB_TOKEN: PRs it opens do
+# not trigger `ci-ok`, so they'd be unmergeable under the branch ruleset and the
+# dev-dependency automerge would never fire.
+
+on:
+  schedule:
+    # Daily ~03:00 America/New_York (08:00 UTC) — before renovate.json5's
+    # "before 6am on monday" / "before 6am on the first of the month" windows.
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: Renovate log level
+        type: choice
+        options: [debug, info, warn]
+        default: info
+      dryRun:
+        description: Dry run (no commits / PRs)
+        type: boolean
+        default: false
+
+# Never let two Renovate runs overlap — they'd contend over branches.
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+    steps:
+      - name: Warn if RENOVATE_TOKEN is unset
+        if: ${{ env.RENOVATE_TOKEN == '' }}
+        run: |
+          echo "::warning title=Renovate inactive::RENOVATE_TOKEN secret is not set — skipping. Add a PAT/App token (Contents, Pull requests, Issues, Workflows: write) to activate."
+
+      - name: Checkout
+        if: ${{ env.RENOVATE_TOKEN != '' }}
+        uses: actions/checkout@v4
+
+      - name: Run Renovate
+        if: ${{ env.RENOVATE_TOKEN != '' }}
+        uses: renovatebot/github-action@v41
+        with:
+          token: ${{ env.RENOVATE_TOKEN }}
+        env:
+          # Scope Renovate to this repo (no org-wide autodiscovery).
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          # Empty = live run; 'full' = dry run (manual dispatch only).
+          RENOVATE_DRY_RUN: ${{ inputs.dryRun && 'full' || '' }}

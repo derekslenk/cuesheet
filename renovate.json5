@@ -1,7 +1,8 @@
 {
-  // Renovate config — activated by installing the Mend Renovate GitHub App
-  // (https://github.com/apps/renovate) and selecting this repo.
-  // Until the app is installed, this file does nothing.
+  // Renovate config. Run by the self-hosted Renovate workflow
+  // (.github/workflows/renovate.yml), which needs a RENOVATE_TOKEN repo secret.
+  // Also compatible with the Mend Renovate GitHub App
+  // (https://github.com/apps/renovate) if you install that instead.
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
     'config:recommended',
