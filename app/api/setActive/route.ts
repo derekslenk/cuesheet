@@ -23,8 +23,13 @@ export async function POST(request: NextRequest) {
 
     const { screen, id } = validation.data!;
 
-    console.log('Writing files to', path.join(FILE_DIRECTORY(), `${screen}.txt`));
-    const filePath = path.join(FILE_DIRECTORY(), `${screen}.txt`);
+    const baseDir = path.resolve(FILE_DIRECTORY());
+    const candidatePath = path.resolve(baseDir, `${screen}.txt`);
+    if (candidatePath !== baseDir && !candidatePath.startsWith(baseDir + path.sep)) {
+      return NextResponse.json({ error: 'Invalid screen path' }, { status: 400 });
+    }
+    console.log('Writing files to', candidatePath);
+    const filePath = candidatePath;
 
     try {
       const db = await getDatabase();
