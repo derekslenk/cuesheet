@@ -60,4 +60,22 @@ describe('GET /api/overlay/[id]/viewers', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ viewers: null });
   });
+
+  it('degrades to viewers:null with no-store when the DB lookup itself throws', async () => {
+    require('@/lib/database').getDatabase.mockRejectedValue(new Error('db down'));
+
+    const res = await call('4');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ viewers: null });
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('404s a malformed id with no-store and never queries the DB', async () => {
+    const res = await call('abc');
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(mockDb.get).not.toHaveBeenCalled();
+  });
 });

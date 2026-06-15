@@ -5,6 +5,7 @@
  * getDatabase is mocked so no real SQLite is touched.
  */
 import { GET } from '../overlay/[id]/route';
+import { overlayMetricsSnapshot, __resetOverlayMetrics } from '@/lib/overlayMetrics';
 
 jest.mock('@/lib/database', () => ({ getDatabase: jest.fn() }));
 
@@ -72,6 +73,17 @@ describe('GET /api/overlay/[id]', () => {
     expect(body.colors).toEqual({ bg: '#aa0000', accent: '#ffcc00', text: '#000000' });
     expect(body.logoUrl).toBe('/logos/reds.png');
     expect(body.role).toBe('Tank'); // role (from streams.role via s.*) flows to the contract
+  });
+
+  it('404s a malformed (non-numeric) id without touching the DB or the stale-id counter', async () => {
+    __resetOverlayMetrics();
+
+    const res = await call('abc');
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ ok: false, id: 'abc' });
+    expect(mockDb.get).not.toHaveBeenCalled();
+    expect(overlayMetricsSnapshot().overlayUnknownId).toBe(0);
   });
 
   it('500s with { ok:false } when the DB query throws', async () => {

@@ -33,6 +33,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  // Reject a malformed id (e.g. /api/overlay/abc) before touching the DB. This
+  // is NOT a stale baked URL pointing at a deleted stream, so it must not bump
+  // the unknown-id counter — just 404.
+  const streamId = Number(id);
+  if (!Number.isInteger(streamId) || streamId <= 0) {
+    return json({ ok: false, id }, 404);
+  }
   try {
     const db = await getDatabase();
     // s.* (id/name/role + ...) then t.* (team_name + branding) so every label
@@ -44,7 +51,7 @@ export async function GET(
        FROM ${TABLE_NAMES.STREAMS} s
        LEFT JOIN ${TABLE_NAMES.TEAMS} t ON s.team_id = t.team_id
        WHERE s.id = ?`,
-      [id]
+      [streamId]
     )) as OverlayStreamRow | undefined;
 
     if (!row) {

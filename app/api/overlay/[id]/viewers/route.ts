@@ -30,11 +30,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  // Reject a malformed id before touching the DB (mirrors the main overlay route).
+  const streamId = Number(id);
+  if (!Number.isInteger(streamId) || streamId <= 0) {
+    return json({ ok: false, id }, 404, { 'Cache-Control': 'no-store' });
+  }
   try {
     const db = await getDatabase();
     const row = (await db.get(
       `SELECT url FROM ${TABLE_NAMES.STREAMS} WHERE id = ?`,
-      [id]
+      [streamId]
     )) as { url?: string } | undefined;
 
     if (!row) return json({ ok: false, id }, 404);
@@ -54,6 +59,6 @@ export async function GET(
     return json({ viewers }, 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
     console.error('Error fetching viewer count:', error);
-    return json({ viewers: null }, 200);
+    return json({ viewers: null }, 200, { 'Cache-Control': 'no-store' });
   }
 }
