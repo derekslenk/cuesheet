@@ -49,9 +49,10 @@ describe('apiHelpers', () => {
       );
     });
 
-    it('creates error response with custom status and message', () => {
+    it('creates error response with custom status and message (details shown in dev)', () => {
+      mockIsDev.mockReturnValue(true);
       createErrorResponse('Test Error', 400, 'Custom message', { detail: 'extra' });
-      
+
       expect(NextResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
           error: 'Test Error',
@@ -246,6 +247,44 @@ describe('apiHelpers', () => {
           details: undefined,
         }),
         { status: 500 }
+      );
+    });
+
+    it('createErrorResponse drops raw details in production (S-F5)', () => {
+      mockIsDev.mockReturnValue(false);
+
+      createErrorResponse('Read failed', 500, 'Could not read source files', {
+        path: 'C:/files/large.txt',
+      });
+
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'Read failed', details: undefined }),
+        { status: 500 }
+      );
+    });
+
+    it('createErrorResponse keeps details when detailsAlways is set, even in production', () => {
+      mockIsDev.mockReturnValue(false);
+
+      createErrorResponse('Bad input', 400, 'msg', { field: 'x' }, { detailsAlways: true });
+
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ details: { field: 'x' } }),
+        { status: 400 }
+      );
+    });
+
+    it('createValidationError returns field-error details in production', () => {
+      mockIsDev.mockReturnValue(false);
+
+      createValidationError('Validation failed', { name: 'Name is required' });
+
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Validation Error',
+          details: { name: 'Name is required' },
+        }),
+        { status: 400 }
       );
     });
   });
