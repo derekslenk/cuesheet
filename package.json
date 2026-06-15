@@ -55,16 +55,16 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",
-    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/postcss": "^4.3.1",
     "commander": "^15.0.0",
     "hls.js": "^1.6.16",
     "next": "^16.2.9",
-    "obs-websocket-js": "^5.0.6",
+    "obs-websocket-js": "^5.0.8",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
-    "ws": "^8.18.0"
+    "ws": "^8.21.0"
   },
   "optionalDependencies": {
     "@elgato-stream-deck/node": "^7.6.3",
