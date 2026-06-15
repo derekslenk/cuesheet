@@ -5,19 +5,8 @@ import { TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
 import { withDb } from '../../../lib/db';
 import { relayUdpUrl } from '../../../lib/relayPort';
 import { requestSupervisorReload } from '../../../lib/supervisorClient';
+import type { ObsClient } from '@/types/obsClient';
 
-interface OBSClient {
-    call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
-}
-
-interface OBSInput {
-inputName: string;
-}
-
-
-interface GetInputListResponse {
-inputs: OBSInput[];
-}
 const screens = SOURCE_SWITCHER_NAMES;
 
 async function fetchTeamInfo(teamId: number) {
@@ -126,26 +115,21 @@ export async function POST(request: NextRequest) {
     console.log("Pre-connect")
     await connectToOBS();
     console.log('Pre client')
-    const obs: OBSClient = await getOBSClient();
-    // obs.on('message', (msg) => {
-    //   console.log('Message from OBS:', msg);
-    // });
+    const obs: ObsClient = await getOBSClient();
     let inputs;
     try {
-    const response = await obs.call('GetInputList');
-    const inputListResponse = response as unknown as GetInputListResponse;
-    inputs = inputListResponse.inputs;
-    // console.log('Inputs:', inputs);
+      const response = await obs.call('GetInputList');
+      inputs = response.inputs;
     } catch (err) {
-    if (err instanceof Error) {
+      if (err instanceof Error) {
         console.error('Failed to fetch inputs:', err.message);
-    } else {
+      } else {
         console.error('Failed to fetch inputs:', err);
+      }
+      throw new Error('GetInputList failed.');
     }
-    throw new Error('GetInputList failed.');
-    }
-    
-    const sourceExists = inputs.some((input: OBSInput) => input.inputName === obs_source_name);
+
+    const sourceExists = inputs.some((input) => input.inputName === obs_source_name);
 
     if (!sourceExists) {
       // Create stream group with text overlay. V2 creates an ffmpeg_source
