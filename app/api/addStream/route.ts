@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
-import { connectToOBS, getOBSClient, disconnectFromOBS, addSourceToSwitcher, createStreamGroupV2 } from '../../../lib/obsClient';
+import { connectToOBS, getOBSClient, addSourceToSwitcher, createStreamGroupV2 } from '../../../lib/obsClient';
 import { TABLE_NAMES, SOURCE_SWITCHER_NAMES } from '../../../lib/constants';
 import { withDb } from '../../../lib/db';
 import { relayUdpUrl } from '../../../lib/relayPort';
@@ -200,7 +200,10 @@ export async function POST(request: NextRequest) {
       console.log(`OBS source "${obs_source_name}" already exists.`);
     }
 
-    await disconnectFromOBS();
+    // The OBS WebSocket client is a persistent singleton (lib/obsClient) shared
+    // by every OBS route — do NOT disconnect here, or the next OBS op (another
+    // add, a delete, a scene switch) has to re-pay the connect+identify
+    // handshake. See docs/full-review-2026-06 (P-H2/P-L3).
     // Tell the supervisor to pick up the new stream immediately (best-effort;
     // non-fatal if it isn't running). Without this the ffmpeg_source shows a
     // gray box until the supervisor is restarted.
@@ -225,7 +228,6 @@ if (streamId !== undefined) {
     console.error('Failed to roll back stream row after OBS error:', cleanupErr);
   }
 }
-await disconnectFromOBS();
 return NextResponse.json({ error: 'Failed to add stream' }, { status: 500 });
 }
 }
