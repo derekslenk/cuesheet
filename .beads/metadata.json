@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "cuesheet",
+  "project_id": "fc0fa09a-67e3-4a23-8031-308ef4d0733c"
+}
