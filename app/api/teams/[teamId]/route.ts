@@ -4,6 +4,7 @@ import { TABLE_NAMES } from '@/lib/constants';
 import { deleteTeamComponents, deleteStreamComponents, clearTextFilesForStream } from '@/lib/obsClient';
 import { requestSupervisorReload } from '@/lib/supervisorClient';
 import { validateBrandingFields } from '@/lib/overlayData';
+import { buildStreamGroupName } from '@/lib/streamGroupName';
 
 export async function PUT(
     request: Request,
@@ -122,9 +123,7 @@ export async function DELETE(
                     await deleteStreamComponents(stream.name, team.team_name, groupName);
                     
                     // Clear any text files that reference this stream
-                    const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
-                    const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
-                    const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
+                    const streamGroupName = buildStreamGroupName({ name: stream.name, team_name: team.team_name, group_name: team.group_name });
                     await clearTextFilesForStream(streamGroupName);
                 } catch (streamError) {
                     console.error(`Error deleting stream "${stream.name}" OBS components:`, streamError);

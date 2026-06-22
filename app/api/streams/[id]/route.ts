@@ -3,6 +3,7 @@ import { getDatabase } from '../../../../lib/database';
 import { TABLE_NAMES } from '../../../../lib/constants';
 import { deleteStreamComponents, clearTextFilesForStream } from '../../../../lib/obsClient';
 import { stopPreview } from '../../../../lib/previewManager';
+import { buildStreamGroupName } from '../../../../lib/streamGroupName';
 
 // GET single stream
 export async function GET(
@@ -131,9 +132,7 @@ export async function DELETE(
         console.log('OBS cleanup results:', obsCleanupResults);
         
         // Clear text files that reference this stream
-        const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
-        const cleanStreamName = existingStream.name.toLowerCase().replace(/\s+/g, '_');
-        const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
+        const streamGroupName = buildStreamGroupName({ name: existingStream.name, team_name: existingStream.team_name, group_name: existingStream.group_name });
         
         const textFileResults = await clearTextFilesForStream(streamGroupName);
         console.log('Text file cleanup results:', textFileResults);
