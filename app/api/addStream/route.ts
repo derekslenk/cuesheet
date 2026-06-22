@@ -6,6 +6,7 @@ import { withDb } from '../../../lib/db';
 import { relayUdpUrl } from '../../../lib/relayPort';
 import { requestSupervisorReload } from '../../../lib/supervisorClient';
 import type { ObsClient } from '@/types/obsClient';
+import { buildStreamGroupName } from '../../../lib/streamGroupName';
 
 const screens = SOURCE_SWITCHER_NAMES;
 
@@ -165,9 +166,7 @@ export async function POST(request: NextRequest) {
 
       for (const screen of screens) {
         try {
-          const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
-          const cleanStreamName = name.toLowerCase().replace(/\s+/g, '_');
-          const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
+          const streamGroupName = buildStreamGroupName({ name, team_name: teamInfo.team_name, group_name: teamInfo.group_name });
           await addSourceToSwitcher(screen, [
             { hidden: false, selected: false, value: streamGroupName },
           ]);
