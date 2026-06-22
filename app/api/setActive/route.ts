@@ -6,6 +6,7 @@ import { StreamWithTeam } from '@/types';
 import { validateScreenInput } from '../../../lib/security';
 import { TABLE_NAMES } from '../../../lib/constants';
 import { atomicWriteFileSync } from '../../../lib/atomicWrite';
+import { buildStreamGroupName } from '../../../lib/streamGroupName';
 
 export async function POST(request: NextRequest) {
   const start = Date.now();
@@ -43,10 +44,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Construct proper stream group name with team prefix
-      const groupName = stream.group_name || stream.team_name;
-      const cleanGroupName = groupName.toLowerCase().replace(/\s+/g, '_');
-      const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
-      const streamGroupName = `${cleanGroupName}_${cleanStreamName}_stream`;
+      const streamGroupName = buildStreamGroupName(stream);
       atomicWriteFileSync(filePath, streamGroupName);
       const ms = Date.now() - start;
       console.log(JSON.stringify({ ts: new Date().toISOString(), screen, group: streamGroupName, ms }));

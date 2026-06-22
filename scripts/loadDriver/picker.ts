@@ -1,10 +1,12 @@
 /**
  * Round-robin picker over (streamId, screen) pairs.
  *
- * Stream-group-name derivation mirrors app/api/setActive/route.ts:46-49 so
- * the driver can predict what setActive will write to ${screen}.txt — which
- * the e2e timer needs to know in order to recognise the OBS plugin's switch.
+ * Stream-group-name derivation uses the shared buildStreamGroupName helper so
+ * the driver predicts exactly what setActive will write to ${screen}.txt —
+ * which the e2e timer needs to know in order to recognise the OBS plugin's switch.
  */
+
+import { buildStreamGroupName } from '../../lib/streamGroupName';
 
 export interface StreamRecord {
   id: number;
@@ -20,10 +22,7 @@ export interface Pick {
 }
 
 function expectedGroupName(stream: StreamRecord): string {
-  const groupBase = stream.group_name || stream.team_name;
-  const cleanGroup = groupBase.toLowerCase().replace(/\s+/g, '_');
-  const cleanStream = stream.name.toLowerCase().replace(/\s+/g, '_');
-  return `${cleanGroup}_${cleanStream}_stream`;
+  return buildStreamGroupName(stream);
 }
 
 export function createPicker(
