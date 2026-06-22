@@ -1,6 +1,7 @@
 // Performance utilities and hooks for optimization
 
 import React, { useMemo, useCallback, useRef } from 'react';
+import { buildStreamGroupName } from './streamGroupName';
 
 // Debounce hook for preventing excessive API calls
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,12 +44,15 @@ export function createStreamLookupMaps(streams: Array<{ id: number; obs_source_n
   const idToStreamMap = new Map<number, { id: number; obs_source_name: string; name: string; team_name?: string; group_name?: string | null }>();
   
   streams.forEach(stream => {
-    // Generate stream group name to match what's written to files
-    // Format: {team_name}_{stream_name}_stream (matching obsClient.js logic)
-    const cleanTeamName = stream.team_name ? stream.team_name.toLowerCase().replace(/\s+/g, '_') : 'unknown';
-    const cleanStreamName = stream.name.toLowerCase().replace(/\s+/g, '_');
-    const streamGroupName = `${cleanTeamName}_${cleanStreamName}_stream`;
-    
+    // Key by the same name setActive writes (group_name || team_name) so the
+    // active-source reverse lookup matches what the switcher/OBS reports. Using
+    // team_name alone here pointed at the wrong scene once a team was regrouped.
+    const streamGroupName = buildStreamGroupName({
+      name: stream.name,
+      team_name: stream.team_name ?? null,
+      group_name: stream.group_name,
+    });
+
     sourceToIdMap.set(streamGroupName, stream.id);
     idToStreamMap.set(stream.id, stream);
   });
