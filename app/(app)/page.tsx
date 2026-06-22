@@ -8,6 +8,7 @@ import { useActiveSourceLookup, useDebounce, useSmartPolling, PerformanceMonitor
 import { SCREEN_POSITIONS } from '@/lib/constants';
 
 import { StreamWithTeam } from '@/types';
+import { buildStreamGroupName } from '@/lib/streamGroupName';
 
 type ScreenType = typeof SCREEN_POSITIONS[number];
 
@@ -140,9 +141,10 @@ export default function Home() {
   const handleSetActive = useCallback(async (screen: ScreenType, id: number | null) => {
     const selectedStream = streams.find((stream) => stream.id === id);
 
-    // Generate stream group name for optimistic updates - must match obsClient.js format
-    const streamGroupName = selectedStream 
-      ? `${selectedStream.team_name?.toLowerCase().replace(/\s+/g, '_') || 'unknown'}_${selectedStream.name.toLowerCase().replace(/\s+/g, '_')}_stream`
+    // Generate stream group name for optimistic updates — must match what
+    // setActive writes (group_name || team_name) and the reverse-lookup map.
+    const streamGroupName = selectedStream
+      ? buildStreamGroupName(selectedStream)
       : null;
 
     // Update local state immediately for optimistic updates

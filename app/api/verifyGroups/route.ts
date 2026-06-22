@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../lib/database';
 import { TABLE_NAMES } from '../../../lib/constants';
 import { getOBSClient } from '../../../lib/obsClient';
+import { buildStreamGroupName } from '../../../lib/streamGroupName';
 import type { ObsClient } from '@/types/obsClient';
 
 // System scenes that should not be considered orphaned
@@ -42,11 +43,6 @@ export async function GET() {
     // structured view this route relies on (sceneName / sceneUuid).
     const obsScenes = scenes as unknown as OBSScene[];
     
-    // Helper function to clean OBS names (matching obsClient.js logic)
-    const cleanObsName = (name: string): string => {
-      return name.toLowerCase().replace(/\s+/g, '_');
-    };
-    
     // Compare database groups with OBS scenes using both UUID and name
     const verification = teams.map(team => {
       let exists_in_obs = false;
@@ -85,15 +81,17 @@ export async function GET() {
       };
     });
     
-    // Generate expected stream scene names based on the database
-    const expectedStreamScenes = streams.map(stream => {
-      if (stream.team_group_name) {
-        const cleanGroupName = cleanObsName(stream.team_group_name);
-        const cleanStreamName = cleanObsName(stream.name);
-        return `${cleanGroupName}_${cleanStreamName}_stream`;
-      }
-      return null;
-    }).filter(Boolean);
+    // Generate expected stream scene names based on the database. Use the same
+    // group_name || team_name rule setActive/addStream apply — previously this
+    // only emitted names for grouped teams, so streams on ungrouped teams had
+    // their (team_name-based) scenes falsely reported as orphaned.
+    const expectedStreamScenes = streams.map(stream =>
+      buildStreamGroupName({
+        name: stream.name,
+        team_name: stream.team_name ?? null,
+        group_name: stream.team_group_name,
+      })
+    );
     
     // Check for orphaned scenes - scenes that exist in OBS but aren't in our database
     const orphanedScenes = obsScenes.filter(scene => {
